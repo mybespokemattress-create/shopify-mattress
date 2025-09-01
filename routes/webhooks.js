@@ -8,23 +8,15 @@ const router = express.Router();
 function verifyWebhookSignature(data, signature, secret) {
     const hmac = crypto.createHmac('sha256', secret);
     hmac.update(data, 'utf8');
-    const calculatedSignature = hmac.digest('hex');
+    const calculatedSignature = hmac.digest('base64');
     
     // Shopify sends the signature as sha256=<signature>
     const expectedSignature = signature.replace('sha256=', '');
     
-    // Handle length mismatches by comparing lengths first
-    if (calculatedSignature.length !== expectedSignature.length) {
-        console.log('Signature length mismatch:', calculatedSignature.length, 'vs', expectedSignature.length);
-        console.log('Calculated:', calculatedSignature.substring(0, 20) + '...');
-        console.log('Expected:', expectedSignature.substring(0, 20) + '...');
-        return false;
-    }
+    console.log('Calculated signature (base64):', calculatedSignature);
+    console.log('Expected signature (base64):', expectedSignature);
     
-    return crypto.timingSafeEqual(
-        Buffer.from(calculatedSignature, 'hex'),
-        Buffer.from(expectedSignature, 'hex')
-    );
+    return calculatedSignature === expectedSignature;
 }
 
 // Get store config from webhook
