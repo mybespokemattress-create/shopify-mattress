@@ -33,10 +33,19 @@ function getStoreFromHeaders(req) {
     
     // Fallback: try to match webhook signature with known stores
     const signature = req.get('X-Shopify-Hmac-Sha256');
-    const body = JSON.stringify(req.body);
+    let bodyString;
+    
+    // Handle different body types
+    if (typeof req.body === 'string') {
+        bodyString = req.body;
+    } else if (Buffer.isBuffer(req.body)) {
+        bodyString = req.body.toString();
+    } else {
+        bodyString = JSON.stringify(req.body);
+    }
     
     for (const [domain, config] of Object.entries(req.app.locals.storeConfigs)) {
-        if (verifyWebhookSignature(body, signature, config.webhookSecret)) {
+        if (verifyWebhookSignature(bodyString, signature, config.webhookSecret)) {
             return { domain, config };
         }
     }
@@ -125,8 +134,24 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
     console.log(`[${timestamp}] 📦 Received webhook from Shopify`);
     
     try {
-        // Parse the JSON body
-        const order = JSON.parse(req.body.toString());
+        // Parse the JSON body - handle different formats
+        let order;
+        let rawBodyString;
+        
+        if (typeof req.body === 'string') {
+            rawBodyString = req.body;
+            order = JSON.parse(req.body);
+        } else if (Buffer.isBuffer(req.body)) {
+            rawBodyString = req.body.toString();
+            order = JSON.parse(rawBodyString);
+        } else {
+            // Body is already a JavaScript object (shouldn't happen with express.raw, but just in case)
+            order = req.body;
+            rawBodyString = JSON.stringify(req.body);
+        }
+        
+        console.log('Body type:', typeof req.body);
+        console.log('Order ID:', order.id);
         
         // Verify webhook signature and identify store
         const signature = req.get('X-Shopify-Hmac-Sha256');
@@ -144,7 +169,7 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
         console.log(`✅ Verified webhook from store: ${store.config.name} (${store.domain})`);
         
         // Verify the signature one more time for security
-        if (!verifyWebhookSignature(req.body.toString(), signature, store.config.webhookSecret)) {
+        if (!verifyWebhookSignature(rawBodyString, signature, store.config.webhookSecret)) {
             console.error('❌ Webhook signature verification failed');
             return res.status(401).json({ error: 'Invalid signature' });
         }
@@ -187,8 +212,10 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
                 customerEmail: customerData.customerEmail,
                 status: unmappedProducts.length > 0 ? 'needs_mapping' : 'received'
             });
+            
+            console.log('✅ Order stored in database successfully');
         } catch (error) {
-            console.error('Error storing order in database:', error);
+            console.error('❌ Error storing order in database:', error);
         }
         
         // Log detailed order information
@@ -227,8 +254,16 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
         
         // Try to log the error in database if we have basic order info
         try {
-            const order = JSON.parse(req.body.toString());
-            if (order.id) {
+            let order;
+            if (typeof req.body === 'string') {
+                order = JSON.parse(req.body);
+            } else if (Buffer.isBuffer(req.body)) {
+                order = JSON.parse(req.body.toString());
+            } else {
+                order = req.body;
+            }
+            
+            if (order && order.id) {
                 await db.orders.updateStatus(
                     order.id.toString(),
                     'unknown',

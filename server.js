@@ -12,16 +12,7 @@ const db = require('./database/db');
 const adminRoutes = require('./routes/admin');
 const webhookRoutes = require('./routes/webhooks');
 
-// Middleware
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, 'public')));
-
-// Set view engine
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views'));
-
-// Store configuration
+// Store configuration (before routes need it)
 const storeConfigs = {
     [process.env.STORE1_DOMAIN]: {
         name: process.env.STORE1_NAME,
@@ -43,6 +34,18 @@ const storeConfigs = {
 // Make store configs available to routes
 app.locals.storeConfigs = storeConfigs;
 
+// Webhook routes FIRST (before JSON parsing middleware)
+app.use('/webhook', webhookRoutes);
+
+// Middleware for other routes
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Set view engine
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+
 // Logging middleware
 app.use((req, res, next) => {
     const timestamp = new Date().toISOString();
@@ -50,9 +53,8 @@ app.use((req, res, next) => {
     next();
 });
 
-// Routes
+// Admin routes
 app.use('/admin', adminRoutes);
-app.use('/webhook', webhookRoutes);
 
 // Home route
 app.get('/', (req, res) => {
