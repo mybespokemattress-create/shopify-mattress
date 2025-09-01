@@ -1,6 +1,7 @@
 ﻿const express = require('express');
 const crypto = require('crypto');
 const db = require('../database/db');
+const googleSheets = require('../google-sheets'); // New Google Sheets module
 
 const router = express.Router();
 
@@ -145,7 +146,7 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
             rawBodyString = req.body.toString();
             order = JSON.parse(rawBodyString);
         } else {
-            // Body is already a JavaScript object (shouldn't happen with express.raw, but just in case)
+            // Body is already a JavaScript object
             order = req.body;
             rawBodyString = JSON.stringify(req.body);
         }
@@ -181,8 +182,22 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
         console.log(`📋 Processing order #${customerData.shopifyOrderNumber} from ${customerData.customerName}`);
         console.log(`🛒 Products: ${productData.length} items`);
         
-        // Log product SKUs and check for mappings
+        // Check for product mappings and determine supplier
         const unmappedProducts = [];
+        let supplierAssignment = null;
+        let supplierName = null;
+        
+        // Determine supplier based on SKU patterns
+        const detectedSupplier = googleSheets.determineSupplier(productData);
+        if (detectedSupplier) {
+            supplierAssignment = detectedSupplier;
+            supplierName = googleSheets.SUPPLIERS[detectedSupplier].name;
+            console.log(`📊 Auto-assigned to supplier: ${supplierName}`);
+        } else {
+            console.log('⚠️ No supplier match found for order SKUs');
+        }
+        
+        // Check product mappings
         for (const product of productData) {
             if (product.shopifySku) {
                 try {
@@ -203,19 +218,63 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
         }
         
         // Store order in database
+        let dbOrder;
         try {
-            await db.orders.create({
+            dbOrder = await db.orders.create({
                 orderId: customerData.orderId,
                 storeDomain: customerData.storeDomain,
                 shopifyOrderNumber: customerData.shopifyOrderNumber,
                 customerName: customerData.customerName,
                 customerEmail: customerData.customerEmail,
-                status: unmappedProducts.length > 0 ? 'needs_mapping' : 'received'
+                status: unmappedProducts.length > 0 ? 'needs_mapping' : 'received',
+                supplierAssigned: supplierAssignment,
+                supplierName: supplierName
             });
             
             console.log('✅ Order stored in database successfully');
         } catch (error) {
             console.error('❌ Error storing order in database:', error);
+        }
+        
+        // Try to add to Google Sheets if supplier is determined
+        let sheetsResult = null;
+        if (supplierAssignment && process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
+            try {
+                console.log('📊 Adding order to Google Sheets...');
+                sheetsResult = await googleSheets.addOrderToSheet(customerData, productData);
+                
+                if (sheetsResult.success) {
+                    // Update database with sync status
+                    await db.orders.updateSheetsSync(
+                        customerData.orderId,
+                        customerData.storeDomain,
+                        true,
+                        new Date().toISOString(),
+                        sheetsResult.sheetRange
+                    );
+                    console.log(`✅ Order added to ${sheetsResult.supplierName}`);
+                } else {
+                    console.log(`⚠️ Could not add to sheets: ${sheetsResult.reason}`);
+                }
+            } catch (error) {
+                console.error('❌ Error adding to Google Sheets:', error.message);
+                // Update database with error
+                await db.orders.updateSheetsSync(
+                    customerData.orderId,
+                    customerData.storeDomain,
+                    false,
+                    null,
+                    null,
+                    error.message
+                );
+            }
+        } else {
+            if (!supplierAssignment) {
+                console.log('⚠️ Skipping Google Sheets - no supplier assigned');
+            }
+            if (!process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
+                console.log('⚠️ Skipping Google Sheets - no credentials configured');
+            }
         }
         
         // Log detailed order information
@@ -238,6 +297,8 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
             orderNumber: customerData.shopifyOrderNumber,
             store: store.config.name,
             productsProcessed: productData.length,
+            supplierAssigned: supplierName,
+            sheetsUpdated: sheetsResult?.success || false,
             unmappedProducts: unmappedProducts.length > 0 ? unmappedProducts : undefined,
             timestamp
         };
@@ -245,6 +306,9 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
         console.log(`✅ Order processed successfully`);
         if (unmappedProducts.length > 0) {
             console.log(`⚠️  Warning: ${unmappedProducts.length} products need mapping`);
+        }
+        if (sheetsResult?.success) {
+            console.log(`📊 Google Sheets updated: ${sheetsResult.supplierName}`);
         }
         
         res.status(200).json(response);
@@ -279,6 +343,25 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
             error: 'Webhook processing failed',
             message: error.message,
             timestamp
+        });
+    }
+});
+
+// Google Sheets test endpoint
+router.get('/sheets/test', async (req, res) => {
+    try {
+        const connected = await googleSheets.testConnection();
+        res.json({
+            message: 'Google Sheets test endpoint',
+            connected,
+            suppliers: Object.keys(googleSheets.SUPPLIERS),
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(500).json({
+            error: 'Sheets test failed',
+            message: error.message,
+            timestamp: new Date().toISOString()
         });
     }
 });

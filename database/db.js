@@ -48,7 +48,7 @@ async function initialize() {
             )
         `);
         
-        // Orders processing log
+        // Orders processing log with Google Sheets integration
         await pool.query(`
             CREATE TABLE IF NOT EXISTS processed_orders (
                 order_id TEXT,
@@ -57,9 +57,15 @@ async function initialize() {
                 customer_name TEXT,
                 customer_email TEXT,
                 processing_status TEXT DEFAULT 'received',
+                supplier_assigned TEXT,
+                supplier_name TEXT,
                 sheets_updated BOOLEAN DEFAULT false,
+                sheets_synced BOOLEAN DEFAULT false,
+                sheets_sync_date TIMESTAMP,
+                sheets_range TEXT,
                 po_generated BOOLEAN DEFAULT false,
                 error_message TEXT,
+                sync_error_message TEXT,
                 created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (order_id, store_domain)
@@ -211,18 +217,21 @@ const stores = {
     }
 };
 
-// Order operations
+// Order operations with Google Sheets integration
 const orders = {
     create: async (orderData) => {
         const result = await pool.query(`
             INSERT INTO processed_orders 
-            (order_id, store_domain, shopify_order_number, customer_name, customer_email, processing_status) 
-            VALUES ($1, $2, $3, $4, $5, $6)
+            (order_id, store_domain, shopify_order_number, customer_name, customer_email, 
+             processing_status, supplier_assigned, supplier_name) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             ON CONFLICT (order_id, store_domain) DO UPDATE SET
                 shopify_order_number = EXCLUDED.shopify_order_number,
                 customer_name = EXCLUDED.customer_name,
                 customer_email = EXCLUDED.customer_email,
                 processing_status = EXCLUDED.processing_status,
+                supplier_assigned = EXCLUDED.supplier_assigned,
+                supplier_name = EXCLUDED.supplier_name,
                 updated_date = CURRENT_TIMESTAMP
             RETURNING *
         `, [
@@ -231,7 +240,9 @@ const orders = {
             orderData.shopifyOrderNumber,
             orderData.customerName,
             orderData.customerEmail,
-            orderData.status || 'received'
+            orderData.status || 'received',
+            orderData.supplierAssigned || null,
+            orderData.supplierName || null
         ]);
         return result.rows[0];
     },
@@ -246,12 +257,54 @@ const orders = {
         return result.rows[0];
     },
     
+    updateSheetsSync: async (orderId, storeDomain, synced, syncDate = null, sheetRange = null, errorMessage = null) => {
+        const result = await pool.query(`
+            UPDATE processed_orders 
+            SET sheets_synced = $1, sheets_sync_date = $2, sheets_range = $3, 
+                sync_error_message = $4, updated_date = CURRENT_TIMESTAMP 
+            WHERE order_id = $5 AND store_domain = $6
+            RETURNING *
+        `, [synced, syncDate, sheetRange, errorMessage, orderId, storeDomain]);
+        return result.rows[0];
+    },
+    
     getRecent: async (limit = 50) => {
         const result = await pool.query(`
-            SELECT * FROM processed_orders 
+            SELECT *, 
+                   CASE WHEN supplier_assigned IS NOT NULL THEN true ELSE false END as has_supplier,
+                   CASE WHEN sheets_synced = true THEN true ELSE false END as synced_to_sheets
+            FROM processed_orders 
             ORDER BY created_date DESC 
             LIMIT $1
         `, [limit]);
+        return result.rows;
+    },
+
+    getBySupplier: async (supplierKey) => {
+        const result = await pool.query(`
+            SELECT * FROM processed_orders 
+            WHERE supplier_assigned = $1 
+            ORDER BY created_date DESC
+        `, [supplierKey]);
+        return result.rows;
+    },
+
+    getUnassigned: async () => {
+        const result = await pool.query(`
+            SELECT * FROM processed_orders 
+            WHERE supplier_assigned IS NULL 
+            ORDER BY created_date DESC
+        `);
+        return result.rows;
+    },
+
+    getUnsyncedToSheets: async () => {
+        const result = await pool.query(`
+            SELECT * FROM processed_orders 
+            WHERE supplier_assigned IS NOT NULL 
+            AND (sheets_synced = false OR sheets_synced IS NULL)
+            ORDER BY created_date DESC
+        `);
         return result.rows;
     }
 };
