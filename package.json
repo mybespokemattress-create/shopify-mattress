@@ -1,8 +1,17 @@
 {
+  "name": "shopify-mattress-processor",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "init-db": "node database/init.js"
+  },
   "dependencies": {
     "better-sqlite3": "^12.2.0",
     "csv-parser": "^3.2.0",
     "dotenv": "^17.2.1",
+    "ejs": "^3.1.10",
     "express": "^5.1.0",
     "googleapis": "^159.0.0",
     "multer": "^2.0.2"
