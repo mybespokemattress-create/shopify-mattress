@@ -10,11 +10,11 @@ const router = express.Router();
 const upload = multer({ dest: 'uploads/' });
 
 // Admin Dashboard
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
     try {
-        const mappingStats = db.productMappings.getStats();
-        const recentOrders = db.orders.getRecent(10);
-        const stores = db.stores.getAll();
+        const mappingStats = await db.productMappings.getStats();
+        const recentOrders = await db.orders.getRecent(10);
+        const stores = await db.stores.getAll();
         
         res.render('admin/dashboard', {
             title: 'Admin Dashboard',
@@ -30,18 +30,18 @@ router.get('/', (req, res) => {
 });
 
 // Product Mappings List
-router.get('/mappings', (req, res) => {
+router.get('/mappings', async (req, res) => {
     try {
         const search = req.query.search || '';
         const mappings = search 
-            ? db.productMappings.search(search)
-            : db.productMappings.getAll();
+            ? await db.productMappings.search(search)
+            : await db.productMappings.getAll();
         
         res.render('admin/mappings', {
             title: 'Product Mappings',
             mappings,
             search,
-            stats: db.productMappings.getStats()
+            stats: await db.productMappings.getStats()
         });
     } catch (error) {
         console.error('Mappings list error:', error);
@@ -59,7 +59,7 @@ router.get('/mappings/add', (req, res) => {
 });
 
 // Add New Mapping - POST
-router.post('/mappings/add', (req, res) => {
+router.post('/mappings/add', async (req, res) => {
     try {
         const { shopify_sku, supplier_specification, shape_id, applicable_stores } = req.body;
         
@@ -72,7 +72,7 @@ router.post('/mappings/add', (req, res) => {
             });
         }
         
-        db.productMappings.create(
+        await db.productMappings.create(
             shopify_sku.trim(),
             supplier_specification.trim(),
             shape_id || null,
@@ -92,9 +92,9 @@ router.post('/mappings/add', (req, res) => {
 });
 
 // Edit Mapping - GET form
-router.get('/mappings/edit/:sku', (req, res) => {
+router.get('/mappings/edit/:sku', async (req, res) => {
     try {
-        const mapping = db.productMappings.getBySku(req.params.sku);
+        const mapping = await db.productMappings.getBySku(req.params.sku);
         if (!mapping) {
             return res.status(404).render('error', { error: 'Mapping not found' });
         }
@@ -111,12 +111,12 @@ router.get('/mappings/edit/:sku', (req, res) => {
 });
 
 // Edit Mapping - POST
-router.post('/mappings/edit/:sku', (req, res) => {
+router.post('/mappings/edit/:sku', async (req, res) => {
     try {
         const { supplier_specification, shape_id } = req.body;
         
         if (!supplier_specification) {
-            const mapping = db.productMappings.getBySku(req.params.sku);
+            const mapping = await db.productMappings.getBySku(req.params.sku);
             return res.status(400).render('admin/mapping-form', {
                 title: 'Edit Product Mapping',
                 mapping: { ...mapping, ...req.body },
@@ -125,7 +125,7 @@ router.post('/mappings/edit/:sku', (req, res) => {
             });
         }
         
-        db.productMappings.update(
+        await db.productMappings.update(
             req.params.sku,
             supplier_specification.trim(),
             shape_id || null
@@ -134,7 +134,7 @@ router.post('/mappings/edit/:sku', (req, res) => {
         res.redirect('/admin/mappings?success=updated');
     } catch (error) {
         console.error('Update mapping error:', error);
-        const mapping = db.productMappings.getBySku(req.params.sku);
+        const mapping = await db.productMappings.getBySku(req.params.sku);
         res.status(500).render('admin/mapping-form', {
             title: 'Edit Product Mapping',
             mapping: { ...mapping, ...req.body },
@@ -145,9 +145,9 @@ router.post('/mappings/edit/:sku', (req, res) => {
 });
 
 // Delete Mapping
-router.post('/mappings/delete/:sku', (req, res) => {
+router.post('/mappings/delete/:sku', async (req, res) => {
     try {
-        db.productMappings.delete(req.params.sku);
+        await db.productMappings.delete(req.params.sku);
         res.redirect('/admin/mappings?success=deleted');
     } catch (error) {
         console.error('Delete mapping error:', error);
@@ -199,7 +199,7 @@ router.post('/upload', upload.single('csvfile'), (req, res) => {
                 errors.push(`Row ${rowCount}: ${error.message}`);
             }
         })
-        .on('end', () => {
+        .on('end', async () => {
             // Clean up uploaded file
             fs.unlinkSync(req.file.path);
             
@@ -216,9 +216,9 @@ router.post('/upload', upload.single('csvfile'), (req, res) => {
             let successful = 0;
             let failed = 0;
             
-            results.forEach((mapping, index) => {
+            for (const mapping of results) {
                 try {
-                    db.productMappings.create(
+                    await db.productMappings.create(
                         mapping.shopify_sku,
                         mapping.supplier_specification,
                         mapping.shape_id,
@@ -227,9 +227,9 @@ router.post('/upload', upload.single('csvfile'), (req, res) => {
                     successful++;
                 } catch (error) {
                     failed++;
-                    errors.push(`Row ${index + 1}: ${error.message}`);
+                    errors.push(`SKU ${mapping.shopify_sku}: ${error.message}`);
                 }
-            });
+            }
             
             res.render('admin/upload', {
                 title: 'Bulk Upload Mappings',
@@ -260,9 +260,9 @@ router.get('/download-template', (req, res) => {
 });
 
 // Stores Management
-router.get('/stores', (req, res) => {
+router.get('/stores', async (req, res) => {
     try {
-        const stores = db.stores.getAll();
+        const stores = await db.stores.getAll();
         res.render('admin/stores', {
             title: 'Store Management',
             stores,
@@ -275,9 +275,9 @@ router.get('/stores', (req, res) => {
 });
 
 // Orders List
-router.get('/orders', (req, res) => {
+router.get('/orders', async (req, res) => {
     try {
-        const orders = db.orders.getRecent(100);
+        const orders = await db.orders.getRecent(100);
         res.render('admin/orders', {
             title: 'Recent Orders',
             orders

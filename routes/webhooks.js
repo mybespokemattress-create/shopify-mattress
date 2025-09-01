@@ -158,29 +158,38 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
         
         // Log product SKUs and check for mappings
         const unmappedProducts = [];
-        productData.forEach(product => {
+        for (const product of productData) {
             if (product.shopifySku) {
-                const mapping = db.productMappings.getBySku(product.shopifySku);
-                if (mapping) {
-                    console.log(`✅ Found mapping for SKU: ${product.shopifySku}`);
-                    product.supplierSpecification = mapping.supplier_specification;
-                    product.shapeId = mapping.shape_id;
-                } else {
-                    console.log(`⚠️  No mapping found for SKU: ${product.shopifySku}`);
+                try {
+                    const mapping = await db.productMappings.getBySku(product.shopifySku);
+                    if (mapping) {
+                        console.log(`✅ Found mapping for SKU: ${product.shopifySku}`);
+                        product.supplierSpecification = mapping.supplier_specification;
+                        product.shapeId = mapping.shape_id;
+                    } else {
+                        console.log(`⚠️  No mapping found for SKU: ${product.shopifySku}`);
+                        unmappedProducts.push(product.shopifySku);
+                    }
+                } catch (error) {
+                    console.error(`Error checking mapping for SKU ${product.shopifySku}:`, error);
                     unmappedProducts.push(product.shopifySku);
                 }
             }
-        });
+        }
         
         // Store order in database
-        db.orders.create({
-            orderId: customerData.orderId,
-            storeDomain: customerData.storeDomain,
-            shopifyOrderNumber: customerData.shopifyOrderNumber,
-            customerName: customerData.customerName,
-            customerEmail: customerData.customerEmail,
-            status: unmappedProducts.length > 0 ? 'needs_mapping' : 'received'
-        });
+        try {
+            await db.orders.create({
+                orderId: customerData.orderId,
+                storeDomain: customerData.storeDomain,
+                shopifyOrderNumber: customerData.shopifyOrderNumber,
+                customerName: customerData.customerName,
+                customerEmail: customerData.customerEmail,
+                status: unmappedProducts.length > 0 ? 'needs_mapping' : 'received'
+            });
+        } catch (error) {
+            console.error('Error storing order in database:', error);
+        }
         
         // Log detailed order information
         console.log(`📧 Customer: ${customerData.customerEmail}`);
@@ -220,7 +229,7 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
         try {
             const order = JSON.parse(req.body.toString());
             if (order.id) {
-                db.orders.updateStatus(
+                await db.orders.updateStatus(
                     order.id.toString(),
                     'unknown',
                     'error',
