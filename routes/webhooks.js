@@ -1,9 +1,16 @@
 ﻿const express = require('express');
 const crypto = require('crypto');
 const db = require('../database/db');
-const googleSheets = require('../google-sheets'); // New Google Sheets module
+const googleSheets = require('../google-sheets');
 
 const router = express.Router();
+
+// Store-specific order prefixes
+const ORDER_PREFIXES = {
+    'uxyxaq-pu.myshopify.com': '#MOTO',        // Motorhome Mattresses
+    'mattressmade.myshopify.com': '#MYBE',     // My Bespoke Mattress
+    'd587eb.myshopify.com': '#CARA'            // Caravan Mattresses
+};
 
 // Webhook signature verification
 function verifyWebhookSignature(data, signature, secret) {
@@ -60,10 +67,19 @@ function extractCustomerData(order, storeDomain) {
     const billing = order.billing_address;
     const shipping = order.shipping_address;
     
+    // Get store-specific order prefix
+    const orderPrefix = ORDER_PREFIXES[storeDomain] || '#';
+    
+    // Format the complete order number with store prefix
+    const orderNumber = order.order_number || order.name;
+    const fullOrderNumber = orderNumber.toString().startsWith('#') 
+        ? orderNumber 
+        : `${orderPrefix}${orderNumber}`;
+    
     return {
         orderId: order.id.toString(),
         storeDomain,
-        shopifyOrderNumber: order.order_number || order.name,
+        shopifyOrderNumber: fullOrderNumber,  // Now includes full prefix
         customerName: customer ? `${customer.first_name} ${customer.last_name}` : 'Guest Customer',
         customerEmail: customer?.email || order.email || '',
         customerPhone: customer?.phone || billing?.phone || shipping?.phone || '',
@@ -179,7 +195,7 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
         const customerData = extractCustomerData(order, store.domain);
         const productData = extractProductData(order.line_items || []);
         
-        console.log(`📋 Processing order #${customerData.shopifyOrderNumber} from ${customerData.customerName}`);
+        console.log(`📋 Processing order ${customerData.shopifyOrderNumber} from ${customerData.customerName}`);
         console.log(`🛒 Products: ${productData.length} items`);
         
         // Check for product mappings and determine supplier
