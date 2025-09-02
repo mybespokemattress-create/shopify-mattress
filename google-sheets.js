@@ -1,4 +1,4 @@
-// google-sheets.js - Google Sheets Integration Module
+// google-sheets.js - Google Sheets Integration Module - FIXED VERSION
 
 const { GoogleAuth } = require('google-auth-library');
 const { google } = require('googleapis');
@@ -62,7 +62,7 @@ function determineSupplier(products) {
     return null; // No supplier match found
 }
 
-// Format order data for Google Sheets row
+// Format order data for specific columns only
 function formatOrderData(orderData, productData) {
     const currentDate = new Date().toLocaleDateString('en-GB');
     
@@ -91,7 +91,7 @@ function formatOrderData(orderData, productData) {
         // Add measurements if available
         if (product.measurements && Object.keys(product.measurements).length > 0) {
             const measurementText = Object.entries(product.measurements)
-                .filter(([key, value]) => !key.startsWith('property_'))
+                .filter(([key, value]) => !key.startsWith('property_') && key.match(/^[A-G]$/))
                 .map(([key, value]) => `${key}: ${value.value || value}`)
                 .join(', ');
             if (measurementText) {
@@ -102,39 +102,18 @@ function formatOrderData(orderData, productData) {
         return note;
     }).join('\n');
     
-    // Return array matching the sheet column order:
-    // Week no | Order Received | Order Submission Date | Cover Ready | Sheets cut | 
-    // Mattress Shape | Working Days Since Submission | Order number | Name | Priority | 
-    // Ship by Date | Contact Details | Telephone | E-mail | Notes | Date of Dispatch | 
-    // Tracking No | Courier | Order Sent | Order Received | Fulfilled Email | Invoiced
-    
-    return [
-        '', // Week no - manual
-        currentDate, // Order Received
-        '', // Order Submission Date - manual  
-        '', // Cover Ready - manual
-        '', // Sheets cut - manual
-        productData[0]?.productTitle || '', // Mattress Shape - first product title
-        '', // Working Days Since Submission - manual
-        orderData.shopifyOrderNumber, // Order number
-        orderData.customerName, // Name
-        '', // Priority - manual
-        '', // Ship by Date - manual
-        contactDetails, // Contact Details
-        orderData.customerPhone || '', // Telephone
-        orderData.customerEmail || '', // E-mail
-        productNotes, // Notes
-        '', // Date of Dispatch - manual
-        '', // Tracking No - manual
-        '', // Courier - manual
-        '', // Order Sent - manual
-        '', // Order Received - manual
-        '', // Fulfilled Email - manual
-        '' // Invoiced - manual
-    ];
+    return {
+        orderReceived: currentDate,
+        orderNumber: orderData.shopifyOrderNumber,
+        customerName: orderData.customerName,
+        contactDetails: contactDetails,
+        telephone: orderData.customerPhone || '',
+        email: orderData.customerEmail || '',
+        notes: productNotes
+    };
 }
 
-// Add order to appropriate Google Sheet
+// Add order to appropriate Google Sheet using specific cell updates
 async function addOrderToSheet(orderData, productData) {
     if (!sheets) {
         const initialized = await initializeGoogleSheets();
@@ -154,27 +133,46 @@ async function addOrderToSheet(orderData, productData) {
     console.log(`📊 Adding order to ${supplier.name}`);
     
     try {
-        // Format the row data
-        const rowData = formatOrderData(orderData, productData);
+        // Format the data for the 7 specific fields
+        const formattedData = formatOrderData(orderData, productData);
         
-        // Append row to the sheet
-        const response = await sheets.spreadsheets.values.append({
+        // Find the next empty row by checking column H (Order number)
+        const checkRange = await sheets.spreadsheets.values.get({
             spreadsheetId: supplier.sheetId,
-            range: 'A:V', // Covers all 22 columns
-            valueInputOption: 'USER_ENTERED',
-            insertDataOption: 'INSERT_ROWS',
+            range: 'H:H'
+        });
+        
+        const nextRow = (checkRange.data.values?.length || 1) + 1;
+        console.log(`📍 Adding to row ${nextRow}`);
+        
+        // Update each specific column individually to avoid column misalignment
+        const updates = [
+            { range: `B${nextRow}`, values: [[formattedData.orderReceived]] },     // Order Received
+            { range: `H${nextRow}`, values: [[formattedData.orderNumber]] },       // Order number  
+            { range: `I${nextRow}`, values: [[formattedData.customerName]] },      // Name
+            { range: `L${nextRow}`, values: [[formattedData.contactDetails]] },    // Contact Details
+            { range: `M${nextRow}`, values: [[formattedData.telephone]] },         // Telephone
+            { range: `N${nextRow}`, values: [[formattedData.email]] },             // E-mail
+            { range: `O${nextRow}`, values: [[formattedData.notes]] }              // Notes
+        ];
+        
+        // Execute all updates in a batch
+        await sheets.spreadsheets.values.batchUpdate({
+            spreadsheetId: supplier.sheetId,
             resource: {
-                values: [rowData]
+                valueInputOption: 'USER_ENTERED',
+                data: updates
             }
         });
         
-        console.log(`✅ Order added to ${supplier.name} - Row ${response.data.updates.updatedRange}`);
+        console.log(`✅ Order added to ${supplier.name} - Row ${nextRow}`);
         
         return {
             success: true,
             supplier: supplierKey,
             supplierName: supplier.name,
-            sheetRange: response.data.updates.updatedRange
+            sheetRange: `Row ${nextRow}`,
+            rowNumber: nextRow
         };
         
     } catch (error) {
