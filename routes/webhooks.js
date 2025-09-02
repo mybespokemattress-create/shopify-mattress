@@ -509,8 +509,217 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
     }
 });
 
-// NEW: Test Google Docs creation using correct Drive API method (Gemini solution)
-router.get('/po/fixed-test', async (req, res) => {
+// NEW: Test if service account can copy existing Google Doc (different permissions than creation)
+router.get('/po/copy-permissions-test', async (req, res) => {
+    try {
+        console.log('🧪 Testing if service account can copy existing Google Docs vs create new ones...');
+        
+        const { GoogleAuth } = require('google-auth-library');
+        const { google } = require('googleapis');
+        
+        const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+        
+        const auth = new GoogleAuth({
+            credentials: serviceAccount,
+            scopes: [
+                'https://www.googleapis.com/auth/drive',
+                'https://www.googleapis.com/auth/drive.file',
+                'https://www.googleapis.com/auth/documents'
+            ]
+        });
+        
+        const drive = google.drive({ version: 'v3', auth });
+        
+        console.log('✅ Drive API initialized');
+        
+        // Find your existing "Order Template" document to copy
+        console.log('🧪 Looking for existing Google Docs in Orders folder to copy...');
+        
+        const ordersFolder = '19RJxQRQ5rercn3IeWIeh5nPoLGykei0k';
+        
+        const searchResponse = await drive.files.list({
+            q: `parents in '${ordersFolder}' and mimeType='application/vnd.google-apps.document'`,
+            fields: 'files(id, name)',
+            pageSize: 5
+        });
+        
+        if (searchResponse.data.files.length === 0) {
+            throw new Error('No existing Google Docs found in Orders folder to test copying');
+        }
+        
+        const templateDoc = searchResponse.data.files[0];
+        console.log(`✅ Found existing doc to copy: ${templateDoc.name} (${templateDoc.id})`);
+        
+        // Test copying existing document (different permission than creation)
+        console.log('🧪 Testing document copying...');
+        
+        const copyResponse = await drive.files.copy({
+            fileId: templateDoc.id,
+            resource: {
+                name: 'Copy Permission Test - ' + new Date().toISOString(),
+                parents: [ordersFolder]
+            },
+            fields: 'id,webViewLink,name'
+        });
+        
+        const copiedDocId = copyResponse.data.id;
+        const copiedDocUrl = copyResponse.data.webViewLink;
+        const copiedDocName = copyResponse.data.name;
+        
+        console.log('✅ Document copied successfully:', copiedDocName);
+        console.log('✅ Copied document ID:', copiedDocId);
+        console.log('✅ Copied document URL:', copiedDocUrl);
+        
+        // Clean up
+        await drive.files.delete({
+            fileId: copiedDocId
+        });
+        console.log('✅ Test copy deleted');
+        
+        res.json({
+            message: 'Document copying test completed successfully',
+            success: true,
+            method: 'copy_existing_document',
+            sourceDocument: templateDoc.name,
+            copiedDocumentId: copiedDocId,
+            copiedDocumentUrl: copiedDocUrl,
+            insight: 'Service account CAN copy existing Google Docs but CANNOT create new ones - confirms permission restriction theory',
+            timestamp: new Date().toISOString()
+        });
+        
+    } catch (error) {
+        console.error('❌ Copy permissions test failed:', error);
+        
+        res.status(500).json({
+            message: 'Copy permissions test failed',
+            success: false,
+            error: error.message,
+            errorCode: error.code,
+            insight: error.code === 403 ? 'Service account lacks both copy AND create permissions for Google Docs' : 'Different error - not a permission issue',
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+    try {
+        console.log('🧪 Testing Google Docs creation with immediate ownership transfer...');
+        
+        const { GoogleAuth } = require('google-auth-library');
+        const { google } = require('googleapis');
+        
+        const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+        
+        const auth = new GoogleAuth({
+            credentials: serviceAccount,
+            scopes: [
+                'https://www.googleapis.com/auth/drive',
+                'https://www.googleapis.com/auth/drive.file',
+                'https://www.googleapis.com/auth/documents'
+            ]
+        });
+        
+        const drive = google.drive({ version: 'v3', auth });
+        const docs = google.docs({ version: 'v1', auth });
+        
+        console.log('✅ APIs initialized');
+        
+        // Step 1: Create document using Docs API (as suggested by Gemini)
+        console.log('🧪 Step 1: Creating document with Docs API...');
+        
+        const createResponse = await docs.documents.create({
+            resource: {
+                title: 'Ownership Test PO - ' + new Date().toISOString()
+            }
+        });
+        
+        const documentId = createResponse.data.documentId;
+        console.log('✅ Step 1: Document created:', documentId);
+        
+        // Step 2: Immediately transfer ownership (Gemini's race-against-quota approach)
+        console.log('🧪 Step 2: Transferring ownership to personal account...');
+        
+        const transferResponse = await drive.permissions.create({
+            fileId: documentId,
+            resource: {
+                role: 'owner',
+                type: 'user',
+                emailAddress: 'mybespokemattress@gmail.com' // Your personal account
+            },
+            transferOwnership: true,
+            fields: 'id'
+        });
+        
+        console.log('✅ Step 2: Ownership transferred:', transferResponse.data.id);
+        
+        // Step 3: Move to Orders folder
+        console.log('🧪 Step 3: Moving to Orders folder...');
+        
+        const ordersFolder = '19RJxQRQ5rercn3IeWIeh5nPoLGykei0k';
+        
+        await drive.files.update({
+            fileId: documentId,
+            addParents: ordersFolder,
+            removeParents: 'root',
+            fields: 'parents'
+        });
+        
+        console.log('✅ Step 3: Document moved to Orders folder');
+        
+        // Step 4: Add content to document
+        console.log('🧪 Step 4: Adding content...');
+        
+        await docs.documents.batchUpdate({
+            documentId: documentId,
+            resource: {
+                requests: [
+                    {
+                        insertText: {
+                            location: { index: 1 },
+                            text: 'SUCCESS! Ownership transfer worked!\n\nCreated: ' + new Date().toISOString() + '\n\nThis document was created by service account then immediately transferred to personal account to bypass storage quota.\n\n'
+                        }
+                    }
+                ]
+            }
+        });
+        
+        console.log('✅ Step 4: Content added');
+        
+        // Step 5: Get final document info
+        const finalDoc = await drive.files.get({
+            fileId: documentId,
+            fields: 'webViewLink,parents,owners'
+        });
+        
+        console.log('✅ Step 5: Final document URL:', finalDoc.data.webViewLink);
+        
+        // Clean up
+        await drive.files.delete({
+            fileId: documentId
+        });
+        console.log('✅ Test document deleted');
+        
+        res.json({
+            message: 'Google Docs creation with ownership transfer completed successfully',
+            success: true,
+            method: 'docs_api_with_ownership_transfer',
+            documentId: documentId,
+            documentUrl: finalDoc.data.webViewLink,
+            parents: finalDoc.data.parents,
+            timestamp: new Date().toISOString()
+        });
+        
+    } catch (error) {
+        console.error('❌ Ownership transfer test failed:', error);
+        
+        res.status(500).json({
+            message: 'Ownership transfer test failed',
+            success: false,
+            error: error.message,
+            errorCode: error.code,
+            errorDetails: error.details || error.response?.data,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
     try {
         console.log('🧪 Testing Google Docs creation using Drive API with parents parameter...');
         
