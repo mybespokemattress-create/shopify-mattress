@@ -509,6 +509,118 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
     }
 });
 
+// NEW: Test copying existing document instead of creating new one
+router.get('/po/copy-test', async (req, res) => {
+    try {
+        console.log('🧪 Testing document copying instead of creation...');
+        
+        const { GoogleAuth } = require('google-auth-library');
+        const { google } = require('googleapis');
+        
+        const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+        
+        const auth = new GoogleAuth({
+            credentials: serviceAccount,
+            scopes: [
+                'https://www.googleapis.com/auth/drive',
+                'https://www.googleapis.com/auth/drive.file',
+                'https://www.googleapis.com/auth/documents'
+            ]
+        });
+        
+        const drive = google.drive({ version: 'v3', auth });
+        const docs = google.docs({ version: 'v1', auth });
+        
+        console.log('✅ APIs initialized');
+        
+        // Use your existing "Order Template" document as the source
+        console.log('🧪 Looking for Order Template document...');
+        
+        const searchResponse = await drive.files.list({
+            q: "name contains 'Order Template' and mimeType='application/vnd.google-apps.document'",
+            fields: 'files(id, name)',
+            spaces: 'drive'
+        });
+        
+        if (searchResponse.data.files.length === 0) {
+            throw new Error('No Order Template document found to copy');
+        }
+        
+        const templateId = searchResponse.data.files[0].id;
+        const templateName = searchResponse.data.files[0].name;
+        
+        console.log(`✅ Found template: ${templateName} (${templateId})`);
+        
+        // Copy the template document
+        console.log('🧪 Copying template document...');
+        
+        const ordersFolder = '19RJxQRQ5rercn3IeWIeh5nPoLGykei0k';
+        
+        const copyResponse = await drive.files.copy({
+            fileId: templateId,
+            resource: {
+                name: 'PO Copy Test - ' + new Date().toISOString(),
+                parents: [ordersFolder]
+            },
+            fields: 'id,webViewLink,name'
+        });
+        
+        const documentId = copyResponse.data.id;
+        const documentUrl = copyResponse.data.webViewLink;
+        const documentName = copyResponse.data.name;
+        
+        console.log('✅ Document copied successfully:', documentName);
+        console.log('✅ Document ID:', documentId);
+        console.log('✅ Document URL:', documentUrl);
+        
+        // Test editing the copied document
+        console.log('🧪 Testing document editing...');
+        
+        await docs.documents.batchUpdate({
+            documentId: documentId,
+            resource: {
+                requests: [
+                    {
+                        insertText: {
+                            location: { index: 1 },
+                            text: 'TEST CONTENT ADDED - ' + new Date().toISOString() + '\n\n'
+                        }
+                    }
+                ]
+            }
+        });
+        
+        console.log('✅ Document edited successfully');
+        
+        // Clean up
+        await drive.files.delete({
+            fileId: documentId
+        });
+        console.log('✅ Test document deleted');
+        
+        res.json({
+            message: 'Document copying and editing test completed successfully',
+            success: true,
+            method: 'copy_template',
+            templateUsed: templateName,
+            documentId: documentId,
+            documentUrl: documentUrl,
+            timestamp: new Date().toISOString()
+        });
+        
+    } catch (error) {
+        console.error('❌ Document copy test failed:', error);
+        
+        res.status(500).json({
+            message: 'Document copy test failed',
+            success: false,
+            error: error.message,
+            errorCode: error.code,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
 // NEW: Alternative Google Drive document creation test in shared folder
 router.get('/po/drive-test', async (req, res) => {
     try {
