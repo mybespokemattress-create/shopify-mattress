@@ -509,6 +509,83 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
     }
 });
 
+// NEW: Alternative Google Drive document creation test
+router.get('/po/drive-test', async (req, res) => {
+    try {
+        console.log('🧪 Testing Google Drive document creation (alternative method)...');
+        
+        const { GoogleAuth } = require('google-auth-library');
+        const { google } = require('googleapis');
+        
+        const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+        
+        const auth = new GoogleAuth({
+            credentials: serviceAccount,
+            scopes: [
+                'https://www.googleapis.com/auth/drive',
+                'https://www.googleapis.com/auth/drive.file'
+            ]
+        });
+        
+        const drive = google.drive({ version: 'v3', auth });
+        
+        console.log('✅ Drive API initialized');
+        
+        // Try creating document through Drive API instead of Docs API
+        console.log('🧪 Creating Google Doc via Drive API...');
+        
+        const fileMetadata = {
+            name: 'Drive Test Document - ' + new Date().toISOString(),
+            mimeType: 'application/vnd.google-apps.document'
+        };
+        
+        const createResponse = await drive.files.create({
+            resource: fileMetadata,
+            fields: 'id,webViewLink'
+        });
+        
+        const documentId = createResponse.data.id;
+        const documentUrl = createResponse.data.webViewLink;
+        
+        console.log('✅ Document created via Drive API:', documentId);
+        console.log('✅ Document URL:', documentUrl);
+        
+        // Test if we can access it
+        const fileInfo = await drive.files.get({
+            fileId: documentId,
+            fields: 'name,mimeType,webViewLink'
+        });
+        
+        console.log('✅ Document verified:', fileInfo.data.name);
+        
+        // Clean up
+        await drive.files.delete({
+            fileId: documentId
+        });
+        console.log('✅ Test document deleted');
+        
+        res.json({
+            message: 'Google Drive document creation test completed successfully',
+            success: true,
+            method: 'drive_api',
+            documentId: documentId,
+            documentUrl: documentUrl,
+            timestamp: new Date().toISOString()
+        });
+        
+    } catch (error) {
+        console.error('❌ Drive API test failed:', error);
+        
+        res.status(500).json({
+            message: 'Drive API document creation test failed',
+            success: false,
+            error: error.message,
+            errorCode: error.code,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
 // NEW: Simple Google Docs creation test endpoint
 router.get('/po/simple-test', async (req, res) => {
     try {
