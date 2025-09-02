@@ -48,9 +48,17 @@ async function initialize() {
             )
         `);
         
-        // Orders processing log with Google Sheets integration
+        // Drop existing processed_orders table if it exists with wrong schema
+        try {
+            await pool.query(`DROP TABLE IF EXISTS processed_orders CASCADE`);
+            console.log('🗑️ Dropped existing processed_orders table to recreate with correct schema');
+        } catch (error) {
+            console.log('ℹ️ No existing processed_orders table to drop');
+        }
+
+        // Create processed_orders table with correct schema
         await pool.query(`
-            CREATE TABLE IF NOT EXISTS processed_orders (
+            CREATE TABLE processed_orders (
                 id SERIAL PRIMARY KEY,
                 shopify_order_id BIGINT NOT NULL,
                 order_number VARCHAR(255) NOT NULL,
@@ -77,6 +85,7 @@ async function initialize() {
                 updated_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
+        console.log('✅ Created processed_orders table with correct schema');
 
         // Suppliers table for Google Sheets integration
         await pool.query(`
@@ -91,34 +100,16 @@ async function initialize() {
             )
         `);
 
-        // Check if columns exist before creating indexes
-        const checkColumn = async (tableName, columnName) => {
-            const result = await pool.query(`
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_name = $1 AND column_name = $2
-            `, [tableName, columnName]);
-            return result.rows.length > 0;
-        };
-
-        // Create indexes only if columns exist
-        if (await checkColumn('processed_orders', 'supplier_assigned')) {
-            await pool.query(`
-                CREATE INDEX IF NOT EXISTS idx_orders_supplier_assigned ON processed_orders(supplier_assigned)
-            `);
-        }
-        
-        if (await checkColumn('processed_orders', 'google_sheets_status')) {
-            await pool.query(`
-                CREATE INDEX IF NOT EXISTS idx_orders_google_sheets_status ON processed_orders(google_sheets_status)
-            `);
-        }
-        
-        if (await checkColumn('processed_orders', 'shopify_order_id')) {
-            await pool.query(`
-                CREATE INDEX IF NOT EXISTS idx_orders_shopify_order_id ON processed_orders(shopify_order_id)
-            `);
-        }
+        // Create indexes for performance
+        await pool.query(`
+            CREATE INDEX IF NOT EXISTS idx_orders_supplier_assigned ON processed_orders(supplier_assigned)
+        `);
+        await pool.query(`
+            CREATE INDEX IF NOT EXISTS idx_orders_google_sheets_status ON processed_orders(google_sheets_status)
+        `);
+        await pool.query(`
+            CREATE INDEX IF NOT EXISTS idx_orders_shopify_order_id ON processed_orders(shopify_order_id)
+        `);
         
         // Insert store configurations and sample data
         await insertStoreConfigs();
@@ -140,14 +131,16 @@ async function insertStoreConfigs() {
     ];
     
     for (const store of stores) {
-        await pool.query(`
-            INSERT INTO store_configs (store_domain, store_name, webhook_secret, api_access_token) 
-            VALUES ($1, $2, $3, $4) 
-            ON CONFLICT (store_domain) DO UPDATE SET
-                store_name = EXCLUDED.store_name,
-                webhook_secret = EXCLUDED.webhook_secret,
-                api_access_token = EXCLUDED.api_access_token
-        `, store);
+        if (store[0]) { // Only insert if domain exists
+            await pool.query(`
+                INSERT INTO store_configs (store_domain, store_name, webhook_secret, api_access_token) 
+                VALUES ($1, $2, $3, $4) 
+                ON CONFLICT (store_domain) DO UPDATE SET
+                    store_name = EXCLUDED.store_name,
+                    webhook_secret = EXCLUDED.webhook_secret,
+                    api_access_token = EXCLUDED.api_access_token
+            `, store);
+        }
     }
 }
 
@@ -287,9 +280,17 @@ const stores = {
 
 // Order operations with Google Sheets integration
 const orders = {
-    // Updated create method for webhook processing
+    // Create method for webhook processing with correct column names
     create: async (orderData) => {
-        const customerName = `${orderData.billing_address?.first_name || ''} ${orderData.billing_address?.last_name || ''}`.trim();
+        // Extract customer name properly
+        let customerName = 'Guest Customer';
+        if (orderData.customerName) {
+            customerName = orderData.customerName;
+        } else if (orderData.billing_address) {
+            customerName = `${orderData.billing_address.first_name || ''} ${orderData.billing_address.last_name || ''}`.trim();
+        } else if (orderData.customer) {
+            customerName = `${orderData.customer.first_name || ''} ${orderData.customer.last_name || ''}`.trim();
+        }
         
         const result = await pool.query(`
             INSERT INTO processed_orders 
@@ -298,12 +299,12 @@ const orders = {
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             RETURNING *
         `, [
-            orderData.id,
-            orderData.order_number,
-            orderData.store_domain || orderData.shopDomain,
+            orderData.orderId || orderData.id,
+            orderData.shopifyOrderNumber || orderData.order_number || orderData.name,
+            orderData.storeDomain || orderData.store_domain || orderData.shopDomain,
             customerName,
-            orderData.email,
-            orderData.total_price,
+            orderData.customerEmail || orderData.email,
+            orderData.totalPrice || orderData.total_price,
             JSON.stringify(orderData),
             'received',
             'pending'
