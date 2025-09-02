@@ -79,7 +79,7 @@ function extractCustomerData(order, storeDomain) {
     return {
         orderId: order.id.toString(),
         storeDomain,
-        shopifyOrderNumber: fullOrderNumber,  // Now includes full prefix
+        shopifyOrderNumber: fullOrderNumber,
         customerName: customer ? `${customer.first_name} ${customer.last_name}` : 'Guest Customer',
         customerEmail: customer?.email || order.email || '',
         customerPhone: customer?.phone || billing?.phone || shipping?.phone || '',
@@ -105,31 +105,83 @@ function extractCustomerData(order, storeDomain) {
     };
 }
 
-// Extract product data and measurements from line items
+// NEW: Determine measurement option from order properties
+function determineMeasurementOption(measurements) {
+    // Check if customer provided measurements (Option 1)
+    const hasDimensions = Object.keys(measurements).some(key => 
+        key.match(/^[A-G]$/) && measurements[key].value
+    );
+    
+    if (hasDimensions) {
+        return 'option1'; // Customer provided measurements
+    }
+    
+    // Check order properties for measurement choice indicators
+    const measurementChoice = Object.keys(measurements).find(key => 
+        key.toLowerCase().includes('measurement') && key.toLowerCase().includes('option')
+    );
+    
+    if (measurementChoice) {
+        const choice = measurements[measurementChoice];
+        if (choice.includes('later') || choice.includes('send')) {
+            return 'option2'; // Send measurements later
+        }
+        if (choice.includes('kit') || choice.includes('measuring')) {
+            return 'option3'; // Measuring kit requested
+        }
+    }
+    
+    // Default fallback based on presence of measurements
+    return hasDimensions ? 'option1' : 'option2';
+}
+
+// NEW: Extract customer measurements and validate completeness
+function extractCustomerMeasurements(properties) {
+    const measurements = {};
+    const dimensionValues = {};
+    
+    if (!properties || !Array.isArray(properties)) {
+        return { complete: false, data: {}, missing: [], option: 'option2' };
+    }
+    
+    properties.forEach(prop => {
+        const propName = prop.name?.toLowerCase();
+        
+        // Extract dimension measurements (A, B, C, D, E, F, G)
+        if (propName?.includes('dimension')) {
+            const dimensionMatch = propName.match(/dimension\s*([a-g])/i);
+            if (dimensionMatch && prop.value) {
+                const letter = dimensionMatch[1].toUpperCase();
+                dimensionValues[letter] = {
+                    value: prop.value,
+                    unit: 'cm'
+                };
+            }
+        }
+        
+        // Store all properties for reference
+        measurements[`property_${prop.name}`] = prop.value;
+    });
+    
+    // Determine which dimensions were provided
+    const providedDimensions = Object.keys(dimensionValues);
+    const expectedDimensions = ['A', 'B', 'C', 'D', 'E']; // Standard set
+    const missingDimensions = expectedDimensions.filter(dim => !providedDimensions.includes(dim));
+    
+    return {
+        complete: missingDimensions.length === 0 && providedDimensions.length > 0,
+        data: { ...measurements, ...dimensionValues },
+        missing: missingDimensions,
+        provided: providedDimensions,
+        option: determineMeasurementOption({ ...measurements, ...dimensionValues })
+    };
+}
+
+// Enhanced product data extraction with shape metafields
 function extractProductData(lineItems) {
     return lineItems.map(item => {
-        const measurements = {};
-        
-        // Extract custom measurements from line item properties
-        if (item.properties && Array.isArray(item.properties)) {
-            item.properties.forEach(prop => {
-                // Look for measurement properties
-                const propName = prop.name?.toLowerCase();
-                if (propName?.includes('dimension') || propName?.includes('measurement')) {
-                    // Extract dimension letter (A, B, C, D, E)
-                    const dimensionMatch = propName.match(/dimension\s*([a-e])/i);
-                    if (dimensionMatch) {
-                        measurements[dimensionMatch[1].toUpperCase()] = {
-                            value: prop.value,
-                            unit: 'cm' // Default, could be extracted from value
-                        };
-                    }
-                }
-                
-                // Store all properties for debugging
-                measurements[`property_${prop.name}`] = prop.value;
-            });
-        }
+        // Extract customer measurements
+        const customerMeasurements = extractCustomerMeasurements(item.properties);
         
         return {
             shopifySku: item.sku,
@@ -137,10 +189,26 @@ function extractProductData(lineItems) {
             variantTitle: item.variant_title,
             quantity: item.quantity,
             price: item.price,
-            measurements,
             lineItemId: item.id,
             productId: item.product_id,
-            variantId: item.variant_id
+            variantId: item.variant_id,
+            
+            // NEW: Shape information from Shopify metafields
+            shapeInfo: {
+                shapeNumber: item.product?.metafields?.custom?.diagram || null,
+                availableMeasurements: item.product?.metafields?.custom?.measurements || null,
+                requiredMeasurements: item.product?.metafields?.custom?.required_measurements || null,
+                diagramUrl: item.product?.metafields?.custom?.testimage || null
+            },
+            
+            // NEW: Customer measurement data and status
+            measurementStatus: {
+                option: customerMeasurements.option,
+                hasCompleteMeasurements: customerMeasurements.complete,
+                measurements: customerMeasurements.data,
+                missingDimensions: customerMeasurements.missing,
+                providedDimensions: customerMeasurements.provided
+            }
         };
     });
 }
@@ -197,6 +265,30 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
         
         console.log(`📋 Processing order ${customerData.shopifyOrderNumber} from ${customerData.customerName}`);
         console.log(`🛒 Products: ${productData.length} items`);
+        
+        // NEW: Log shape and measurement information
+        productData.forEach((product, index) => {
+            console.log(`🔧 Product ${index + 1}: ${product.productTitle}`);
+            
+            // Log shape information
+            if (product.shapeInfo.shapeNumber) {
+                console.log(`📐 Shape: ${product.shapeInfo.shapeNumber}`);
+                console.log(`📊 Required measurements: ${product.shapeInfo.requiredMeasurements}`);
+                console.log(`🔗 Diagram URL: ${product.shapeInfo.diagramUrl}`);
+            }
+            
+            // Log measurement status
+            console.log(`📏 Measurement option: ${product.measurementStatus.option}`);
+            console.log(`✅ Complete measurements: ${product.measurementStatus.hasCompleteMeasurements}`);
+            
+            if (product.measurementStatus.providedDimensions.length > 0) {
+                console.log(`📋 Provided dimensions: ${product.measurementStatus.providedDimensions.join(', ')}`);
+            }
+            
+            if (product.measurementStatus.missingDimensions.length > 0) {
+                console.log(`⚠️ Missing dimensions: ${product.measurementStatus.missingDimensions.join(', ')}`);
+            }
+        });
         
         // Check for product mappings and determine supplier
         const unmappedProducts = [];
@@ -274,7 +366,7 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
                 }
             } catch (error) {
                 console.error('❌ Error adding to Google Sheets:', error.message);
-                // Update database with error
+                // Update database with sync status
                 await db.orders.updateSheetsSync(
                     customerData.orderId,
                     customerData.storeDomain,
@@ -297,14 +389,6 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
         console.log(`📧 Customer: ${customerData.customerEmail}`);
         console.log(`📞 Phone: ${customerData.customerPhone}`);
         console.log(`💰 Total: ${customerData.currency} ${customerData.totalPrice}`);
-        
-        // Log measurements if found
-        productData.forEach((product, index) => {
-            console.log(`🔧 Product ${index + 1}: ${product.productTitle}`);
-            if (Object.keys(product.measurements).length > 0) {
-                console.log(`📐 Measurements:`, product.measurements);
-            }
-        });
         
         // Return success response
         const response = {
