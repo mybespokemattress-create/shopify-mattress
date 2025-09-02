@@ -2,6 +2,7 @@
 const crypto = require('crypto');
 const db = require('../database/db');
 const googleSheets = require('../google-sheets');
+const googleDocsPO = require('../google-docs-po'); // NEW: Import PO generator
 
 const router = express.Router();
 
@@ -193,12 +194,12 @@ function extractProductData(lineItems) {
             productId: item.product_id,
             variantId: item.variant_id,
             
-            // NEW: Shape information from Shopify metafields
+            // NEW: Shape information placeholder (will be enhanced later)
             shapeInfo: {
-                shapeNumber: item.product?.metafields?.custom?.diagram || null,
-                availableMeasurements: item.product?.metafields?.custom?.measurements || null,
-                requiredMeasurements: item.product?.metafields?.custom?.required_measurements || null,
-                diagramUrl: item.product?.metafields?.custom?.testimage || null
+                shapeNumber: null, // To be populated from database mapping
+                availableMeasurements: null,
+                requiredMeasurements: null,
+                diagramUrl: null
             },
             
             // NEW: Customer measurement data and status
@@ -211,6 +212,39 @@ function extractProductData(lineItems) {
             }
         };
     });
+}
+
+// NEW: Enhanced product mapping check with shape information
+async function enhanceProductWithShapeInfo(product) {
+    if (product.shopifySku) {
+        try {
+            const mapping = await db.productMappings.getBySku(product.shopifySku);
+            if (mapping) {
+                console.log(`✅ Found mapping for SKU: ${product.shopifySku}`);
+                product.supplierSpecification = mapping.supplier_specification;
+                product.shapeId = mapping.shape_id;
+                
+                // If we have a shape_id, extract the shape number
+                if (mapping.shape_id) {
+                    // Assuming shape_id format like "shape_boat_40" or just "40"
+                    const shapeMatch = mapping.shape_id.match(/(\d+)/);
+                    if (shapeMatch) {
+                        product.shapeInfo.shapeNumber = shapeMatch[1];
+                        console.log(`📐 Shape ${product.shapeInfo.shapeNumber} assigned to ${product.shopifySku}`);
+                    }
+                }
+                
+                return true; // Found mapping
+            } else {
+                console.log(`⚠️  No mapping found for SKU: ${product.shopifySku}`);
+                return false; // No mapping
+            }
+        } catch (error) {
+            console.error(`Error checking mapping for SKU ${product.shopifySku}:`, error);
+            return false;
+        }
+    }
+    return false;
 }
 
 // Main webhook handler for order creation
@@ -266,6 +300,28 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
         console.log(`📋 Processing order ${customerData.shopifyOrderNumber} from ${customerData.customerName}`);
         console.log(`🛒 Products: ${productData.length} items`);
         
+        // NEW: Enhanced product mapping with shape information
+        const unmappedProducts = [];
+        for (const product of productData) {
+            const hasMapping = await enhanceProductWithShapeInfo(product);
+            if (!hasMapping) {
+                unmappedProducts.push(product.shopifySku);
+            }
+        }
+        
+        // Determine supplier based on SKU patterns
+        let supplierAssignment = null;
+        let supplierName = null;
+        
+        const detectedSupplier = googleSheets.determineSupplier(productData);
+        if (detectedSupplier) {
+            supplierAssignment = detectedSupplier;
+            supplierName = googleSheets.SUPPLIERS[detectedSupplier].name;
+            console.log(`📊 Auto-assigned to supplier: ${supplierName}`);
+        } else {
+            console.log('⚠️ No supplier match found for order SKUs');
+        }
+        
         // NEW: Log shape and measurement information
         productData.forEach((product, index) => {
             console.log(`🔧 Product ${index + 1}: ${product.productTitle}`);
@@ -273,8 +329,6 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
             // Log shape information
             if (product.shapeInfo.shapeNumber) {
                 console.log(`📐 Shape: ${product.shapeInfo.shapeNumber}`);
-                console.log(`📊 Required measurements: ${product.shapeInfo.requiredMeasurements}`);
-                console.log(`🔗 Diagram URL: ${product.shapeInfo.diagramUrl}`);
             }
             
             // Log measurement status
@@ -289,41 +343,6 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
                 console.log(`⚠️ Missing dimensions: ${product.measurementStatus.missingDimensions.join(', ')}`);
             }
         });
-        
-        // Check for product mappings and determine supplier
-        const unmappedProducts = [];
-        let supplierAssignment = null;
-        let supplierName = null;
-        
-        // Determine supplier based on SKU patterns
-        const detectedSupplier = googleSheets.determineSupplier(productData);
-        if (detectedSupplier) {
-            supplierAssignment = detectedSupplier;
-            supplierName = googleSheets.SUPPLIERS[detectedSupplier].name;
-            console.log(`📊 Auto-assigned to supplier: ${supplierName}`);
-        } else {
-            console.log('⚠️ No supplier match found for order SKUs');
-        }
-        
-        // Check product mappings
-        for (const product of productData) {
-            if (product.shopifySku) {
-                try {
-                    const mapping = await db.productMappings.getBySku(product.shopifySku);
-                    if (mapping) {
-                        console.log(`✅ Found mapping for SKU: ${product.shopifySku}`);
-                        product.supplierSpecification = mapping.supplier_specification;
-                        product.shapeId = mapping.shape_id;
-                    } else {
-                        console.log(`⚠️  No mapping found for SKU: ${product.shopifySku}`);
-                        unmappedProducts.push(product.shopifySku);
-                    }
-                } catch (error) {
-                    console.error(`Error checking mapping for SKU ${product.shopifySku}:`, error);
-                    unmappedProducts.push(product.shopifySku);
-                }
-            }
-        }
         
         // Store order in database
         let dbOrder;
@@ -376,13 +395,33 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
                     error.message
                 );
             }
+        }
+        
+        // NEW: Generate Purchase Order if Google Sheets was successful
+        let poResult = null;
+        if (sheetsResult && sheetsResult.success && supplierAssignment) {
+            try {
+                console.log('📄 Generating Purchase Order...');
+                
+                const supplierInfo = {
+                    key: supplierAssignment,
+                    name: supplierName
+                };
+                
+                poResult = await googleDocsPO.generatePO(customerData, productData, supplierInfo);
+                
+                if (poResult.success) {
+                    console.log(`✅ PO generated: ${poResult.documentUrl}`);
+                    console.log(`📋 PO Type: ${poResult.poType}`);
+                } else {
+                    console.log(`⚠️ PO generation failed`);
+                }
+                
+            } catch (error) {
+                console.error('❌ Error generating PO:', error.message);
+            }
         } else {
-            if (!supplierAssignment) {
-                console.log('⚠️ Skipping Google Sheets - no supplier assigned');
-            }
-            if (!process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
-                console.log('⚠️ Skipping Google Sheets - no credentials configured');
-            }
+            console.log('⚠️ Skipping PO generation - Google Sheets sync required first');
         }
         
         // Log detailed order information
@@ -399,6 +438,9 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
             productsProcessed: productData.length,
             supplierAssigned: supplierName,
             sheetsUpdated: sheetsResult?.success || false,
+            poGenerated: poResult?.success || false,
+            poUrl: poResult?.documentUrl || null,
+            poType: poResult?.poType || null,
             unmappedProducts: unmappedProducts.length > 0 ? unmappedProducts : undefined,
             timestamp
         };
@@ -409,6 +451,9 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
         }
         if (sheetsResult?.success) {
             console.log(`📊 Google Sheets updated: ${sheetsResult.supplierName}`);
+        }
+        if (poResult?.success) {
+            console.log(`📄 Purchase Order generated: ${poResult.poType}`);
         }
         
         res.status(200).json(response);
@@ -443,6 +488,24 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
             error: 'Webhook processing failed',
             message: error.message,
             timestamp
+        });
+    }
+});
+
+// NEW: PO generation test endpoint
+router.get('/po/test', async (req, res) => {
+    try {
+        const testResult = await googleDocsPO.testPOGeneration();
+        res.json({
+            message: 'PO generation test endpoint',
+            initialized: testResult,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(500).json({
+            error: 'PO test failed',
+            message: error.message,
+            timestamp: new Date().toISOString()
         });
     }
 });
