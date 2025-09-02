@@ -48,33 +48,64 @@ async function initialize() {
             )
         `);
         
-        // Orders processing log with Google Sheets integration
+        // UPDATED Orders processing log with Google Sheets integration
         await pool.query(`
             CREATE TABLE IF NOT EXISTS processed_orders (
-                order_id TEXT,
-                store_domain TEXT,
-                shopify_order_number TEXT NOT NULL,
-                customer_name TEXT,
-                customer_email TEXT,
+                id SERIAL PRIMARY KEY,
+                shopify_order_id BIGINT NOT NULL,
+                order_number VARCHAR(255) NOT NULL,
+                store_domain TEXT NOT NULL,
+                customer_email VARCHAR(255),
+                customer_name VARCHAR(255),
+                total_price DECIMAL(10,2),
+                order_data JSONB,
                 processing_status TEXT DEFAULT 'received',
                 supplier_assigned TEXT,
                 supplier_name TEXT,
-                sheets_updated BOOLEAN DEFAULT false,
+                supplier_id INTEGER,
+                sheet_row_number INTEGER,
                 sheets_synced BOOLEAN DEFAULT false,
                 sheets_sync_date TIMESTAMP,
                 sheets_range TEXT,
+                google_sheets_status VARCHAR(50) DEFAULT 'pending',
+                google_sheets_error TEXT,
                 po_generated BOOLEAN DEFAULT false,
                 error_message TEXT,
                 sync_error_message TEXT,
+                processed_at TIMESTAMP,
                 created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (order_id, store_domain)
+                updated_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
+
+        // NEW: Suppliers table for Google Sheets integration
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS suppliers (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(255) NOT NULL UNIQUE,
+                sheet_id VARCHAR(255) NOT NULL,
+                sheet_url TEXT NOT NULL,
+                sku_keywords TEXT[] NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Create indexes for performance
+        await pool.query(`
+            CREATE INDEX IF NOT EXISTS idx_orders_supplier_id ON processed_orders(supplier_id)
+        `);
+        await pool.query(`
+            CREATE INDEX IF NOT EXISTS idx_orders_google_sheets_status ON processed_orders(google_sheets_status)
+        `);
+        await pool.query(`
+            CREATE INDEX IF NOT EXISTS idx_orders_shopify_order_id ON processed_orders(shopify_order_id)
+        `);
         
-        // Insert store configurations
+        // Insert store configurations and sample data
         await insertStoreConfigs();
         await insertSampleData();
+        await insertSupplierData();
         
         console.log('✅ Database tables created and sample data inserted');
     } catch (error) {
@@ -122,6 +153,25 @@ async function insertSampleData() {
         VALUES ($1, $2, $3, $4) 
         ON CONFLICT (shape_id) DO NOTHING
     `, ['shape_boat_58', 'Boat Shape 58', JSON.stringify(['A', 'B', 'C', 'D', 'E']), 'boat_58_diagram.jpg']);
+}
+
+// NEW: Insert supplier data for Google Sheets integration
+async function insertSupplierData() {
+    await pool.query(`
+        INSERT INTO suppliers (name, sheet_id, sheet_url, sku_keywords) 
+        VALUES 
+            ('Southern Production', '1msn3axI6YVuRbHYYf32APoxQPG61zKKlNx6CZR1iO3w', 
+             'https://docs.google.com/spreadsheets/d/1msn3axI6YVuRbHYYf32APoxQPG61zKKlNx6CZR1iO3w/', 
+             ARRAY['Essential', 'Grand', 'Cool', 'Novo', 'Body']),
+            ('Mattressshire Production', '16IssobN0vG-oYEyEW8HgZIOqAsiIO_pTCOt0czmqQJM', 
+             'https://docs.google.com/spreadsheets/d/16IssobN0vG-oYEyEW8HgZIOqAsiIO_pTCOt0czmqQJM/', 
+             ARRAY['Comfi', 'Imperial'])
+        ON CONFLICT (name) DO UPDATE SET
+            sheet_id = EXCLUDED.sheet_id,
+            sheet_url = EXCLUDED.sheet_url,
+            sku_keywords = EXCLUDED.sku_keywords,
+            updated_at = CURRENT_TIMESTAMP
+    `);
 }
 
 // Health check
@@ -217,33 +267,74 @@ const stores = {
     }
 };
 
-// Order operations with Google Sheets integration
+// UPDATED Order operations with Google Sheets integration
 const orders = {
+    // Updated create method for webhook processing
     create: async (orderData) => {
+        const customerName = `${orderData.billing_address?.first_name || ''} ${orderData.billing_address?.last_name || ''}`.trim();
+        
         const result = await pool.query(`
             INSERT INTO processed_orders 
-            (order_id, store_domain, shopify_order_number, customer_name, customer_email, 
-             processing_status, supplier_assigned, supplier_name) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            ON CONFLICT (order_id, store_domain) DO UPDATE SET
-                shopify_order_number = EXCLUDED.shopify_order_number,
-                customer_name = EXCLUDED.customer_name,
-                customer_email = EXCLUDED.customer_email,
-                processing_status = EXCLUDED.processing_status,
-                supplier_assigned = EXCLUDED.supplier_assigned,
-                supplier_name = EXCLUDED.supplier_name,
-                updated_date = CURRENT_TIMESTAMP
+            (shopify_order_id, order_number, store_domain, customer_name, customer_email, 
+             total_price, order_data, processing_status, google_sheets_status) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             RETURNING *
         `, [
-            orderData.orderId,
-            orderData.storeDomain,
-            orderData.shopifyOrderNumber,
-            orderData.customerName,
-            orderData.customerEmail,
-            orderData.status || 'received',
-            orderData.supplierAssigned || null,
-            orderData.supplierName || null
+            orderData.id,
+            orderData.order_number,
+            orderData.store_domain || orderData.shopDomain,
+            customerName,
+            orderData.email,
+            orderData.total_price,
+            JSON.stringify(orderData),
+            'received',
+            'pending'
         ]);
+        return result.rows[0];
+    },
+
+    // NEW: Update Google Sheets status
+    updateGoogleSheetsStatus: async (orderId, supplierId, rowNumber, status, errorMessage = null) => {
+        const result = await pool.query(`
+            UPDATE processed_orders 
+            SET supplier_id = $2, 
+                sheet_row_number = $3, 
+                google_sheets_status = $4,
+                google_sheets_error = $5,
+                processed_at = CURRENT_TIMESTAMP,
+                updated_date = CURRENT_TIMESTAMP
+            WHERE id = $1
+            RETURNING *
+        `, [orderId, supplierId, rowNumber, status, errorMessage]);
+        return result.rows[0];
+    },
+
+    // NEW: Get orders status for Google Sheets monitoring
+    getOrdersStatus: async () => {
+        const result = await pool.query(`
+            SELECT 
+                o.id,
+                o.shopify_order_id,
+                o.order_number,
+                o.customer_email,
+                s.name as supplier_name,
+                o.sheet_row_number,
+                o.google_sheets_status,
+                o.google_sheets_error,
+                o.processed_at,
+                o.created_date
+            FROM processed_orders o
+            LEFT JOIN suppliers s ON o.supplier_id = s.id
+            ORDER BY o.created_date DESC
+        `);
+        return result.rows;
+    },
+
+    // NEW: Get order by ID
+    getById: async (orderId) => {
+        const result = await pool.query(`
+            SELECT * FROM processed_orders WHERE id = $1
+        `, [orderId]);
         return result.rows[0];
     },
     
@@ -251,9 +342,9 @@ const orders = {
         const result = await pool.query(`
             UPDATE processed_orders 
             SET processing_status = $1, error_message = $2, updated_date = CURRENT_TIMESTAMP 
-            WHERE order_id = $3 AND store_domain = $4
+            WHERE id = $3
             RETURNING *
-        `, [status, errorMessage, orderId, storeDomain]);
+        `, [status, errorMessage, orderId]);
         return result.rows[0];
     },
     
@@ -262,9 +353,9 @@ const orders = {
             UPDATE processed_orders 
             SET sheets_synced = $1, sheets_sync_date = $2, sheets_range = $3, 
                 sync_error_message = $4, updated_date = CURRENT_TIMESTAMP 
-            WHERE order_id = $5 AND store_domain = $6
+            WHERE id = $5
             RETURNING *
-        `, [synced, syncDate, sheetRange, errorMessage, orderId, storeDomain]);
+        `, [synced, syncDate, sheetRange, errorMessage, orderId]);
         return result.rows[0];
     },
     
@@ -309,11 +400,30 @@ const orders = {
     }
 };
 
+// NEW: Suppliers operations for Google Sheets integration
+const suppliers = {
+    getAll: async () => {
+        const result = await pool.query('SELECT * FROM suppliers ORDER BY id');
+        return result.rows;
+    },
+    
+    getById: async (id) => {
+        const result = await pool.query('SELECT * FROM suppliers WHERE id = $1', [id]);
+        return result.rows[0];
+    },
+    
+    getByName: async (name) => {
+        const result = await pool.query('SELECT * FROM suppliers WHERE name = $1', [name]);
+        return result.rows[0];
+    }
+};
+
 module.exports = {
     initialize,
     isHealthy,
     productMappings,
     stores,
     orders,
+    suppliers, // Added suppliers module
     pool // Raw database access if needed
 };
