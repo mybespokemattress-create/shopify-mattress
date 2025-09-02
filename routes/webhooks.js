@@ -2,6 +2,7 @@
 const crypto = require('crypto');
 const db = require('../database/db');
 const googleSheets = require('../google-sheets');
+const ShopifyAPI = require('../shopify-api'); // NEW: Import Shopify API
 
 const router = express.Router();
 
@@ -177,13 +178,43 @@ function extractCustomerMeasurements(properties) {
     };
 }
 
-// Enhanced product data extraction with shape metafields
-function extractProductData(lineItems) {
-    return lineItems.map(item => {
+// Enhanced product data extraction with Shopify API metafield fetching
+async function extractProductData(lineItems, storeDomain, storeConfig) {
+    const results = [];
+    
+    // Initialize Shopify API client for this store
+    const shopifyAPI = new ShopifyAPI(storeDomain, storeConfig.api_access_token);
+    
+    for (const item of lineItems) {
         // Extract customer measurements
         const customerMeasurements = extractCustomerMeasurements(item.properties);
         
-        return {
+        // Fetch product metafields from Shopify API
+        let shapeInfo = {
+            shapeNumber: null,
+            availableMeasurements: null,
+            requiredMeasurements: null,
+            diagramUrl: null
+        };
+        
+        if (item.product_id) {
+            try {
+                console.log(`🔍 Fetching shape data for product ID: ${item.product_id}`);
+                const metafields = await shopifyAPI.getProductMetafields(item.product_id);
+                shapeInfo = shopifyAPI.extractShapeInfo(metafields);
+                
+                if (shapeInfo.shapeNumber) {
+                    console.log(`📐 Found shape ${shapeInfo.shapeNumber} for product ${item.title}`);
+                } else {
+                    console.log(`⚠️ No shape information found for product ${item.title}`);
+                }
+                
+            } catch (error) {
+                console.error(`❌ Failed to fetch metafields for product ${item.product_id}:`, error.message);
+            }
+        }
+        
+        results.push({
             shopifySku: item.sku,
             productTitle: item.title,
             variantTitle: item.variant_title,
@@ -193,15 +224,10 @@ function extractProductData(lineItems) {
             productId: item.product_id,
             variantId: item.variant_id,
             
-            // NEW: Shape information from Shopify metafields
-            shapeInfo: {
-                shapeNumber: item.product?.metafields?.custom?.diagram || null,
-                availableMeasurements: item.product?.metafields?.custom?.measurements || null,
-                requiredMeasurements: item.product?.metafields?.custom?.required_measurements || null,
-                diagramUrl: item.product?.metafields?.custom?.testimage || null
-            },
+            // Shape information from Shopify API
+            shapeInfo: shapeInfo,
             
-            // NEW: Customer measurement data and status
+            // Customer measurement data and status
             measurementStatus: {
                 option: customerMeasurements.option,
                 hasCompleteMeasurements: customerMeasurements.complete,
@@ -209,8 +235,10 @@ function extractProductData(lineItems) {
                 missingDimensions: customerMeasurements.missing,
                 providedDimensions: customerMeasurements.provided
             }
-        };
-    });
+        });
+    }
+    
+    return results;
 }
 
 // Main webhook handler for order creation
@@ -261,7 +289,7 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
         
         // Extract order data
         const customerData = extractCustomerData(order, store.domain);
-        const productData = extractProductData(order.line_items || []);
+        const productData = await extractProductData(order.line_items || [], store.domain, store.config);
         
         console.log(`📋 Processing order ${customerData.shopifyOrderNumber} from ${customerData.customerName}`);
         console.log(`🛒 Products: ${productData.length} items`);
