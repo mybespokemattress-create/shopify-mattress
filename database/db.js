@@ -93,7 +93,7 @@ async function initialize() {
 
         // Create indexes for performance
         await pool.query(`
-            CREATE INDEX IF NOT EXISTS idx_orders_supplier_id ON processed_orders(supplier_id)
+            CREATE INDEX IF NOT EXISTS idx_orders_supplier_assigned ON processed_orders(supplier_assigned)
         `);
         await pool.query(`
             CREATE INDEX IF NOT EXISTS idx_orders_google_sheets_status ON processed_orders(google_sheets_status)
