@@ -247,6 +247,23 @@ async function enhanceProductWithShapeInfo(product) {
     return false;
 }
 
+// Helper function to determine which step failed
+function determineFailedStep(error) {
+    const errorMessage = error.message.toLowerCase();
+    
+    if (errorMessage.includes('create') || errorMessage.includes('documents.create')) {
+        return 'Step 1: Document creation failed - Service account cannot create documents';
+    } else if (errorMessage.includes('update') || errorMessage.includes('addparents')) {
+        return 'Step 2: Folder placement failed - Service account cannot move files to Orders folder';
+    } else if (errorMessage.includes('batchupdate') || errorMessage.includes('inserttext')) {
+        return 'Step 3: Content insertion failed - Service account cannot edit document content';
+    } else if (errorMessage.includes('get') || errorMessage.includes('webviewlink')) {
+        return 'Step 4: Link generation failed - Service account cannot generate shareable links';
+    } else {
+        return 'Unknown step - Check error message for details';
+    }
+}
+
 // Main webhook handler for order creation
 router.post('/orders/create', express.raw({ type: 'application/json' }), async (req, res) => {
     const timestamp = new Date().toISOString();
@@ -488,6 +505,126 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
             error: 'Webhook processing failed',
             message: error.message,
             timestamp
+        });
+    }
+});
+
+// NEW: Google Docs creation test endpoint
+router.get('/po/create-test', async (req, res) => {
+    try {
+        console.log('🧪 Testing Google Docs document creation...');
+        
+        // Initialize Google APIs
+        const { google } = require('googleapis');
+        
+        // Parse service account key
+        const serviceAccountKey = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+        
+        // Create JWT auth client
+        const auth = new google.auth.JWT(
+            serviceAccountKey.client_email,
+            null,
+            serviceAccountKey.private_key.replace(/\\n/g, '\n'),
+            [
+                'https://www.googleapis.com/auth/documents',
+                'https://www.googleapis.com/auth/drive.file'
+            ]
+        );
+        
+        console.log('✅ Auth client created');
+        
+        // Initialize Google Docs API
+        const docs = google.docs({ version: 'v1', auth });
+        const drive = google.drive({ version: 'v3', auth });
+        
+        console.log('✅ APIs initialized');
+        
+        // Step 1: Test basic document creation (no folder)
+        console.log('🧪 Step 1: Creating basic document...');
+        
+        const createResponse = await docs.documents.create({
+            requestBody: {
+                title: 'PO Test Document - ' + new Date().toISOString()
+            }
+        });
+        
+        const documentId = createResponse.data.documentId;
+        console.log('✅ Step 1: Document created successfully:', documentId);
+        
+        // Step 2: Test moving to folder
+        console.log('🧪 Step 2: Moving document to Orders folder...');
+        
+        const ordersFolder = '19RJxQRQ5rercn3IeWIeh5nPoLGykei0k'; // Your orders folder ID
+        
+        await drive.files.update({
+            fileId: documentId,
+            addParents: ordersFolder,
+            removeParents: 'root'
+        });
+        
+        console.log('✅ Step 2: Document moved to folder successfully');
+        
+        // Step 3: Test document content insertion
+        console.log('🧪 Step 3: Adding content to document...');
+        
+        await docs.documents.batchUpdate({
+            documentId: documentId,
+            requestBody: {
+                requests: [
+                    {
+                        insertText: {
+                            location: {
+                                index: 1
+                            },
+                            text: 'TEST PURCHASE ORDER\n\nThis is a test document to verify Google Docs API permissions.\n\nCreated: ' + new Date().toISOString()
+                        }
+                    }
+                ]
+            }
+        });
+        
+        console.log('✅ Step 3: Content added successfully');
+        
+        // Step 4: Generate shareable link
+        console.log('🧪 Step 4: Creating shareable link...');
+        
+        const shareResponse = await drive.files.get({
+            fileId: documentId,
+            fields: 'webViewLink'
+        });
+        
+        const documentUrl = shareResponse.data.webViewLink;
+        console.log('✅ Step 4: Shareable link created:', documentUrl);
+        
+        // Clean up - delete test document
+        console.log('🧹 Cleaning up test document...');
+        await drive.files.delete({
+            fileId: documentId
+        });
+        console.log('✅ Test document deleted');
+        
+        res.json({
+            message: 'Google Docs creation test completed successfully',
+            success: true,
+            steps: [
+                'Document creation: ✅',
+                'Folder placement: ✅',
+                'Content insertion: ✅',
+                'Shareable link: ✅',
+                'Cleanup: ✅'
+            ],
+            timestamp: new Date().toISOString()
+        });
+        
+    } catch (error) {
+        console.error('❌ Google Docs test failed:', error);
+        
+        res.status(500).json({
+            message: 'Google Docs creation test failed',
+            success: false,
+            error: error.message,
+            step: determineFailedStep(error),
+            timestamp: new Date().toISOString()
         });
     }
 });
