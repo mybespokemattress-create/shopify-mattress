@@ -509,6 +509,86 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
     }
 });
 
+// NEW: Test creating a simple text file to isolate the issue
+router.get('/po/file-test', async (req, res) => {
+    try {
+        console.log('🧪 Testing basic file creation (not Google Docs)...');
+        
+        const { GoogleAuth } = require('google-auth-library');
+        const { google } = require('googleapis');
+        
+        const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+        
+        const auth = new GoogleAuth({
+            credentials: serviceAccount,
+            scopes: [
+                'https://www.googleapis.com/auth/drive',
+                'https://www.googleapis.com/auth/drive.file'
+            ]
+        });
+        
+        const drive = google.drive({ version: 'v3', auth });
+        
+        console.log('✅ Drive API initialized');
+        
+        // Try creating a simple text file instead of a Google Doc
+        console.log('🧪 Creating simple text file...');
+        
+        const ordersFolder = '19RJxQRQ5rercn3IeWIeh5nPoLGykei0k';
+        
+        const fileMetadata = {
+            name: 'Simple Test File - ' + new Date().toISOString() + '.txt',
+            parents: [ordersFolder]
+        };
+        
+        const media = {
+            mimeType: 'text/plain',
+            body: 'This is a test file created by the service account at ' + new Date().toISOString()
+        };
+        
+        const createResponse = await drive.files.create({
+            resource: fileMetadata,
+            media: media,
+            fields: 'id,webViewLink,name'
+        });
+        
+        const fileId = createResponse.data.id;
+        const fileUrl = createResponse.data.webViewLink;
+        const fileName = createResponse.data.name;
+        
+        console.log('✅ Text file created successfully:', fileName);
+        console.log('✅ File ID:', fileId);
+        console.log('✅ File URL:', fileUrl);
+        
+        // Clean up
+        await drive.files.delete({
+            fileId: fileId
+        });
+        console.log('✅ Test file deleted');
+        
+        res.json({
+            message: 'Basic file creation test completed successfully',
+            success: true,
+            method: 'text_file_creation',
+            fileName: fileName,
+            fileId: fileId,
+            fileUrl: fileUrl,
+            timestamp: new Date().toISOString()
+        });
+        
+    } catch (error) {
+        console.error('❌ Basic file creation test failed:', error);
+        
+        res.status(500).json({
+            message: 'Basic file creation test failed',
+            success: false,
+            error: error.message,
+            errorCode: error.code,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
 // NEW: Test copying existing document instead of creating new one
 router.get('/po/copy-test', async (req, res) => {
     try {
