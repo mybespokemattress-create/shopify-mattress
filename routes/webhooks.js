@@ -509,10 +509,10 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
     }
 });
 
-// NEW: Alternative Google Drive document creation test
+// NEW: Alternative Google Drive document creation test in shared folder
 router.get('/po/drive-test', async (req, res) => {
     try {
-        console.log('🧪 Testing Google Drive document creation (alternative method)...');
+        console.log('🧪 Testing Google Drive document creation in shared Orders folder...');
         
         const { GoogleAuth } = require('google-auth-library');
         const { google } = require('googleapis');
@@ -531,32 +531,37 @@ router.get('/po/drive-test', async (req, res) => {
         
         console.log('✅ Drive API initialized');
         
-        // Try creating document through Drive API instead of Docs API
-        console.log('🧪 Creating Google Doc via Drive API...');
+        // Create document directly in your shared Orders folder
+        console.log('🧪 Creating Google Doc via Drive API in Orders folder...');
+        
+        const ordersFolder = '19RJxQRQ5rercn3IeWIeh5nPoLGykei0k'; // Your orders folder ID
         
         const fileMetadata = {
             name: 'Drive Test Document - ' + new Date().toISOString(),
-            mimeType: 'application/vnd.google-apps.document'
+            mimeType: 'application/vnd.google-apps.document',
+            parents: [ordersFolder] // Create directly in your shared folder
         };
         
         const createResponse = await drive.files.create({
             resource: fileMetadata,
-            fields: 'id,webViewLink'
+            fields: 'id,webViewLink,parents'
         });
         
         const documentId = createResponse.data.id;
         const documentUrl = createResponse.data.webViewLink;
         
-        console.log('✅ Document created via Drive API:', documentId);
+        console.log('✅ Document created via Drive API in Orders folder:', documentId);
         console.log('✅ Document URL:', documentUrl);
+        console.log('✅ Document parents:', createResponse.data.parents);
         
         // Test if we can access it
         const fileInfo = await drive.files.get({
             fileId: documentId,
-            fields: 'name,mimeType,webViewLink'
+            fields: 'name,mimeType,webViewLink,parents'
         });
         
         console.log('✅ Document verified:', fileInfo.data.name);
+        console.log('✅ Located in folders:', fileInfo.data.parents);
         
         // Clean up
         await drive.files.delete({
@@ -565,11 +570,12 @@ router.get('/po/drive-test', async (req, res) => {
         console.log('✅ Test document deleted');
         
         res.json({
-            message: 'Google Drive document creation test completed successfully',
+            message: 'Google Drive document creation test in shared folder completed successfully',
             success: true,
-            method: 'drive_api',
+            method: 'drive_api_shared_folder',
             documentId: documentId,
             documentUrl: documentUrl,
+            parentFolders: fileInfo.data.parents,
             timestamp: new Date().toISOString()
         });
         
