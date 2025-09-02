@@ -358,21 +358,27 @@ const orders = {
     },
     
     updateStatus: async (orderId, storeDomain, status, errorMessage = null) => {
+        // Handle both internal ID (integer) and Shopify order ID (bigint)
+        const isShopifyOrderId = orderId.toString().length > 10;
+        
         const result = await pool.query(`
             UPDATE processed_orders 
             SET processing_status = $1, error_message = $2, updated_date = CURRENT_TIMESTAMP 
-            WHERE id = $3
+            WHERE ${isShopifyOrderId ? 'shopify_order_id = $3::bigint' : 'id = $3'}
             RETURNING *
         `, [status, errorMessage, orderId]);
         return result.rows[0];
     },
     
     updateSheetsSync: async (orderId, storeDomain, synced, syncDate = null, sheetRange = null, errorMessage = null) => {
+        // Handle both internal ID (integer) and Shopify order ID (bigint)
+        const isShopifyOrderId = orderId.toString().length > 10;
+        
         const result = await pool.query(`
             UPDATE processed_orders 
             SET sheets_synced = $1, sheets_sync_date = $2, sheets_range = $3, 
                 sync_error_message = $4, updated_date = CURRENT_TIMESTAMP 
-            WHERE id = $5
+            WHERE ${isShopifyOrderId ? 'shopify_order_id = $5::bigint' : 'id = $5'}
             RETURNING *
         `, [synced, syncDate, sheetRange, errorMessage, orderId]);
         return result.rows[0];
