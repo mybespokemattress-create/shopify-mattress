@@ -48,7 +48,7 @@ async function initialize() {
             )
         `);
         
-        // UPDATED Orders processing log with Google Sheets integration
+        // Orders processing log with Google Sheets integration
         await pool.query(`
             CREATE TABLE IF NOT EXISTS processed_orders (
                 id SERIAL PRIMARY KEY,
@@ -78,7 +78,7 @@ async function initialize() {
             )
         `);
 
-        // NEW: Suppliers table for Google Sheets integration
+        // Suppliers table for Google Sheets integration
         await pool.query(`
             CREATE TABLE IF NOT EXISTS suppliers (
                 id SERIAL PRIMARY KEY,
@@ -91,16 +91,34 @@ async function initialize() {
             )
         `);
 
-        // Create indexes for performance
-        await pool.query(`
-            CREATE INDEX IF NOT EXISTS idx_orders_supplier_assigned ON processed_orders(supplier_assigned)
-        `);
-        await pool.query(`
-            CREATE INDEX IF NOT EXISTS idx_orders_google_sheets_status ON processed_orders(google_sheets_status)
-        `);
-        await pool.query(`
-            CREATE INDEX IF NOT EXISTS idx_orders_shopify_order_id ON processed_orders(shopify_order_id)
-        `);
+        // Check if columns exist before creating indexes
+        const checkColumn = async (tableName, columnName) => {
+            const result = await pool.query(`
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = $1 AND column_name = $2
+            `, [tableName, columnName]);
+            return result.rows.length > 0;
+        };
+
+        // Create indexes only if columns exist
+        if (await checkColumn('processed_orders', 'supplier_assigned')) {
+            await pool.query(`
+                CREATE INDEX IF NOT EXISTS idx_orders_supplier_assigned ON processed_orders(supplier_assigned)
+            `);
+        }
+        
+        if (await checkColumn('processed_orders', 'google_sheets_status')) {
+            await pool.query(`
+                CREATE INDEX IF NOT EXISTS idx_orders_google_sheets_status ON processed_orders(google_sheets_status)
+            `);
+        }
+        
+        if (await checkColumn('processed_orders', 'shopify_order_id')) {
+            await pool.query(`
+                CREATE INDEX IF NOT EXISTS idx_orders_shopify_order_id ON processed_orders(shopify_order_id)
+            `);
+        }
         
         // Insert store configurations and sample data
         await insertStoreConfigs();
@@ -155,7 +173,7 @@ async function insertSampleData() {
     `, ['shape_boat_58', 'Boat Shape 58', JSON.stringify(['A', 'B', 'C', 'D', 'E']), 'boat_58_diagram.jpg']);
 }
 
-// NEW: Insert supplier data for Google Sheets integration
+// Insert supplier data for Google Sheets integration
 async function insertSupplierData() {
     await pool.query(`
         INSERT INTO suppliers (name, sheet_id, sheet_url, sku_keywords) 
@@ -267,7 +285,7 @@ const stores = {
     }
 };
 
-// UPDATED Order operations with Google Sheets integration
+// Order operations with Google Sheets integration
 const orders = {
     // Updated create method for webhook processing
     create: async (orderData) => {
@@ -293,7 +311,7 @@ const orders = {
         return result.rows[0];
     },
 
-    // NEW: Update Google Sheets status
+    // Update Google Sheets status
     updateGoogleSheetsStatus: async (orderId, supplierId, rowNumber, status, errorMessage = null) => {
         const result = await pool.query(`
             UPDATE processed_orders 
@@ -309,7 +327,7 @@ const orders = {
         return result.rows[0];
     },
 
-    // NEW: Get orders status for Google Sheets monitoring
+    // Get orders status for Google Sheets monitoring
     getOrdersStatus: async () => {
         const result = await pool.query(`
             SELECT 
@@ -330,7 +348,7 @@ const orders = {
         return result.rows;
     },
 
-    // NEW: Get order by ID
+    // Get order by ID
     getById: async (orderId) => {
         const result = await pool.query(`
             SELECT * FROM processed_orders WHERE id = $1
@@ -400,7 +418,7 @@ const orders = {
     }
 };
 
-// NEW: Suppliers operations for Google Sheets integration
+// Suppliers operations for Google Sheets integration
 const suppliers = {
     getAll: async () => {
         const result = await pool.query('SELECT * FROM suppliers ORDER BY id');
@@ -424,6 +442,6 @@ module.exports = {
     productMappings,
     stores,
     orders,
-    suppliers, // Added suppliers module
-    pool // Raw database access if needed
+    suppliers,
+    pool
 };
