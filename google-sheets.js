@@ -66,9 +66,20 @@ function determineSupplier(products) {
 function formatOrderData(orderData, productData) {
     const currentDate = new Date().toLocaleDateString('en-GB');
     
-    // Format contact details (billing address)
+    // Format contact details (SHIPPING address - this is where the mattress goes)
     let contactDetails = '';
-    if (orderData.billingAddress) {
+    if (orderData.shippingAddress) {
+        const addr = orderData.shippingAddress;
+        contactDetails = [
+            addr.address1,
+            addr.address2,
+            addr.city,
+            addr.province,
+            addr.zip,
+            addr.country
+        ].filter(Boolean).join(', ');
+    } else if (orderData.billingAddress) {
+        // Fallback to billing address if no shipping address provided
         const addr = orderData.billingAddress;
         contactDetails = [
             addr.address1,
@@ -146,9 +157,10 @@ async function addOrderToSheet(orderData, productData) {
         console.log(`📍 Adding to row ${nextRow}`);
         
         // Update each specific column individually to avoid column misalignment
+        // Force text formatting by prefixing with apostrophe for order number
         const updates = [
             { range: `B${nextRow}`, values: [[formattedData.orderReceived]] },     // Order Received
-            { range: `H${nextRow}`, values: [[formattedData.orderNumber]] },       // Order number  
+            { range: `H${nextRow}`, values: [[`'${formattedData.orderNumber}`]] }, // Order number (force text)
             { range: `I${nextRow}`, values: [[formattedData.customerName]] },      // Name
             { range: `L${nextRow}`, values: [[formattedData.contactDetails]] },    // Contact Details
             { range: `M${nextRow}`, values: [[formattedData.telephone]] },         // Telephone
