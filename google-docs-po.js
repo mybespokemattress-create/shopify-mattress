@@ -10,25 +10,16 @@ const PO_OUTPUT_FOLDER_ID = '19RJxQRQ5rercn3IeWIeh5nPoLGykei0k'; // Orders folde
 let docs = null;
 let drive = null;
 
-// Initialize Google APIs with FIXED authentication
+// Initialize Google APIs with FIXED scope configuration
 async function initializeGoogleAPIs() {
     try {
         const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
         
-        // CRITICAL FIX: Enhanced authentication configuration
+        // CRITICAL FIX: Use single broad scope like APIs Explorer
         const auth = new GoogleAuth({
             credentials: serviceAccount,
-            scopes: [
-                'https://www.googleapis.com/auth/documents',
-                'https://www.googleapis.com/auth/drive',
-                'https://www.googleapis.com/auth/drive.file'
-            ],
-            // ADD THESE MISSING PARAMETERS:
-            projectId: serviceAccount.project_id, // Ensure project ID is set
-            // Explicit client configuration
-            clientOptions: {
-                subject: serviceAccount.client_email // Ensure proper impersonation
-            }
+            scopes: ['https://www.googleapis.com/auth/drive'], // SINGLE BROAD SCOPE
+            projectId: serviceAccount.project_id
         });
 
         // Get the authenticated client first
@@ -38,13 +29,13 @@ async function initializeGoogleAPIs() {
         docs = google.docs({ 
             version: 'v1', 
             auth: authClient,
-            timeout: 30000 // Add timeout to prevent hanging
+            timeout: 30000
         });
         
         drive = google.drive({ 
             version: 'v3', 
             auth: authClient,
-            timeout: 30000 // Add timeout to prevent hanging
+            timeout: 30000
         });
         
         console.log('✅ Google Docs and Drive APIs initialized successfully');
