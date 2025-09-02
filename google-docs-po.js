@@ -15,7 +15,6 @@ async function initializeGoogleAPIs() {
     try {
         const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
         
-        // CRITICAL FIX: Enhanced authentication configuration
         const auth = new GoogleAuth({
             credentials: serviceAccount,
             scopes: [
@@ -23,38 +22,30 @@ async function initializeGoogleAPIs() {
                 'https://www.googleapis.com/auth/drive',
                 'https://www.googleapis.com/auth/drive.file'
             ],
-            // ADD THESE MISSING PARAMETERS:
-            projectId: serviceAccount.project_id, // Ensure project ID is set
-            // Explicit client configuration
+            projectId: serviceAccount.project_id,
             clientOptions: {
-                subject: serviceAccount.client_email // Ensure proper impersonation
+                subject: serviceAccount.client_email
             }
         });
 
-        // Get the authenticated client first
         const authClient = await auth.getClient();
 
-        // Initialize APIs with explicit auth client and timeouts
         docs = google.docs({ 
             version: 'v1', 
             auth: authClient,
-            timeout: 30000 // Add timeout to prevent hanging
+            timeout: 30000
         });
         
         drive = google.drive({ 
             version: 'v3', 
             auth: authClient,
-            timeout: 30000 // Add timeout to prevent hanging
+            timeout: 30000
         });
         
         console.log('✅ Google Docs and Drive APIs initialized successfully');
-        console.log(`🔑 Service account: ${serviceAccount.client_email}`);
-        console.log(`📁 Project ID: ${serviceAccount.project_id}`);
-        
         return true;
     } catch (error) {
         console.error('❌ Failed to initialize Google APIs:', error.message);
-        console.error('❌ Full error:', error);
         return false;
     }
 }
@@ -195,7 +186,7 @@ function createPOContent(orderData, productData, supplierInfo, poType) {
     };
 }
 
-// Generate Purchase Order with ENHANCED error handling
+// Generate Purchase Order
 async function generatePO(orderData, productData, supplierInfo) {
     if (!docs || !drive) {
         const initialized = await initializeGoogleAPIs();
@@ -212,11 +203,8 @@ async function generatePO(orderData, productData, supplierInfo) {
         
         console.log(`📋 PO Type: ${poType}`);
         
-        // Create the document with ENHANCED error logging
+        // Create the document
         const docTitle = `PO ${orderData.shopifyOrderNumber} - ${orderData.customerName.replace(/[^a-zA-Z0-9\s]/g, '')}`;
-        
-        console.log('🔄 Creating document...');
-        console.log(`📝 Document title: ${docTitle}`);
         
         const createResponse = await docs.documents.create({
             resource: {
@@ -337,12 +325,6 @@ async function generatePO(orderData, productData, supplierInfo) {
         
     } catch (error) {
         console.error(`❌ Error generating PO:`, error.message);
-        console.error(`❌ Error details:`, {
-            name: error.name,
-            code: error.code,
-            status: error.status,
-            response: error.response?.data || 'No response data'
-        });
         throw error;
     }
 }
@@ -412,34 +394,19 @@ async function insertShapeDiagram(documentId, shapeNumber) {
     }
 }
 
-// Test PO generation with ENHANCED debugging
+// Test PO generation
 async function testPOGeneration() {
     try {
-        console.log('🧪 Testing PO generation...');
-        
         const initialized = await initializeGoogleAPIs();
-        if (!initialized) {
-            console.log('❌ API initialization failed');
-            return false;
-        }
-        
-        // Test a basic Drive API call to verify authentication
-        console.log('🔍 Testing basic Drive API access...');
-        const testList = await drive.files.list({
-            pageSize: 1,
-            fields: 'files(id, name)'
-        });
-        
-        console.log('✅ Drive API test successful:', testList.data.files?.length || 0, 'files found');
+        if (!initialized) return false;
         
         // Test finding a shape diagram
         const testShape = await findShapeDiagram('20');
-        console.log('📐 Test shape result:', testShape);
+        console.log('Test shape result:', testShape);
         
         return true;
     } catch (error) {
-        console.error('❌ PO generation test failed:', error.message);
-        console.error('❌ Full error:', error);
+        console.error('PO generation test failed:', error.message);
         return false;
     }
 }
