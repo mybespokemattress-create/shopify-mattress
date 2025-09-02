@@ -509,31 +509,31 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
     }
 });
 
-// NEW: Google Docs creation test endpoint
+// NEW: Google Docs creation test endpoint (FIXED VERSION)
 router.get('/po/create-test', async (req, res) => {
     try {
         console.log('🧪 Testing Google Docs document creation...');
         
-        // Initialize Google APIs
+        // Use the same authentication method as google-docs-po.js
+        const { GoogleAuth } = require('google-auth-library');
         const { google } = require('googleapis');
         
-        // Parse service account key
-        const serviceAccountKey = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+        // Parse service account key (same as your working module)
+        const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
         
-        // Create JWT auth client
-        const auth = new google.auth.JWT(
-            serviceAccountKey.client_email,
-            null,
-            serviceAccountKey.private_key.replace(/\\n/g, '\n'),
-            [
+        // Create auth client using GoogleAuth (same method as your PO module)
+        const auth = new GoogleAuth({
+            credentials: serviceAccount,
+            scopes: [
                 'https://www.googleapis.com/auth/documents',
+                'https://www.googleapis.com/auth/drive',
                 'https://www.googleapis.com/auth/drive.file'
             ]
-        );
+        });
         
         console.log('✅ Auth client created');
         
-        // Initialize Google Docs API
+        // Initialize APIs (same as your PO module)
         const docs = google.docs({ version: 'v1', auth });
         const drive = google.drive({ version: 'v3', auth });
         
@@ -543,7 +543,7 @@ router.get('/po/create-test', async (req, res) => {
         console.log('🧪 Step 1: Creating basic document...');
         
         const createResponse = await docs.documents.create({
-            requestBody: {
+            resource: {
                 title: 'PO Test Document - ' + new Date().toISOString()
             }
         });
@@ -569,7 +569,7 @@ router.get('/po/create-test', async (req, res) => {
         
         await docs.documents.batchUpdate({
             documentId: documentId,
-            requestBody: {
+            resource: {
                 requests: [
                     {
                         insertText: {
@@ -587,6 +587,15 @@ router.get('/po/create-test', async (req, res) => {
         
         // Step 4: Generate shareable link
         console.log('🧪 Step 4: Creating shareable link...');
+        
+        // Set permissions to make it shareable
+        await drive.permissions.create({
+            fileId: documentId,
+            resource: {
+                role: 'reader',
+                type: 'anyone'
+            }
+        });
         
         const shareResponse = await drive.files.get({
             fileId: documentId,
@@ -613,6 +622,7 @@ router.get('/po/create-test', async (req, res) => {
                 'Shareable link: ✅',
                 'Cleanup: ✅'
             ],
+            documentUrl: documentUrl, // This will be deleted but shows it worked
             timestamp: new Date().toISOString()
         });
         
