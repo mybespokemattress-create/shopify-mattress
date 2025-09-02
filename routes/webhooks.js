@@ -509,7 +509,89 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
     }
 });
 
-// NEW: Test if service account can copy existing Google Doc (different permissions than creation)
+// NEW: Debug HTTP request to compare with APIs Explorer
+router.get('/po/debug-request', async (req, res) => {
+    try {
+        console.log('🔍 Debugging exact HTTP request vs APIs Explorer...');
+        
+        const { GoogleAuth } = require('google-auth-library');
+        const { google } = require('googleapis');
+        
+        const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+        
+        // Use exact same auth method as your working google-docs-po.js
+        const auth = new GoogleAuth({
+            credentials: serviceAccount,
+            scopes: [
+                'https://www.googleapis.com/auth/drive',
+                'https://www.googleapis.com/auth/drive.file',
+                'https://www.googleapis.com/auth/documents'
+            ]
+        });
+        
+        const drive = google.drive({ version: 'v3', auth });
+        
+        console.log('✅ Drive API initialized');
+        
+        // Create the exact same request body as APIs Explorer
+        const requestBody = {
+            name: 'Debug HTTP Request Test',
+            mimeType: 'application/vnd.google-apps.document',
+            parents: ['19RJxQRQ5rercn3IeWIeh5nPoLGykei0k']
+        };
+        
+        console.log('📋 Request body:', JSON.stringify(requestBody, null, 2));
+        
+        // Log the auth token for debugging
+        const authClient = await auth.getClient();
+        const tokenInfo = await authClient.getAccessToken();
+        console.log('🔐 Token exists:', !!tokenInfo.token);
+        console.log('🔐 Token length:', tokenInfo.token ? tokenInfo.token.length : 0);
+        
+        // Try the request with detailed error logging
+        console.log('🚀 Making Drive API request...');
+        
+        const createResponse = await drive.files.create({
+            resource: requestBody,
+            fields: 'id,name,mimeType,parents'
+        });
+        
+        console.log('✅ SUCCESS! Document created:', createResponse.data);
+        
+        // Clean up
+        await drive.files.delete({
+            fileId: createResponse.data.id
+        });
+        console.log('✅ Test document deleted');
+        
+        res.json({
+            message: 'Debug request completed successfully - this should NOT have worked if there was a real issue',
+            success: true,
+            documentData: createResponse.data,
+            insight: 'If this worked, the issue might be specific to your google-docs-po.js implementation',
+            timestamp: new Date().toISOString()
+        });
+        
+    } catch (error) {
+        console.error('❌ Debug request failed:', error);
+        console.error('❌ Error details:', {
+            message: error.message,
+            code: error.code,
+            status: error.status,
+            response: error.response?.data
+        });
+        
+        res.status(500).json({
+            message: 'Debug request failed',
+            success: false,
+            error: error.message,
+            errorCode: error.code,
+            errorStatus: error.status,
+            errorResponse: error.response?.data,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
 router.get('/po/copy-permissions-test', async (req, res) => {
     try {
         console.log('🧪 Testing if service account can copy existing Google Docs vs create new ones...');
