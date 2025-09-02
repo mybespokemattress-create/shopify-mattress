@@ -509,6 +509,80 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
     }
 });
 
+// NEW: Simple Google Docs creation test endpoint
+router.get('/po/simple-test', async (req, res) => {
+    try {
+        console.log('🧪 Testing simple Google Docs creation in root Drive...');
+        
+        // Use the same method as your working google-docs-po.js
+        const { GoogleAuth } = require('google-auth-library');
+        const { google } = require('googleapis');
+        
+        const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+        
+        const auth = new GoogleAuth({
+            credentials: serviceAccount,
+            scopes: [
+                'https://www.googleapis.com/auth/documents',
+                'https://www.googleapis.com/auth/drive',
+                'https://www.googleapis.com/auth/drive.file'
+            ]
+        });
+        
+        const docs = google.docs({ version: 'v1', auth });
+        const drive = google.drive({ version: 'v3', auth });
+        
+        console.log('✅ APIs initialized');
+        
+        // Try the EXACT same method as your google-docs-po.js uses
+        console.log('🧪 Creating document in root Drive (same method as PO module)...');
+        
+        const createResponse = await docs.documents.create({
+            resource: {
+                title: 'Simple Test Document - ' + new Date().toISOString()
+            }
+        });
+        
+        const documentId = createResponse.data.documentId;
+        console.log('✅ Document created successfully:', documentId);
+        
+        // Get the document URL
+        const file = await drive.files.get({
+            fileId: documentId,
+            fields: 'webViewLink'
+        });
+        
+        const documentUrl = file.data.webViewLink;
+        console.log('✅ Document URL:', documentUrl);
+        
+        // Clean up
+        await drive.files.delete({
+            fileId: documentId
+        });
+        console.log('✅ Test document deleted');
+        
+        res.json({
+            message: 'Simple Google Docs test completed successfully',
+            success: true,
+            documentId: documentId,
+            documentUrl: documentUrl,
+            timestamp: new Date().toISOString()
+        });
+        
+    } catch (error) {
+        console.error('❌ Simple Google Docs test failed:', error);
+        
+        res.status(500).json({
+            message: 'Simple Google Docs test failed',
+            success: false,
+            error: error.message,
+            errorCode: error.code,
+            errorDetails: error.details,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
 // NEW: Google Docs creation test endpoint (FIXED VERSION)
 router.get('/po/create-test', async (req, res) => {
     try {
