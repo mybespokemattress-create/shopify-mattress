@@ -509,10 +509,10 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
     }
 });
 
-// NEW: Test creating a simple text file to isolate the issue
-router.get('/po/file-test', async (req, res) => {
+// NEW: Test Google Docs creation using correct Drive API method (Gemini solution)
+router.get('/po/fixed-test', async (req, res) => {
     try {
-        console.log('🧪 Testing basic file creation (not Google Docs)...');
+        console.log('🧪 Testing Google Docs creation using Drive API with parents parameter...');
         
         const { GoogleAuth } = require('google-auth-library');
         const { google } = require('googleapis');
@@ -523,64 +523,87 @@ router.get('/po/file-test', async (req, res) => {
             credentials: serviceAccount,
             scopes: [
                 'https://www.googleapis.com/auth/drive',
-                'https://www.googleapis.com/auth/drive.file'
+                'https://www.googleapis.com/auth/drive.file',
+                'https://www.googleapis.com/auth/documents'
             ]
         });
         
         const drive = google.drive({ version: 'v3', auth });
+        const docs = google.docs({ version: 'v1', auth });
         
-        console.log('✅ Drive API initialized');
+        console.log('✅ APIs initialized');
         
-        // Try creating a simple text file instead of a Google Doc
-        console.log('🧪 Creating simple text file...');
+        // Create Google Doc directly in shared folder using Drive API (Gemini solution)
+        console.log('🧪 Creating Google Doc directly in shared folder...');
         
         const ordersFolder = '19RJxQRQ5rercn3IeWIeh5nPoLGykei0k';
         
-        const fileMetadata = {
-            name: 'Simple Test File - ' + new Date().toISOString() + '.txt',
-            parents: [ordersFolder]
-        };
-        
-        const media = {
-            mimeType: 'text/plain',
-            body: 'This is a test file created by the service account at ' + new Date().toISOString()
+        const newDocMetadata = {
+            name: 'Fixed PO Test - ' + new Date().toISOString(),
+            parents: [ordersFolder], // This is the key - creates directly in your folder
+            mimeType: 'application/vnd.google-apps.document'
         };
         
         const createResponse = await drive.files.create({
-            resource: fileMetadata,
-            media: media,
-            fields: 'id,webViewLink,name'
+            resource: newDocMetadata,
+            fields: 'id,webViewLink,parents'
         });
         
-        const fileId = createResponse.data.id;
-        const fileUrl = createResponse.data.webViewLink;
-        const fileName = createResponse.data.name;
+        const documentId = createResponse.data.id;
+        const documentUrl = createResponse.data.webViewLink;
         
-        console.log('✅ Text file created successfully:', fileName);
-        console.log('✅ File ID:', fileId);
-        console.log('✅ File URL:', fileUrl);
+        console.log('✅ Google Doc created successfully in shared folder:', documentId);
+        console.log('✅ Document URL:', documentUrl);
+        console.log('✅ Document parents:', createResponse.data.parents);
+        
+        // Test editing the document
+        console.log('🧪 Testing document editing...');
+        
+        await docs.documents.batchUpdate({
+            documentId: documentId,
+            resource: {
+                requests: [
+                    {
+                        insertText: {
+                            location: { index: 1 },
+                            text: 'SUCCESS! Document created directly in shared folder.\n\nCreated: ' + new Date().toISOString() + '\n\nThis bypassed the service account storage quota issue.\n\n'
+                        }
+                    }
+                ]
+            }
+        });
+        
+        console.log('✅ Document edited successfully');
+        
+        // Verify the document is accessible
+        const docContent = await docs.documents.get({
+            documentId: documentId
+        });
+        
+        console.log('✅ Document verified - Title:', docContent.data.title);
         
         // Clean up
         await drive.files.delete({
-            fileId: fileId
+            fileId: documentId
         });
-        console.log('✅ Test file deleted');
+        console.log('✅ Test document deleted');
         
         res.json({
-            message: 'Basic file creation test completed successfully',
+            message: 'Google Docs creation using Drive API with parents parameter completed successfully',
             success: true,
-            method: 'text_file_creation',
-            fileName: fileName,
-            fileId: fileId,
-            fileUrl: fileUrl,
+            method: 'drive_api_with_parents',
+            documentId: documentId,
+            documentUrl: documentUrl,
+            documentTitle: docContent.data.title,
+            parentFolders: createResponse.data.parents,
             timestamp: new Date().toISOString()
         });
         
     } catch (error) {
-        console.error('❌ Basic file creation test failed:', error);
+        console.error('❌ Fixed Google Docs test failed:', error);
         
         res.status(500).json({
-            message: 'Basic file creation test failed',
+            message: 'Fixed Google Docs test failed',
             success: false,
             error: error.message,
             errorCode: error.code,
