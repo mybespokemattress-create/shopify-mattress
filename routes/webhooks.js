@@ -490,7 +490,8 @@ router.get('/po/debug-request', async (req, res) => {
             scopes: [
                 'https://www.googleapis.com/auth/drive',
                 'https://www.googleapis.com/auth/documents'
-            ]
+            ],
+            subject: 'dev@mybespokemattress.com'
         });
         
         const drive = google.drive({ version: 'v3', auth });

@@ -10,19 +10,19 @@ const PO_OUTPUT_FOLDER_ID = '0ACJnKRrvTAQWUk9PVA'; // Workspace Shared Drive
 let docs = null;
 let drive = null;
 
-// Initialize Google APIs with Direct Service Account Authentication
+// Initialize Google APIs with Domain-Wide Delegation (Final Solution)
 async function initializeGoogleAPIs() {
     try {
         const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
         
-        // Use the service account's permissions directly (no impersonation)
+        // Domain-wide delegation with user impersonation
         const auth = new GoogleAuth({
             credentials: serviceAccount,
             scopes: [
                 'https://www.googleapis.com/auth/drive',
                 'https://www.googleapis.com/auth/documents'
             ],
-            projectId: serviceAccount.project_id
+            subject: 'dev@mybespokemattress.com' // Impersonate your Workspace user
         });
 
         // Get the authenticated client first
@@ -41,8 +41,9 @@ async function initializeGoogleAPIs() {
             timeout: 30000
         });
         
-        console.log('Google Docs and Drive APIs initialized successfully');
+        console.log('Google Docs and Drive APIs initialized with domain-wide delegation');
         console.log(`Service account: ${serviceAccount.client_email}`);
+        console.log(`Acting as: dev@mybespokemattress.com`);
         console.log(`Project ID: ${serviceAccount.project_id}`);
         
         return true;
