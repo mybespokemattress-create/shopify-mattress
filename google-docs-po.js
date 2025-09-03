@@ -4,8 +4,8 @@ const { GoogleAuth } = require('google-auth-library');
 const { google } = require('googleapis');
 
 // Configuration
-const MEASURING_DIAGRAMS_FOLDER_ID = '1E5OHL4RZiIvz0uXuPgRdwquTTPW7WjJT';
-const PO_OUTPUT_FOLDER_ID = '0ACJnKRrvTAQWUk9PVA'; // Workspace Shared Drive
+const MEASURING_DIAGRAMS_FOLDER_ID = '17IaqJqzj1dLWUY1NG5n4ysdq8f6cJunz';
+const PO_OUTPUT_FOLDER_ID = '1-zamjJmI9pHXUKlCsyNiYjHQzAcDmc9x'; // Workspace Shared Drive
  
 let docs = null;
 let drive = null;

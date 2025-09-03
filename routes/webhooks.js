@@ -571,7 +571,7 @@ router.get('/po/copy-permissions-test', async (req, res) => {
         
         console.log('Looking for existing Google Docs in Orders folder to copy...');
         
-        const ordersFolder = '19RJxQRQ5rercn3IeWIeh5nPoLGykei0k';
+        const ordersFolder = '1-zamjJmI9pHXUKlCsyNiYjHQzAcDmc9x';
         
         const searchResponse = await drive.files.list({
             q: `parents in '${ordersFolder}' and mimeType='application/vnd.google-apps.document'`,
@@ -739,7 +739,7 @@ router.get('/po/create-test', async (req, res) => {
         
         console.log('Step 2: Moving document to Orders folder...');
         
-        const ordersFolder = '19RJxQRQ5rercn3IeWIeh5nPoLGykei0k';
+        const ordersFolder = '1-zamjJmI9pHXUKlCsyNiYjHQzAcDmc9x';
         
         await drive.files.update({
             fileId: documentId,
