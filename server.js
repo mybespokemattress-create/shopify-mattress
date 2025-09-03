@@ -8,6 +8,9 @@ const PORT = process.env.PORT || 3000;
 // Import database functions
 const db = require('./database/db');
 
+// Import webhook routes
+const webhookRoutes = require('./routes/webhooks');
+
 // Store configuration
 const storeConfigs = {
     [process.env.STORE1_DOMAIN]: {
@@ -30,20 +33,8 @@ const storeConfigs = {
 // Make store configs available to routes
 app.locals.storeConfigs = storeConfigs;
 
-// Basic webhook endpoint (simple version for now)
-app.post('/webhook/orders/create', express.raw({ type: 'application/json' }), async (req, res) => {
-    console.log('Webhook received - simple handler');
-    res.status(200).json({ message: 'Webhook received successfully' });
-});
-
-// Test endpoint for webhooks
-app.get('/webhook/test', (req, res) => {
-    res.json({
-        message: 'Webhook endpoint is active',
-        stores: Object.keys(storeConfigs),
-        timestamp: new Date().toISOString()
-    });
-});
+// Webhook routes (before JSON middleware)
+app.use('/webhook', webhookRoutes);
 
 // Middleware for other routes
 app.use(express.json({ limit: '10mb' }));
@@ -193,7 +184,7 @@ async function startServer() {
         app.listen(PORT, () => {
             console.log(`Server running on port ${PORT}`);
             console.log(`React App: http://localhost:${PORT}/`);
-            console.log(`Simple webhook: http://localhost:${PORT}/webhook/orders/create`);
+            console.log(`Webhook endpoint: http://localhost:${PORT}/webhook/orders/create`);
             console.log(`Configured stores: ${Object.keys(storeConfigs).length}`);
             Object.keys(storeConfigs).forEach((domain, index) => {
                 console.log(`   ${index + 1}. ${storeConfigs[domain].name} (${domain})`);
