@@ -2,7 +2,7 @@
 const crypto = require('crypto');
 const db = require('../database/db');
 const googleSheets = require('../google-sheets');
-const googleDocsPO = require('../google-docs-po');
+// const googleDocsPO = require('../google-docs-po'); // DISABLED - problematic file removed
 
 const router = express.Router();
 
@@ -406,7 +406,12 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
             }
         }
         
+        // PO GENERATION TEMPORARILY DISABLED
         let poResult = null;
+        console.log('PO generation temporarily disabled - Google Docs integration needs fixing');
+        
+        /*
+        // DISABLED PO GENERATION CODE - can be re-enabled once google-docs-po.js is fixed
         if (sheetsResult && sheetsResult.success && supplierAssignment) {
             try {
                 console.log('Generating Purchase Order...');
@@ -431,6 +436,7 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
         } else {
             console.log('Skipping PO generation - Google Sheets sync required first');
         }
+        */
         
         console.log(`Customer: ${customerData.customerEmail}`);
         console.log(`Phone: ${customerData.customerPhone}`);
@@ -444,9 +450,9 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
             productsProcessed: productData.length,
             supplierAssigned: supplierName,
             sheetsUpdated: sheetsResult?.success || false,
-            poGenerated: poResult?.success || false,
-            poUrl: poResult?.documentUrl || null,
-            poType: poResult?.poType || null,
+            poGenerated: false, // Always false since PO generation is disabled
+            poUrl: null,
+            poType: null,
             unmappedProducts: unmappedProducts.length > 0 ? unmappedProducts : undefined,
             timestamp
         };
@@ -457,9 +463,6 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
         }
         if (sheetsResult?.success) {
             console.log(`Google Sheets updated: ${sheetsResult.supplierName}`);
-        }
-        if (poResult?.success) {
-            console.log(`Purchase Order generated: ${poResult.poType}`);
         }
         
         res.status(200).json(response);
@@ -951,21 +954,20 @@ router.get('/po/create-test', async (req, res) => {
     }
 });
 
+// DISABLED PO TEST ENDPOINT
 router.get('/po/test', async (req, res) => {
-    try {
-        const testResult = await googleDocsPO.testPOGeneration();
-        res.json({
-            message: 'PO generation test endpoint',
-            initialized: testResult,
-            timestamp: new Date().toISOString()
-        });
-    } catch (error) {
-        res.status(500).json({
-            error: 'PO test failed',
-            message: error.message,
-            timestamp: new Date().toISOString()
-        });
-    }
+    res.json({
+        message: 'PO generation test endpoint - temporarily disabled',
+        initialized: false,
+        note: 'PO generation is disabled until Google Docs integration is fixed',
+        availableTests: [
+            '/webhook/po/simple-test',
+            '/webhook/po/create-test',
+            '/webhook/po/debug-request',
+            '/webhook/po/copy-permissions-test'
+        ],
+        timestamp: new Date().toISOString()
+    });
 });
 
 router.get('/sheets/test', async (req, res) => {
