@@ -44,7 +44,7 @@ async function initializeGoogleAPIs() {
                 'https://www.googleapis.com/auth/drive',
                 'https://www.googleapis.com/auth/documents'
             ],
-            subject: 'dev@mybespokemattress.com'
+        //    subject: 'dev@mybespokemattress.com'
         });
 
         // Direct initialisation - consistent with webhooks.js pattern
