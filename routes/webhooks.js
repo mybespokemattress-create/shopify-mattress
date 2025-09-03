@@ -537,7 +537,7 @@ router.get('/po/debug-request', async (req, res) => {
         const requestBody = {
             name: 'Debug HTTP Request Test',
             mimeType: 'application/vnd.google-apps.document',
-            parents: ['19RJxQRQ5rercn3IeWIeh5nPoLGykei0k']
+            parents: ['0ACJnKRrvTAQWUk9PVA']
         };
         
         console.log('📋 Request body:', JSON.stringify(requestBody, null, 2));
