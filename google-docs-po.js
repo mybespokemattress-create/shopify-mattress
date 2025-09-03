@@ -43,8 +43,9 @@ async function initializeGoogleAPIs() {
             scopes: [
                 'https://www.googleapis.com/auth/drive',
                 'https://www.googleapis.com/auth/documents'
-            ],
-            subject: 'dev@mybespokemattress.com' // Now that account is confirmed to exist
+            ]
+            // Testing direct service account access - comment out subject line
+            // subject: 'dev@mybespokemattress.com'
         });
 
         // Direct initialisation - consistent with webhooks.js pattern
