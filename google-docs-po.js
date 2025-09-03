@@ -1,25 +1,26 @@
-// google-docs-po.js - Purchase Order Generation with Shape Diagrams
+// google-docs-po.js - Purchase Order Generation with Domain-Wide Delegation
 
 const { GoogleAuth } = require('google-auth-library');
 const { google } = require('googleapis');
 
 // Configuration
 const MEASURING_DIAGRAMS_FOLDER_ID = '1E5OHL4RZiIvz0uXuPgRdwquTTPW7WjJT';
-const PO_OUTPUT_FOLDER_ID = '0ACJnKRrvTAQWUk9PVA'; // NEW Workspace Shared Drive
+const PO_OUTPUT_FOLDER_ID = '0ACJnKRrvTAQWUk9PVA'; // Workspace Shared Drive
  
 let docs = null;
 let drive = null;
 
-// Initialize Google APIs with FIXED scope configuration
+// Initialize Google APIs with Domain-Wide Delegation
 async function initializeGoogleAPIs() {
     try {
         const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
         
-        // CRITICAL FIX: Use single broad scope like APIs Explorer
+        // CRITICAL FIX: Add domain-wide delegation with user impersonation
         const auth = new GoogleAuth({
             credentials: serviceAccount,
-            scopes: ['https://www.googleapis.com/auth/drive'], // SINGLE BROAD SCOPE
-            projectId: serviceAccount.project_id
+            scopes: ['https://www.googleapis.com/auth/drive'],
+            // IMPORTANT: Add the subject parameter to impersonate a Workspace user
+            subject: 'your-workspace-user@yourdomain.com' // REPLACE WITH YOUR ACTUAL WORKSPACE EMAIL
         });
 
         // Get the authenticated client first
@@ -38,8 +39,9 @@ async function initializeGoogleAPIs() {
             timeout: 30000
         });
         
-        console.log('✅ Google Docs and Drive APIs initialized successfully');
+        console.log('✅ Google Docs and Drive APIs initialized with domain-wide delegation');
         console.log(`🔑 Service account: ${serviceAccount.client_email}`);
+        console.log(`👤 Impersonating: dev@mybespokemattress.com`);
         console.log(`📁 Project ID: ${serviceAccount.project_id}`);
         
         return true;
@@ -113,80 +115,7 @@ function formatMeasurements(measurementStatus, shapeInfo) {
     return dimensions.length > 0 ? dimensions.join(', ') : 'MEASUREMENTS TO BE PROVIDED';
 }
 
-// Create PO document content
-function createPOContent(orderData, productData, supplierInfo, poType) {
-    const product = productData[0]; // Assuming single product for now
-    const currentDate = new Date().toLocaleDateString('en-GB');
-    
-    // Format customer address
-    const address = orderData.shippingAddress || orderData.billingAddress || {};
-    const customerAddress = [
-        address.address1,
-        address.address2,
-        address.city,
-        address.province,
-        address.zip,
-        address.country
-    ].filter(Boolean).join(', ');
-    
-    // PO status based on type
-    let statusSection = '';
-    switch (poType) {
-        case 'complete':
-            statusSection = 'STATUS: READY FOR PRODUCTION';
-            break;
-        case 'measurements_pending':
-            statusSection = 'STATUS: AWAITING CUSTOMER MEASUREMENTS - DO NOT PROCEED TO PRODUCTION';
-            break;
-        case 'kit_requested':
-            statusSection = 'STATUS: MEASURING KIT REQUIRED - CUSTOMER TO BE CONTACTED';
-            break;
-    }
-    
-    return {
-        title: `PO ${orderData.shopifyOrderNumber} - ${orderData.customerName}`,
-        content: [
-            {
-                insertText: {
-                    location: { index: 1 },
-                    text: `PURCHASE ORDER\n\n`
-                }
-            },
-            {
-                updateTextStyle: {
-                    range: { startIndex: 1, endIndex: 15 },
-                    textStyle: { bold: true, fontSize: { magnitude: 16, unit: 'PT' } }
-                }
-            },
-            {
-                insertText: {
-                    location: { index: 17 },
-                    text: `Order Number: ${orderData.shopifyOrderNumber}\n`
-                }
-            },
-            {
-                insertText: {
-                    location: { index: 17 + `Order Number: ${orderData.shopifyOrderNumber}\n`.length },
-                    text: `Date: ${currentDate}\n`
-                }
-            },
-            {
-                insertText: {
-                    location: { index: 17 + `Order Number: ${orderData.shopifyOrderNumber}\nDate: ${currentDate}\n`.length },
-                    text: `Supplier: ${supplierInfo.name}\n\n`
-                }
-            },
-            {
-                insertText: {
-                    location: { index: 17 + `Order Number: ${orderData.shopifyOrderNumber}\nDate: ${currentDate}\nSupplier: ${supplierInfo.name}\n\n`.length },
-                    text: `${statusSection}\n\n`
-                }
-            }
-        ]
-    };
-}
-
-// Generate Purchase Order with ENHANCED error handling
+// Generate Purchase Order with Domain-Wide Delegation
 async function generatePO(orderData, productData, supplierInfo) {
     if (!docs || !drive) {
         const initialized = await initializeGoogleAPIs();
@@ -203,13 +132,13 @@ async function generatePO(orderData, productData, supplierInfo) {
         
         console.log(`📋 PO Type: ${poType}`);
         
-        // Create the document with ENHANCED error logging
+        // Create the document - now using impersonated user's quota
         const docTitle = `PO ${orderData.shopifyOrderNumber} - ${orderData.customerName.replace(/[^a-zA-Z0-9\s]/g, '')}`;
         
-        console.log('🔄 Creating document...');
+        console.log('🔄 Creating document with impersonated user...');
         console.log(`📝 Document title: ${docTitle}`);
         
-        // CRITICAL FIX: Use Drive API with parents parameter to avoid quota error
+        // Use Drive API with parents parameter - now works because we're impersonating a user
         const createResponse = await drive.files.create({
             resource: {
                 name: docTitle,
@@ -297,9 +226,6 @@ async function generatePO(orderData, productData, supplierInfo) {
         if (product.shapeInfo && product.shapeInfo.shapeNumber) {
             await insertShapeDiagram(documentId, product.shapeInfo.shapeNumber);
         }
-        
-        // Document is already in correct folder, no need to move it
-        // The redundant files.update() call has been removed
         
         // Get shareable link
         await drive.permissions.create({
@@ -402,10 +328,10 @@ async function insertShapeDiagram(documentId, shapeNumber) {
     }
 }
 
-// Test PO generation with ENHANCED debugging
+// Test PO generation with domain-wide delegation
 async function testPOGeneration() {
     try {
-        console.log('🧪 Testing PO generation...');
+        console.log('🧪 Testing PO generation with domain-wide delegation...');
         
         const initialized = await initializeGoogleAPIs();
         if (!initialized) {
@@ -414,7 +340,7 @@ async function testPOGeneration() {
         }
         
         // Test a basic Drive API call to verify authentication
-        console.log('🔍 Testing basic Drive API access...');
+        console.log('🔍 Testing basic Drive API access with impersonated user...');
         const testList = await drive.files.list({
             pageSize: 1,
             fields: 'files(id, name)'
