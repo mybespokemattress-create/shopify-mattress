@@ -20,8 +20,7 @@ async function initializeGoogleAPIs() {
             scopes: [
                 'https://www.googleapis.com/auth/drive',
                 'https://www.googleapis.com/auth/documents'
-            ],
-            subject: 'dev@mybespokemattress.com'
+            ]
         });
 
         // Get the authenticated client first

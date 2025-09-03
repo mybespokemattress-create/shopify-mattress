@@ -486,13 +486,12 @@ router.get('/po/debug-request', async (req, res) => {
         const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
         
         const auth = new GoogleAuth({
-            credentials: serviceAccount,
-            scopes: [
-                'https://www.googleapis.com/auth/drive',
-                'https://www.googleapis.com/auth/documents'
-            ],
-            subject: 'dev@mybespokemattress.com'
-        });
+    credentials: serviceAccount,
+    scopes: [
+        'https://www.googleapis.com/auth/drive',
+        'https://www.googleapis.com/auth/documents'
+    ]
+});
         
         const drive = google.drive({ version: 'v3', auth });
         
@@ -557,13 +556,12 @@ router.get('/po/copy-permissions-test', async (req, res) => {
         const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
         
         const auth = new GoogleAuth({
-            credentials: serviceAccount,
-            scopes: [
-                'https://www.googleapis.com/auth/drive',
-                'https://www.googleapis.com/auth/documents'
-            ],
-            subject: 'dev@mybespokemattress.com'
-        });
+    credentials: serviceAccount,
+    scopes: [
+        'https://www.googleapis.com/auth/drive',
+        'https://www.googleapis.com/auth/documents'
+    ]
+});
         
         const drive = google.drive({ version: 'v3', auth });
         
@@ -643,14 +641,12 @@ router.get('/po/simple-test', async (req, res) => {
         const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
         
         const auth = new GoogleAuth({
-            credentials: serviceAccount,
-            scopes: [
-                'https://www.googleapis.com/auth/drive',
-                'https://www.googleapis.com/auth/documents'
-            ],
-            subject: 'dev@mybespokemattress.com'
-        });
-        
+    credentials: serviceAccount,
+    scopes: [
+        'https://www.googleapis.com/auth/drive',
+        'https://www.googleapis.com/auth/documents'
+    ]
+});
         const docs = google.docs({ version: 'v1', auth });
         const drive = google.drive({ version: 'v3', auth });
         
@@ -711,13 +707,12 @@ router.get('/po/create-test', async (req, res) => {
         const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
         
         const auth = new GoogleAuth({
-            credentials: serviceAccount,
-            scopes: [
-                'https://www.googleapis.com/auth/drive',
-                'https://www.googleapis.com/auth/documents'
-            ],
-            subject: 'dev@mybespokemattress.com'
-        });
+    credentials: serviceAccount,
+    scopes: [
+        'https://www.googleapis.com/auth/drive',
+        'https://www.googleapis.com/auth/documents'
+    ]
+});
         
         console.log('Auth client created');
         
