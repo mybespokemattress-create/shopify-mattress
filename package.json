@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
-    "build": "cd client && npm install && npm run build",
+    "build": "echo 'Build skipped for webhook testing'",
     "start": "node server.js",
     "dev": "nodemon server.js",
     "init-db": "node database/init.js"
