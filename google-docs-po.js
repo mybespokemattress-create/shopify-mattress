@@ -15,12 +15,13 @@ async function initializeGoogleAPIs() {
     try {
         const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
         
-        // CRITICAL FIX: Add domain-wide delegation with user impersonation
         const auth = new GoogleAuth({
             credentials: serviceAccount,
-            scopes: ['https://www.googleapis.com/auth/drive'],
-            // IMPORTANT: Add the subject parameter to impersonate a Workspace user
-            subject: 'your-workspace-user@yourdomain.com' // REPLACE WITH YOUR ACTUAL WORKSPACE EMAIL
+            scopes: [
+                'https://www.googleapis.com/auth/drive',
+                'https://www.googleapis.com/auth/documents'
+            ],
+            subject: 'dev@mybespokemattress.com'
         });
 
         // Get the authenticated client first
@@ -39,15 +40,15 @@ async function initializeGoogleAPIs() {
             timeout: 30000
         });
         
-        console.log('✅ Google Docs and Drive APIs initialized with domain-wide delegation');
-        console.log(`🔑 Service account: ${serviceAccount.client_email}`);
-        console.log(`👤 Impersonating: dev@mybespokemattress.com`);
-        console.log(`📁 Project ID: ${serviceAccount.project_id}`);
+        console.log('Google Docs and Drive APIs initialized with domain-wide delegation');
+        console.log(`Service account: ${serviceAccount.client_email}`);
+        console.log(`Impersonating: dev@mybespokemattress.com`);
+        console.log(`Project ID: ${serviceAccount.project_id}`);
         
         return true;
     } catch (error) {
-        console.error('❌ Failed to initialize Google APIs:', error.message);
-        console.error('❌ Full error:', error);
+        console.error('Failed to initialize Google APIs:', error.message);
+        console.error('Full error:', error);
         return false;
     }
 }
@@ -65,7 +66,7 @@ async function findShapeDiagram(shapeNumber) {
         
         if (response.data.files && response.data.files.length > 0) {
             const file = response.data.files[0];
-            console.log(`📐 Found shape diagram: ${file.name}`);
+            console.log(`Found shape diagram: ${file.name}`);
             return {
                 fileId: file.id,
                 name: file.name,
@@ -74,10 +75,10 @@ async function findShapeDiagram(shapeNumber) {
             };
         }
         
-        console.log(`⚠️ Shape diagram not found for shape ${shapeNumber}`);
+        console.log(`Shape diagram not found for shape ${shapeNumber}`);
         return null;
     } catch (error) {
-        console.error(`❌ Error finding shape diagram for shape ${shapeNumber}:`, error.message);
+        console.error(`Error finding shape diagram for shape ${shapeNumber}:`, error.message);
         return null;
     }
 }
@@ -124,19 +125,19 @@ async function generatePO(orderData, productData, supplierInfo) {
         }
     }
     
-    console.log(`📄 Generating PO for order ${orderData.shopifyOrderNumber}`);
+    console.log(`Generating PO for order ${orderData.shopifyOrderNumber}`);
     
     try {
         const product = productData[0]; // Handle single product for now
         const poType = determinePOType(product.measurementStatus);
         
-        console.log(`📋 PO Type: ${poType}`);
+        console.log(`PO Type: ${poType}`);
         
         // Create the document - now using impersonated user's quota
         const docTitle = `PO ${orderData.shopifyOrderNumber} - ${orderData.customerName.replace(/[^a-zA-Z0-9\s]/g, '')}`;
         
-        console.log('🔄 Creating document with impersonated user...');
-        console.log(`📝 Document title: ${docTitle}`);
+        console.log('Creating document with impersonated user...');
+        console.log(`Document title: ${docTitle}`);
         
         // Use Drive API with parents parameter - now works because we're impersonating a user
         const createResponse = await drive.files.create({
@@ -148,7 +149,7 @@ async function generatePO(orderData, productData, supplierInfo) {
         });
         
         const documentId = createResponse.data.id;
-        console.log(`📄 Created document: ${documentId}`);
+        console.log(`Created document: ${documentId}`);
         
         // Build document content
         const currentDate = new Date().toLocaleDateString('en-GB');
@@ -166,13 +167,13 @@ async function generatePO(orderData, productData, supplierInfo) {
         let statusSection = '';
         switch (poType) {
             case 'complete':
-                statusSection = '🟢 STATUS: READY FOR PRODUCTION';
+                statusSection = 'STATUS: READY FOR PRODUCTION';
                 break;
             case 'measurements_pending':
-                statusSection = '🟡 STATUS: AWAITING CUSTOMER MEASUREMENTS\n⚠️  DO NOT PROCEED TO PRODUCTION';
+                statusSection = 'STATUS: AWAITING CUSTOMER MEASUREMENTS\nDO NOT PROCEED TO PRODUCTION';
                 break;
             case 'kit_requested':
-                statusSection = '🟡 STATUS: MEASURING KIT REQUIRED\n📞 CUSTOMER TO BE CONTACTED';
+                statusSection = 'STATUS: MEASURING KIT REQUIRED\nCUSTOMER TO BE CONTACTED';
                 break;
         }
         
@@ -241,7 +242,7 @@ async function generatePO(orderData, productData, supplierInfo) {
             fields: 'webViewLink'
         });
         
-        console.log(`✅ PO generated successfully: ${file.data.webViewLink}`);
+        console.log(`PO generated successfully: ${file.data.webViewLink}`);
         
         return {
             success: true,
@@ -252,8 +253,8 @@ async function generatePO(orderData, productData, supplierInfo) {
         };
         
     } catch (error) {
-        console.error(`❌ Error generating PO:`, error.message);
-        console.error(`❌ Error details:`, {
+        console.error(`Error generating PO:`, error.message);
+        console.error(`Error details:`, {
             name: error.name,
             code: error.code,
             status: error.status,
@@ -266,11 +267,11 @@ async function generatePO(orderData, productData, supplierInfo) {
 // Insert shape diagram into document
 async function insertShapeDiagram(documentId, shapeNumber) {
     try {
-        console.log(`📐 Inserting shape diagram ${shapeNumber} into PO`);
+        console.log(`Inserting shape diagram ${shapeNumber} into PO`);
         
         const shapeDiagram = await findShapeDiagram(shapeNumber);
         if (!shapeDiagram) {
-            console.log(`⚠️ Shape diagram ${shapeNumber} not found, skipping image insertion`);
+            console.log(`Shape diagram ${shapeNumber} not found, skipping image insertion`);
             return false;
         }
         
@@ -315,15 +316,15 @@ async function insertShapeDiagram(documentId, shapeNumber) {
                 }
             });
             
-            console.log(`✅ Shape diagram inserted successfully`);
+            console.log(`Shape diagram inserted successfully`);
             return true;
         }
         
-        console.log(`⚠️ Could not find insertion point for shape diagram`);
+        console.log(`Could not find insertion point for shape diagram`);
         return false;
         
     } catch (error) {
-        console.error(`❌ Error inserting shape diagram:`, error.message);
+        console.error(`Error inserting shape diagram:`, error.message);
         return false;
     }
 }
@@ -331,31 +332,31 @@ async function insertShapeDiagram(documentId, shapeNumber) {
 // Test PO generation with domain-wide delegation
 async function testPOGeneration() {
     try {
-        console.log('🧪 Testing PO generation with domain-wide delegation...');
+        console.log('Testing PO generation with domain-wide delegation...');
         
         const initialized = await initializeGoogleAPIs();
         if (!initialized) {
-            console.log('❌ API initialization failed');
+            console.log('API initialization failed');
             return false;
         }
         
         // Test a basic Drive API call to verify authentication
-        console.log('🔍 Testing basic Drive API access with impersonated user...');
+        console.log('Testing basic Drive API access with impersonated user...');
         const testList = await drive.files.list({
             pageSize: 1,
             fields: 'files(id, name)'
         });
         
-        console.log('✅ Drive API test successful:', testList.data.files?.length || 0, 'files found');
+        console.log('Drive API test successful:', testList.data.files?.length || 0, 'files found');
         
         // Test finding a shape diagram
         const testShape = await findShapeDiagram('20');
-        console.log('📐 Test shape result:', testShape);
+        console.log('Test shape result:', testShape);
         
         return true;
     } catch (error) {
-        console.error('❌ PO generation test failed:', error.message);
-        console.error('❌ Full error:', error);
+        console.error('PO generation test failed:', error.message);
+        console.error('Full error:', error);
         return false;
     }
 }

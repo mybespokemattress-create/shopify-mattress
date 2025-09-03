@@ -2,15 +2,15 @@
 const crypto = require('crypto');
 const db = require('../database/db');
 const googleSheets = require('../google-sheets');
-const googleDocsPO = require('../google-docs-po'); // NEW: Import PO generator
+const googleDocsPO = require('../google-docs-po');
 
 const router = express.Router();
 
 // Store-specific order prefixes
 const ORDER_PREFIXES = {
-    'uxyxaq-pu.myshopify.com': '#MOTO',        // Motorhome Mattresses
-    'mattressmade.myshopify.com': '#MYBE',     // My Bespoke Mattress
-    'd587eb.myshopify.com': '#CARA'            // Caravan Mattresses
+    'uxyxaq-pu.myshopify.com': '#MOTO',
+    'mattressmade.myshopify.com': '#MYBE',
+    'd587eb.myshopify.com': '#CARA'
 };
 
 // Webhook signature verification
@@ -19,7 +19,6 @@ function verifyWebhookSignature(data, signature, secret) {
     hmac.update(data, 'utf8');
     const calculatedSignature = hmac.digest('base64');
     
-    // Shopify sends the signature as sha256=<signature>
     const expectedSignature = signature.replace('sha256=', '');
     
     console.log('Calculated signature (base64):', calculatedSignature);
@@ -30,7 +29,6 @@ function verifyWebhookSignature(data, signature, secret) {
 
 // Get store config from webhook
 function getStoreFromHeaders(req) {
-    // Try to get store domain from Shopify headers
     const shopDomain = req.get('X-Shopify-Shop-Domain');
     
     if (shopDomain && req.app.locals.storeConfigs[shopDomain]) {
@@ -40,11 +38,9 @@ function getStoreFromHeaders(req) {
         };
     }
     
-    // Fallback: try to match webhook signature with known stores
     const signature = req.get('X-Shopify-Hmac-Sha256');
     let bodyString;
     
-    // Handle different body types
     if (typeof req.body === 'string') {
         bodyString = req.body;
     } else if (Buffer.isBuffer(req.body)) {
@@ -68,10 +64,8 @@ function extractCustomerData(order, storeDomain) {
     const billing = order.billing_address;
     const shipping = order.shipping_address;
     
-    // Get store-specific order prefix
     const orderPrefix = ORDER_PREFIXES[storeDomain] || '#';
     
-    // Format the complete order number with store prefix
     const orderNumber = order.order_number || order.name;
     const fullOrderNumber = orderNumber.toString().startsWith('#') 
         ? orderNumber 
@@ -106,18 +100,16 @@ function extractCustomerData(order, storeDomain) {
     };
 }
 
-// NEW: Determine measurement option from order properties
+// Determine measurement option from order properties
 function determineMeasurementOption(measurements) {
-    // Check if customer provided measurements (Option 1)
     const hasDimensions = Object.keys(measurements).some(key => 
         key.match(/^[A-G]$/) && measurements[key].value
     );
     
     if (hasDimensions) {
-        return 'option1'; // Customer provided measurements
+        return 'option1';
     }
     
-    // Check order properties for measurement choice indicators
     const measurementChoice = Object.keys(measurements).find(key => 
         key.toLowerCase().includes('measurement') && key.toLowerCase().includes('option')
     );
@@ -125,18 +117,17 @@ function determineMeasurementOption(measurements) {
     if (measurementChoice) {
         const choice = measurements[measurementChoice];
         if (choice.includes('later') || choice.includes('send')) {
-            return 'option2'; // Send measurements later
+            return 'option2';
         }
         if (choice.includes('kit') || choice.includes('measuring')) {
-            return 'option3'; // Measuring kit requested
+            return 'option3';
         }
     }
     
-    // Default fallback based on presence of measurements
     return hasDimensions ? 'option1' : 'option2';
 }
 
-// NEW: Extract customer measurements and validate completeness
+// Extract customer measurements and validate completeness
 function extractCustomerMeasurements(properties) {
     const measurements = {};
     const dimensionValues = {};
@@ -148,7 +139,6 @@ function extractCustomerMeasurements(properties) {
     properties.forEach(prop => {
         const propName = prop.name?.toLowerCase();
         
-        // Extract dimension measurements (A, B, C, D, E, F, G)
         if (propName?.includes('dimension')) {
             const dimensionMatch = propName.match(/dimension\s*([a-g])/i);
             if (dimensionMatch && prop.value) {
@@ -160,13 +150,11 @@ function extractCustomerMeasurements(properties) {
             }
         }
         
-        // Store all properties for reference
         measurements[`property_${prop.name}`] = prop.value;
     });
     
-    // Determine which dimensions were provided
     const providedDimensions = Object.keys(dimensionValues);
-    const expectedDimensions = ['A', 'B', 'C', 'D', 'E']; // Standard set
+    const expectedDimensions = ['A', 'B', 'C', 'D', 'E'];
     const missingDimensions = expectedDimensions.filter(dim => !providedDimensions.includes(dim));
     
     return {
@@ -181,7 +169,6 @@ function extractCustomerMeasurements(properties) {
 // Enhanced product data extraction with shape metafields
 function extractProductData(lineItems) {
     return lineItems.map(item => {
-        // Extract customer measurements
         const customerMeasurements = extractCustomerMeasurements(item.properties);
         
         return {
@@ -194,15 +181,13 @@ function extractProductData(lineItems) {
             productId: item.product_id,
             variantId: item.variant_id,
             
-            // NEW: Shape information placeholder (will be enhanced later)
             shapeInfo: {
-                shapeNumber: null, // To be populated from database mapping
+                shapeNumber: null,
                 availableMeasurements: null,
                 requiredMeasurements: null,
                 diagramUrl: null
             },
             
-            // NEW: Customer measurement data and status
             measurementStatus: {
                 option: customerMeasurements.option,
                 hasCompleteMeasurements: customerMeasurements.complete,
@@ -214,30 +199,28 @@ function extractProductData(lineItems) {
     });
 }
 
-// NEW: Enhanced product mapping check with shape information
+// Enhanced product mapping check with shape information
 async function enhanceProductWithShapeInfo(product) {
     if (product.shopifySku) {
         try {
             const mapping = await db.productMappings.getBySku(product.shopifySku);
             if (mapping) {
-                console.log(`✅ Found mapping for SKU: ${product.shopifySku}`);
+                console.log(`Found mapping for SKU: ${product.shopifySku}`);
                 product.supplierSpecification = mapping.supplier_specification;
                 product.shapeId = mapping.shape_id;
                 
-                // If we have a shape_id, extract the shape number
                 if (mapping.shape_id) {
-                    // Assuming shape_id format like "shape_boat_40" or just "40"
                     const shapeMatch = mapping.shape_id.match(/(\d+)/);
                     if (shapeMatch) {
                         product.shapeInfo.shapeNumber = shapeMatch[1];
-                        console.log(`📐 Shape ${product.shapeInfo.shapeNumber} assigned to ${product.shopifySku}`);
+                        console.log(`Shape ${product.shapeInfo.shapeNumber} assigned to ${product.shopifySku}`);
                     }
                 }
                 
-                return true; // Found mapping
+                return true;
             } else {
-                console.log(`⚠️  No mapping found for SKU: ${product.shopifySku}`);
-                return false; // No mapping
+                console.log(`No mapping found for SKU: ${product.shopifySku}`);
+                return false;
             }
         } catch (error) {
             console.error(`Error checking mapping for SKU ${product.shopifySku}:`, error);
@@ -267,10 +250,9 @@ function determineFailedStep(error) {
 // Main webhook handler for order creation
 router.post('/orders/create', express.raw({ type: 'application/json' }), async (req, res) => {
     const timestamp = new Date().toISOString();
-    console.log(`[${timestamp}] 📦 Received webhook from Shopify`);
+    console.log(`[${timestamp}] Received webhook from Shopify`);
     
     try {
-        // Parse the JSON body - handle different formats
         let order;
         let rawBodyString;
         
@@ -281,7 +263,6 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
             rawBodyString = req.body.toString();
             order = JSON.parse(rawBodyString);
         } else {
-            // Body is already a JavaScript object
             order = req.body;
             rawBodyString = JSON.stringify(req.body);
         }
@@ -289,35 +270,31 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
         console.log('Body type:', typeof req.body);
         console.log('Order ID:', order.id);
         
-        // Verify webhook signature and identify store
         const signature = req.get('X-Shopify-Hmac-Sha256');
         if (!signature) {
-            console.error('❌ Missing webhook signature');
+            console.error('Missing webhook signature');
             return res.status(401).json({ error: 'Missing signature' });
         }
         
         const store = getStoreFromHeaders(req);
         if (!store) {
-            console.error('❌ Could not verify webhook signature or identify store');
+            console.error('Could not verify webhook signature or identify store');
             return res.status(401).json({ error: 'Invalid signature or unknown store' });
         }
         
-        console.log(`✅ Verified webhook from store: ${store.config.name} (${store.domain})`);
+        console.log(`Verified webhook from store: ${store.config.name} (${store.domain})`);
         
-        // Verify the signature one more time for security
         if (!verifyWebhookSignature(rawBodyString, signature, store.config.webhookSecret)) {
-            console.error('❌ Webhook signature verification failed');
+            console.error('Webhook signature verification failed');
             return res.status(401).json({ error: 'Invalid signature' });
         }
         
-        // Extract order data
         const customerData = extractCustomerData(order, store.domain);
         const productData = extractProductData(order.line_items || []);
         
-        console.log(`📋 Processing order ${customerData.shopifyOrderNumber} from ${customerData.customerName}`);
-        console.log(`🛒 Products: ${productData.length} items`);
+        console.log(`Processing order ${customerData.shopifyOrderNumber} from ${customerData.customerName}`);
+        console.log(`Products: ${productData.length} items`);
         
-        // NEW: Enhanced product mapping with shape information
         const unmappedProducts = [];
         for (const product of productData) {
             const hasMapping = await enhanceProductWithShapeInfo(product);
@@ -326,7 +303,6 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
             }
         }
         
-        // Determine supplier based on SKU patterns
         let supplierAssignment = null;
         let supplierName = null;
         
@@ -334,34 +310,30 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
         if (detectedSupplier) {
             supplierAssignment = detectedSupplier;
             supplierName = googleSheets.SUPPLIERS[detectedSupplier].name;
-            console.log(`📊 Auto-assigned to supplier: ${supplierName}`);
+            console.log(`Auto-assigned to supplier: ${supplierName}`);
         } else {
-            console.log('⚠️ No supplier match found for order SKUs');
+            console.log('No supplier match found for order SKUs');
         }
         
-        // NEW: Log shape and measurement information
         productData.forEach((product, index) => {
-            console.log(`🔧 Product ${index + 1}: ${product.productTitle}`);
+            console.log(`Product ${index + 1}: ${product.productTitle}`);
             
-            // Log shape information
             if (product.shapeInfo.shapeNumber) {
-                console.log(`📐 Shape: ${product.shapeInfo.shapeNumber}`);
+                console.log(`Shape: ${product.shapeInfo.shapeNumber}`);
             }
             
-            // Log measurement status
-            console.log(`📏 Measurement option: ${product.measurementStatus.option}`);
-            console.log(`✅ Complete measurements: ${product.measurementStatus.hasCompleteMeasurements}`);
+            console.log(`Measurement option: ${product.measurementStatus.option}`);
+            console.log(`Complete measurements: ${product.measurementStatus.hasCompleteMeasurements}`);
             
             if (product.measurementStatus.providedDimensions.length > 0) {
-                console.log(`📋 Provided dimensions: ${product.measurementStatus.providedDimensions.join(', ')}`);
+                console.log(`Provided dimensions: ${product.measurementStatus.providedDimensions.join(', ')}`);
             }
             
             if (product.measurementStatus.missingDimensions.length > 0) {
-                console.log(`⚠️ Missing dimensions: ${product.measurementStatus.missingDimensions.join(', ')}`);
+                console.log(`Missing dimensions: ${product.measurementStatus.missingDimensions.join(', ')}`);
             }
         });
         
-        // Store order in database
         let dbOrder;
         try {
             dbOrder = await db.orders.create({
@@ -375,20 +347,18 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
                 supplierName: supplierName
             });
             
-            console.log('✅ Order stored in database successfully');
+            console.log('Order stored in database successfully');
         } catch (error) {
-            console.error('❌ Error storing order in database:', error);
+            console.error('Error storing order in database:', error);
         }
         
-        // Try to add to Google Sheets if supplier is determined
         let sheetsResult = null;
         if (supplierAssignment && process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
             try {
-                console.log('📊 Adding order to Google Sheets...');
+                console.log('Adding order to Google Sheets...');
                 sheetsResult = await googleSheets.addOrderToSheet(customerData, productData);
                 
                 if (sheetsResult.success) {
-                    // Update database with sync status
                     await db.orders.updateSheetsSync(
                         customerData.orderId,
                         customerData.storeDomain,
@@ -396,13 +366,12 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
                         new Date().toISOString(),
                         sheetsResult.sheetRange
                     );
-                    console.log(`✅ Order added to ${sheetsResult.supplierName}`);
+                    console.log(`Order added to ${sheetsResult.supplierName}`);
                 } else {
-                    console.log(`⚠️ Could not add to sheets: ${sheetsResult.reason}`);
+                    console.log(`Could not add to sheets: ${sheetsResult.reason}`);
                 }
             } catch (error) {
-                console.error('❌ Error adding to Google Sheets:', error.message);
-                // Update database with sync status
+                console.error('Error adding to Google Sheets:', error.message);
                 await db.orders.updateSheetsSync(
                     customerData.orderId,
                     customerData.storeDomain,
@@ -414,11 +383,10 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
             }
         }
         
-        // NEW: Generate Purchase Order if Google Sheets was successful
         let poResult = null;
         if (sheetsResult && sheetsResult.success && supplierAssignment) {
             try {
-                console.log('📄 Generating Purchase Order...');
+                console.log('Generating Purchase Order...');
                 
                 const supplierInfo = {
                     key: supplierAssignment,
@@ -428,25 +396,23 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
                 poResult = await googleDocsPO.generatePO(customerData, productData, supplierInfo);
                 
                 if (poResult.success) {
-                    console.log(`✅ PO generated: ${poResult.documentUrl}`);
-                    console.log(`📋 PO Type: ${poResult.poType}`);
+                    console.log(`PO generated: ${poResult.documentUrl}`);
+                    console.log(`PO Type: ${poResult.poType}`);
                 } else {
-                    console.log(`⚠️ PO generation failed`);
+                    console.log('PO generation failed');
                 }
                 
             } catch (error) {
-                console.error('❌ Error generating PO:', error.message);
+                console.error('Error generating PO:', error.message);
             }
         } else {
-            console.log('⚠️ Skipping PO generation - Google Sheets sync required first');
+            console.log('Skipping PO generation - Google Sheets sync required first');
         }
         
-        // Log detailed order information
-        console.log(`📧 Customer: ${customerData.customerEmail}`);
-        console.log(`📞 Phone: ${customerData.customerPhone}`);
-        console.log(`💰 Total: ${customerData.currency} ${customerData.totalPrice}`);
+        console.log(`Customer: ${customerData.customerEmail}`);
+        console.log(`Phone: ${customerData.customerPhone}`);
+        console.log(`Total: ${customerData.currency} ${customerData.totalPrice}`);
         
-        // Return success response
         const response = {
             success: true,
             orderId: customerData.orderId,
@@ -462,23 +428,22 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
             timestamp
         };
         
-        console.log(`✅ Order processed successfully`);
+        console.log('Order processed successfully');
         if (unmappedProducts.length > 0) {
-            console.log(`⚠️  Warning: ${unmappedProducts.length} products need mapping`);
+            console.log(`Warning: ${unmappedProducts.length} products need mapping`);
         }
         if (sheetsResult?.success) {
-            console.log(`📊 Google Sheets updated: ${sheetsResult.supplierName}`);
+            console.log(`Google Sheets updated: ${sheetsResult.supplierName}`);
         }
         if (poResult?.success) {
-            console.log(`📄 Purchase Order generated: ${poResult.poType}`);
+            console.log(`Purchase Order generated: ${poResult.poType}`);
         }
         
         res.status(200).json(response);
         
     } catch (error) {
-        console.error(`❌ Webhook processing error:`, error);
+        console.error('Webhook processing error:', error);
         
-        // Try to log the error in database if we have basic order info
         try {
             let order;
             if (typeof req.body === 'string') {
@@ -509,77 +474,66 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
     }
 });
 
-// NEW: Debug HTTP request to compare with APIs Explorer
+// Test endpoints with domain-wide delegation
+
 router.get('/po/debug-request', async (req, res) => {
     try {
-        console.log('🔍 Debugging exact HTTP request vs APIs Explorer...');
+        console.log('Debugging exact HTTP request vs APIs Explorer...');
         
         const { GoogleAuth } = require('google-auth-library');
         const { google } = require('googleapis');
         
         const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
         
-        // Use exact same auth method as your working google-docs-po.js
         const auth = new GoogleAuth({
             credentials: serviceAccount,
             scopes: [
                 'https://www.googleapis.com/auth/drive',
-                'https://www.googleapis.com/auth/drive.file',
                 'https://www.googleapis.com/auth/documents'
-            ]
+            ],
+            subject: 'dev@mybespokemattress.com'
         });
         
         const drive = google.drive({ version: 'v3', auth });
         
-        console.log('✅ Drive API initialized');
+        console.log('Drive API initialized');
         
-        // Create the exact same request body as APIs Explorer
         const requestBody = {
             name: 'Debug HTTP Request Test',
             mimeType: 'application/vnd.google-apps.document',
             parents: ['0ACJnKRrvTAQWUk9PVA']
         };
         
-        console.log('📋 Request body:', JSON.stringify(requestBody, null, 2));
+        console.log('Request body:', JSON.stringify(requestBody, null, 2));
         
-        // Log the auth token for debugging
         const authClient = await auth.getClient();
         const tokenInfo = await authClient.getAccessToken();
-        console.log('🔐 Token exists:', !!tokenInfo.token);
-        console.log('🔐 Token length:', tokenInfo.token ? tokenInfo.token.length : 0);
+        console.log('Token exists:', !!tokenInfo.token);
+        console.log('Token length:', tokenInfo.token ? tokenInfo.token.length : 0);
         
-        // Try the request with detailed error logging
-        console.log('🚀 Making Drive API request...');
+        console.log('Making Drive API request...');
         
         const createResponse = await drive.files.create({
             resource: requestBody,
             fields: 'id,name,mimeType,parents'
         });
         
-        console.log('✅ SUCCESS! Document created:', createResponse.data);
+        console.log('SUCCESS! Document created:', createResponse.data);
         
-        // Clean up
         await drive.files.delete({
             fileId: createResponse.data.id
         });
-        console.log('✅ Test document deleted');
+        console.log('Test document deleted');
         
         res.json({
-            message: 'Debug request completed successfully - this should NOT have worked if there was a real issue',
+            message: 'Debug request completed successfully',
             success: true,
             documentData: createResponse.data,
-            insight: 'If this worked, the issue might be specific to your google-docs-po.js implementation',
             timestamp: new Date().toISOString()
         });
         
     } catch (error) {
-        console.error('❌ Debug request failed:', error);
-        console.error('❌ Error details:', {
-            message: error.message,
-            code: error.code,
-            status: error.status,
-            response: error.response?.data
-        });
+        console.error('Debug request failed:', error);
         
         res.status(500).json({
             message: 'Debug request failed',
@@ -592,9 +546,10 @@ router.get('/po/debug-request', async (req, res) => {
         });
     }
 });
+
 router.get('/po/copy-permissions-test', async (req, res) => {
     try {
-        console.log('🧪 Testing if service account can copy existing Google Docs vs create new ones...');
+        console.log('Testing if service account can copy existing Google Docs vs create new ones...');
         
         const { GoogleAuth } = require('google-auth-library');
         const { google } = require('googleapis');
@@ -605,17 +560,16 @@ router.get('/po/copy-permissions-test', async (req, res) => {
             credentials: serviceAccount,
             scopes: [
                 'https://www.googleapis.com/auth/drive',
-                'https://www.googleapis.com/auth/drive.file',
                 'https://www.googleapis.com/auth/documents'
-            ]
+            ],
+            subject: 'dev@mybespokemattress.com'
         });
         
         const drive = google.drive({ version: 'v3', auth });
         
-        console.log('✅ Drive API initialized');
+        console.log('Drive API initialized');
         
-        // Find your existing "Order Template" document to copy
-        console.log('🧪 Looking for existing Google Docs in Orders folder to copy...');
+        console.log('Looking for existing Google Docs in Orders folder to copy...');
         
         const ordersFolder = '19RJxQRQ5rercn3IeWIeh5nPoLGykei0k';
         
@@ -630,10 +584,9 @@ router.get('/po/copy-permissions-test', async (req, res) => {
         }
         
         const templateDoc = searchResponse.data.files[0];
-        console.log(`✅ Found existing doc to copy: ${templateDoc.name} (${templateDoc.id})`);
+        console.log(`Found existing doc to copy: ${templateDoc.name} (${templateDoc.id})`);
         
-        // Test copying existing document (different permission than creation)
-        console.log('🧪 Testing document copying...');
+        console.log('Testing document copying...');
         
         const copyResponse = await drive.files.copy({
             fileId: templateDoc.id,
@@ -648,15 +601,14 @@ router.get('/po/copy-permissions-test', async (req, res) => {
         const copiedDocUrl = copyResponse.data.webViewLink;
         const copiedDocName = copyResponse.data.name;
         
-        console.log('✅ Document copied successfully:', copiedDocName);
-        console.log('✅ Copied document ID:', copiedDocId);
-        console.log('✅ Copied document URL:', copiedDocUrl);
+        console.log('Document copied successfully:', copiedDocName);
+        console.log('Copied document ID:', copiedDocId);
+        console.log('Copied document URL:', copiedDocUrl);
         
-        // Clean up
         await drive.files.delete({
             fileId: copiedDocId
         });
-        console.log('✅ Test copy deleted');
+        console.log('Test copy deleted');
         
         res.json({
             message: 'Document copying test completed successfully',
@@ -665,30 +617,26 @@ router.get('/po/copy-permissions-test', async (req, res) => {
             sourceDocument: templateDoc.name,
             copiedDocumentId: copiedDocId,
             copiedDocumentUrl: copiedDocUrl,
-            insight: 'Service account CAN copy existing Google Docs but CANNOT create new ones - confirms permission restriction theory',
             timestamp: new Date().toISOString()
         });
         
     } catch (error) {
-        console.error('❌ Copy permissions test failed:', error);
+        console.error('Copy permissions test failed:', error);
         
         res.status(500).json({
             message: 'Copy permissions test failed',
             success: false,
             error: error.message,
             errorCode: error.code,
-            insight: error.code === 403 ? 'Service account lacks both copy AND create permissions for Google Docs' : 'Different error - not a permission issue',
             timestamp: new Date().toISOString()
         });
     }
 });
 
-// NEW: Simple Google Docs creation test endpoint
 router.get('/po/simple-test', async (req, res) => {
     try {
-        console.log('🧪 Testing simple Google Docs creation in root Drive...');
+        console.log('Testing simple Google Docs creation with domain-wide delegation...');
         
-        // Use the same method as your working google-docs-po.js
         const { GoogleAuth } = require('google-auth-library');
         const { google } = require('googleapis');
         
@@ -697,19 +645,18 @@ router.get('/po/simple-test', async (req, res) => {
         const auth = new GoogleAuth({
             credentials: serviceAccount,
             scopes: [
-                'https://www.googleapis.com/auth/documents',
                 'https://www.googleapis.com/auth/drive',
-                'https://www.googleapis.com/auth/drive.file'
-            ]
+                'https://www.googleapis.com/auth/documents'
+            ],
+            subject: 'dev@mybespokemattress.com'
         });
         
         const docs = google.docs({ version: 'v1', auth });
         const drive = google.drive({ version: 'v3', auth });
         
-        console.log('✅ APIs initialized');
+        console.log('APIs initialized');
         
-        // Try the EXACT same method as your google-docs-po.js uses
-        console.log('🧪 Creating document in root Drive (same method as PO module)...');
+        console.log('Creating document with domain-wide delegation...');
         
         const createResponse = await docs.documents.create({
             resource: {
@@ -718,25 +665,23 @@ router.get('/po/simple-test', async (req, res) => {
         });
         
         const documentId = createResponse.data.documentId;
-        console.log('✅ Document created successfully:', documentId);
+        console.log('Document created successfully:', documentId);
         
-        // Get the document URL
         const file = await drive.files.get({
             fileId: documentId,
             fields: 'webViewLink'
         });
         
         const documentUrl = file.data.webViewLink;
-        console.log('✅ Document URL:', documentUrl);
+        console.log('Document URL:', documentUrl);
         
-        // Clean up
         await drive.files.delete({
             fileId: documentId
         });
-        console.log('✅ Test document deleted');
+        console.log('Test document deleted');
         
         res.json({
-            message: 'Simple Google Docs test completed successfully',
+            message: 'Simple Google Docs test completed successfully with domain-wide delegation',
             success: true,
             documentId: documentId,
             documentUrl: documentUrl,
@@ -744,51 +689,44 @@ router.get('/po/simple-test', async (req, res) => {
         });
         
     } catch (error) {
-        console.error('❌ Simple Google Docs test failed:', error);
+        console.error('Simple Google Docs test failed:', error);
         
         res.status(500).json({
             message: 'Simple Google Docs test failed',
             success: false,
             error: error.message,
             errorCode: error.code,
-            errorDetails: error.details,
             timestamp: new Date().toISOString()
         });
     }
 });
 
-// NEW: Google Docs creation test endpoint (FIXED VERSION)
 router.get('/po/create-test', async (req, res) => {
     try {
-        console.log('🧪 Testing Google Docs document creation...');
+        console.log('Testing Google Docs document creation with domain-wide delegation...');
         
-        // Use the same authentication method as google-docs-po.js
         const { GoogleAuth } = require('google-auth-library');
         const { google } = require('googleapis');
         
-        // Parse service account key (same as your working module)
         const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
         
-        // Create auth client using GoogleAuth (same method as your PO module)
         const auth = new GoogleAuth({
             credentials: serviceAccount,
             scopes: [
-                'https://www.googleapis.com/auth/documents',
                 'https://www.googleapis.com/auth/drive',
-                'https://www.googleapis.com/auth/drive.file'
-            ]
+                'https://www.googleapis.com/auth/documents'
+            ],
+            subject: 'dev@mybespokemattress.com'
         });
         
-        console.log('✅ Auth client created');
+        console.log('Auth client created');
         
-        // Initialize APIs (same as your PO module)
         const docs = google.docs({ version: 'v1', auth });
         const drive = google.drive({ version: 'v3', auth });
         
-        console.log('✅ APIs initialized');
+        console.log('APIs initialized');
         
-        // Step 1: Test basic document creation (no folder)
-        console.log('🧪 Step 1: Creating basic document...');
+        console.log('Step 1: Creating basic document...');
         
         const createResponse = await docs.documents.create({
             resource: {
@@ -797,12 +735,11 @@ router.get('/po/create-test', async (req, res) => {
         });
         
         const documentId = createResponse.data.documentId;
-        console.log('✅ Step 1: Document created successfully:', documentId);
+        console.log('Step 1: Document created successfully:', documentId);
         
-        // Step 2: Test moving to folder
-        console.log('🧪 Step 2: Moving document to Orders folder...');
+        console.log('Step 2: Moving document to Orders folder...');
         
-        const ordersFolder = '19RJxQRQ5rercn3IeWIeh5nPoLGykei0k'; // Your orders folder ID
+        const ordersFolder = '19RJxQRQ5rercn3IeWIeh5nPoLGykei0k';
         
         await drive.files.update({
             fileId: documentId,
@@ -810,10 +747,9 @@ router.get('/po/create-test', async (req, res) => {
             removeParents: 'root'
         });
         
-        console.log('✅ Step 2: Document moved to folder successfully');
+        console.log('Step 2: Document moved to folder successfully');
         
-        // Step 3: Test document content insertion
-        console.log('🧪 Step 3: Adding content to document...');
+        console.log('Step 3: Adding content to document...');
         
         await docs.documents.batchUpdate({
             documentId: documentId,
@@ -831,12 +767,10 @@ router.get('/po/create-test', async (req, res) => {
             }
         });
         
-        console.log('✅ Step 3: Content added successfully');
+        console.log('Step 3: Content added successfully');
         
-        // Step 4: Generate shareable link
-        console.log('🧪 Step 4: Creating shareable link...');
+        console.log('Step 4: Creating shareable link...');
         
-        // Set permissions to make it shareable
         await drive.permissions.create({
             fileId: documentId,
             resource: {
@@ -851,31 +785,30 @@ router.get('/po/create-test', async (req, res) => {
         });
         
         const documentUrl = shareResponse.data.webViewLink;
-        console.log('✅ Step 4: Shareable link created:', documentUrl);
+        console.log('Step 4: Shareable link created:', documentUrl);
         
-        // Clean up - delete test document
-        console.log('🧹 Cleaning up test document...');
+        console.log('Cleaning up test document...');
         await drive.files.delete({
             fileId: documentId
         });
-        console.log('✅ Test document deleted');
+        console.log('Test document deleted');
         
         res.json({
-            message: 'Google Docs creation test completed successfully',
+            message: 'Google Docs creation test completed successfully with domain-wide delegation',
             success: true,
             steps: [
-                'Document creation: ✅',
-                'Folder placement: ✅',
-                'Content insertion: ✅',
-                'Shareable link: ✅',
-                'Cleanup: ✅'
+                'Document creation: Success',
+                'Folder placement: Success',
+                'Content insertion: Success',
+                'Shareable link: Success',
+                'Cleanup: Success'
             ],
-            documentUrl: documentUrl, // This will be deleted but shows it worked
+            documentUrl: documentUrl,
             timestamp: new Date().toISOString()
         });
         
     } catch (error) {
-        console.error('❌ Google Docs test failed:', error);
+        console.error('Google Docs test failed:', error);
         
         res.status(500).json({
             message: 'Google Docs creation test failed',
@@ -887,7 +820,6 @@ router.get('/po/create-test', async (req, res) => {
     }
 });
 
-// NEW: PO generation test endpoint
 router.get('/po/test', async (req, res) => {
     try {
         const testResult = await googleDocsPO.testPOGeneration();
@@ -905,7 +837,6 @@ router.get('/po/test', async (req, res) => {
     }
 });
 
-// Google Sheets test endpoint
 router.get('/sheets/test', async (req, res) => {
     try {
         const connected = await googleSheets.testConnection();
@@ -924,7 +855,6 @@ router.get('/sheets/test', async (req, res) => {
     }
 });
 
-// Webhook test endpoint
 router.get('/test', (req, res) => {
     res.json({
         message: 'Webhook endpoint is active',
