@@ -13,6 +13,29 @@ const ORDER_PREFIXES = {
     'd587eb.myshopify.com': '#CARA'
 };
 
+// Safe service account parsing with validation
+function getSafeServiceAccount() {
+    if (!process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
+        throw new Error('GOOGLE_SERVICE_ACCOUNT_KEY environment variable is not set');
+    }
+    
+    try {
+        const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+        
+        // Basic validation of required fields
+        if (!serviceAccount.client_email || !serviceAccount.private_key || !serviceAccount.project_id) {
+            throw new Error('Service account JSON is missing required fields (client_email, private_key, or project_id)');
+        }
+        
+        return serviceAccount;
+    } catch (error) {
+        if (error instanceof SyntaxError) {
+            throw new Error(`Invalid JSON format in GOOGLE_SERVICE_ACCOUNT_KEY: ${error.message}`);
+        }
+        throw error; // Re-throw if it's our validation error or other error
+    }
+}
+
 // Webhook signature verification
 function verifyWebhookSignature(data, signature, secret) {
     const hmac = crypto.createHmac('sha256', secret);
@@ -476,6 +499,114 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
 
 // Test endpoints with domain-wide delegation
 
+router.get('/po/regular-drive-test', async (req, res) => {
+    try {
+        console.log('Testing document creation in regular Drive folder...');
+        
+        const { GoogleAuth } = require('google-auth-library');
+        const { google } = require('googleapis');
+        
+        const serviceAccount = getSafeServiceAccount();
+        
+        const auth = new GoogleAuth({
+            credentials: serviceAccount,
+            scopes: [
+                'https://www.googleapis.com/auth/drive',
+                'https://www.googleapis.com/auth/documents'
+            ],
+            subject: 'dev@mybespokemattress.com'
+        });
+        
+        const docs = google.docs({ version: 'v1', auth });
+        const drive = google.drive({ version: 'v3', auth });
+        
+        console.log('APIs initialised');
+        
+        // Use your regular Drive test folder instead of Shared Drive
+        const testFolderId = '14ezm3B3_sf14uDg5PV-ruFkiYzPZrmW8';
+        
+        console.log('Creating document in regular Drive folder...');
+        
+        const createResponse = await docs.documents.create({
+            resource: {
+                title: 'Regular Drive Test - ' + new Date().toISOString()
+            }
+        });
+        
+        const documentId = createResponse.data.documentId;
+        console.log('Document created:', documentId);
+        
+        // Move to test folder
+        await drive.files.update({
+            fileId: documentId,
+            addParents: testFolderId,
+            removeParents: 'root'
+        });
+        
+        console.log('Document moved to test folder');
+        
+        // Add content
+        await docs.documents.batchUpdate({
+            documentId: documentId,
+            resource: {
+                requests: [
+                    {
+                        insertText: {
+                            location: { index: 1 },
+                            text: 'REGULAR DRIVE TEST\n\nThis document was created successfully in a regular Drive folder via domain-wide delegation.\n\nCreated: ' + new Date().toISOString()
+                        }
+                    }
+                ]
+            }
+        });
+        
+        console.log('Content added');
+        
+        // Get shareable link
+        await drive.permissions.create({
+            fileId: documentId,
+            resource: {
+                role: 'reader',
+                type: 'anyone'
+            }
+        });
+        
+        const file = await drive.files.get({
+            fileId: documentId,
+            fields: 'webViewLink'
+        });
+        
+        const documentUrl = file.data.webViewLink;
+        console.log('Document URL:', documentUrl);
+        
+        res.json({
+            message: 'Regular Drive test completed successfully',
+            success: true,
+            documentId: documentId,
+            documentUrl: documentUrl,
+            testFolder: testFolderId,
+            steps: [
+                'Document creation: Success',
+                'Folder placement: Success', 
+                'Content insertion: Success',
+                'Shareable link: Success'
+            ],
+            timestamp: new Date().toISOString()
+        });
+        
+    } catch (error) {
+        console.error('Regular Drive test failed:', error);
+        
+        res.status(500).json({
+            message: 'Regular Drive test failed',
+            success: false,
+            error: error.message,
+            errorCode: error.code,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
 router.get('/po/debug-request', async (req, res) => {
     try {
         console.log('Debugging exact HTTP request vs APIs Explorer...');
@@ -483,7 +614,7 @@ router.get('/po/debug-request', async (req, res) => {
         const { GoogleAuth } = require('google-auth-library');
         const { google } = require('googleapis');
         
-        const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+        const serviceAccount = getSafeServiceAccount();
         
         const auth = new GoogleAuth({
             credentials: serviceAccount,
@@ -496,7 +627,7 @@ router.get('/po/debug-request', async (req, res) => {
         
         const drive = google.drive({ version: 'v3', auth });
         
-        console.log('Drive API initialized');
+        console.log('Drive API initialised');
         
         const requestBody = {
             name: 'Debug HTTP Request Test',
@@ -554,7 +685,7 @@ router.get('/po/copy-permissions-test', async (req, res) => {
         const { GoogleAuth } = require('google-auth-library');
         const { google } = require('googleapis');
         
-        const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+        const serviceAccount = getSafeServiceAccount();
         
         const auth = new GoogleAuth({
             credentials: serviceAccount,
@@ -567,7 +698,7 @@ router.get('/po/copy-permissions-test', async (req, res) => {
         
         const drive = google.drive({ version: 'v3', auth });
         
-        console.log('Drive API initialized');
+        console.log('Drive API initialised');
         
         console.log('Looking for existing Google Docs in Orders folder to copy...');
         
@@ -640,7 +771,7 @@ router.get('/po/simple-test', async (req, res) => {
         const { GoogleAuth } = require('google-auth-library');
         const { google } = require('googleapis');
         
-        const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+        const serviceAccount = getSafeServiceAccount();
         
         const auth = new GoogleAuth({
             credentials: serviceAccount,
@@ -654,7 +785,7 @@ router.get('/po/simple-test', async (req, res) => {
         const docs = google.docs({ version: 'v1', auth });
         const drive = google.drive({ version: 'v3', auth });
         
-        console.log('APIs initialized');
+        console.log('APIs initialised');
         
         console.log('Creating document with direct service account authentication...');
         
@@ -708,7 +839,7 @@ router.get('/po/create-test', async (req, res) => {
         const { GoogleAuth } = require('google-auth-library');
         const { google } = require('googleapis');
         
-        const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
+        const serviceAccount = getSafeServiceAccount();
         
         const auth = new GoogleAuth({
             credentials: serviceAccount,
@@ -724,7 +855,7 @@ router.get('/po/create-test', async (req, res) => {
         const docs = google.docs({ version: 'v1', auth });
         const drive = google.drive({ version: 'v3', auth });
         
-        console.log('APIs initialized');
+        console.log('APIs initialised');
         
         console.log('Step 1: Creating basic document...');
         
