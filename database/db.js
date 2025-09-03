@@ -6,9 +6,9 @@ const pool = new Pool({
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
-// Database initialization
+// Database initialisation
 async function initialize() {
-    console.log('🔧 Initializing PostgreSQL database...');
+    console.log('🔧 Initialising PostgreSQL database...');
     
     try {
         // Store configurations table
@@ -118,7 +118,7 @@ async function initialize() {
         
         console.log('✅ Database tables created and sample data inserted');
     } catch (error) {
-        console.error('Database initialization error:', error);
+        console.error('Database initialisation error:', error);
         throw error;
     }
 }
@@ -278,7 +278,7 @@ const stores = {
     }
 };
 
-// Order operations with Google Sheets integration
+// Order operations - COMPLETE implementation for React frontend
 const orders = {
     // Create method for webhook processing with correct column names
     create: async (orderData) => {
@@ -309,6 +309,135 @@ const orders = {
             'received',
             'pending'
         ]);
+        return result.rows[0];
+    },
+
+    // Get all orders for React frontend (with proper sorting and status)
+    getAllOrders: async (limit = 20) => {
+        const result = await pool.query(`
+            SELECT 
+                o.id,
+                o.shopify_order_id,
+                o.order_number,
+                o.store_domain,
+                o.customer_name,
+                o.customer_email,
+                o.total_price,
+                o.order_data,
+                o.processing_status,
+                o.supplier_assigned,
+                o.supplier_name,
+                o.supplier_id,
+                o.sheet_row_number,
+                o.sheets_synced,
+                o.sheets_sync_date,
+                o.google_sheets_status,
+                o.google_sheets_error,
+                o.po_generated,
+                o.error_message,
+                o.processed_at,
+                o.created_date,
+                o.updated_date,
+                s.name as supplier_full_name,
+                s.sheet_url as supplier_sheet_url
+            FROM processed_orders o
+            LEFT JOIN suppliers s ON o.supplier_id = s.id
+            ORDER BY o.created_date DESC
+            LIMIT $1
+        `, [limit]);
+        return result.rows;
+    },
+
+    // Get order by ID (enhanced version for React frontend)
+    getOrderById: async (orderId) => {
+        const result = await pool.query(`
+            SELECT 
+                o.*,
+                s.name as supplier_full_name,
+                s.sheet_url as supplier_sheet_url,
+                s.sku_keywords as supplier_keywords
+            FROM processed_orders o
+            LEFT JOIN suppliers s ON o.supplier_id = s.id
+            WHERE o.id = $1
+        `, [orderId]);
+        return result.rows[0];
+    },
+
+    // Update order (for React frontend editing)
+    updateOrder: async (orderId, updateData) => {
+        const {
+            customer_name,
+            customer_email,
+            supplier_assigned,
+            supplier_name,
+            processing_status,
+            order_data,
+            google_sheets_status,
+            error_message
+        } = updateData;
+
+        const result = await pool.query(`
+            UPDATE processed_orders 
+            SET 
+                customer_name = COALESCE($2, customer_name),
+                customer_email = COALESCE($3, customer_email),
+                supplier_assigned = COALESCE($4, supplier_assigned),
+                supplier_name = COALESCE($5, supplier_name),
+                processing_status = COALESCE($6, processing_status),
+                order_data = COALESCE($7::jsonb, order_data),
+                google_sheets_status = COALESCE($8, google_sheets_status),
+                error_message = COALESCE($9, error_message),
+                updated_date = CURRENT_TIMESTAMP
+            WHERE id = $1
+            RETURNING *
+        `, [orderId, customer_name, customer_email, supplier_assigned, supplier_name, 
+            processing_status, order_data ? JSON.stringify(order_data) : null, 
+            google_sheets_status, error_message]);
+        
+        return result.rows[0];
+    },
+
+    // Search orders (for React frontend search functionality)
+    searchOrders: async (searchTerm, limit = 20) => {
+        const result = await pool.query(`
+            SELECT 
+                o.id,
+                o.shopify_order_id,
+                o.order_number,
+                o.store_domain,
+                o.customer_name,
+                o.customer_email,
+                o.total_price,
+                o.processing_status,
+                o.supplier_assigned,
+                o.google_sheets_status,
+                o.created_date,
+                s.name as supplier_full_name
+            FROM processed_orders o
+            LEFT JOIN suppliers s ON o.supplier_id = s.id
+            WHERE 
+                o.order_number ILIKE '%' || $1 || '%' OR
+                o.customer_name ILIKE '%' || $1 || '%' OR
+                o.customer_email ILIKE '%' || $1 || '%' OR
+                o.supplier_assigned ILIKE '%' || $1 || '%'
+            ORDER BY o.created_date DESC
+            LIMIT $2
+        `, [searchTerm, limit]);
+        return result.rows;
+    },
+
+    // Get order statistics for React frontend dashboard
+    getOrderStats: async () => {
+        const result = await pool.query(`
+            SELECT 
+                COUNT(*) as total_orders,
+                COUNT(CASE WHEN processing_status = 'received' THEN 1 END) as pending_orders,
+                COUNT(CASE WHEN processing_status = 'processed' THEN 1 END) as processed_orders,
+                COUNT(CASE WHEN sheets_synced = true THEN 1 END) as synced_orders,
+                COUNT(CASE WHEN po_generated = true THEN 1 END) as po_generated_orders,
+                COUNT(CASE WHEN google_sheets_status = 'error' THEN 1 END) as error_orders
+            FROM processed_orders
+        `);
         return result.rows[0];
     },
 
@@ -347,14 +476,6 @@ const orders = {
             ORDER BY o.created_date DESC
         `);
         return result.rows;
-    },
-
-    // Get order by ID
-    getById: async (orderId) => {
-        const result = await pool.query(`
-            SELECT * FROM processed_orders WHERE id = $1
-        `, [orderId]);
-        return result.rows[0];
     },
     
     updateStatus: async (orderId, storeDomain, status, errorMessage = null) => {
