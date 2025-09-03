@@ -18,7 +18,10 @@ async function initializeGoogleAPIs() {
         // Use the service account's permissions directly (no impersonation)
         const auth = new GoogleAuth({
             credentials: serviceAccount,
-            scopes: ['https://www.googleapis.com/auth/drive'],
+            scopes: [
+                'https://www.googleapis.com/auth/drive',
+                'https://www.googleapis.com/auth/documents'
+            ],
             projectId: serviceAccount.project_id
         });
 
@@ -338,7 +341,7 @@ async function testPOGeneration() {
         }
         
         // Test a basic Drive API call to verify authentication
-        console.log('Testing basic Drive API access with impersonated user...');
+        console.log('Testing basic Drive API access with service account...');
         const testList = await drive.files.list({
             pageSize: 1,
             fields: 'files(id, name)'
