@@ -6,7 +6,7 @@ const { google } = require('googleapis');
 // Configuration
 const MEASURING_DIAGRAMS_FOLDER_ID = '1E5OHL4RZiIvz0uXuPgRdwquTTPW7WjJT';
 const PO_OUTPUT_FOLDER_ID = '0ACJnKRrvTAQWUk9PVA'; // NEW Workspace Shared Drive
-
+ 
 let docs = null;
 let drive = null;
 
