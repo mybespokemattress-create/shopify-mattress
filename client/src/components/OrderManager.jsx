@@ -6,70 +6,83 @@ const OrderManager = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const sampleOrders = [
-    {
-      id: 'MOTO001234',
-      store: 'MOTO',
-      orderNumber: 'MOTO001234',
+  // Function to transform API data to component format
+  const transformApiOrder = (apiOrder) => {
+    const orderData = apiOrder.order_data || {};
+    
+    // Extract store name from order number or domain
+    let store = 'UNKNOWN';
+    if (apiOrder.order_number?.includes('MOTO')) store = 'MOTO';
+    else if (apiOrder.order_number?.includes('MYBE')) store = 'MYBE'; 
+    else if (apiOrder.order_number?.includes('CARA')) store = 'CARA';
+    else if (apiOrder.store_domain?.includes('uxyxaq-pu')) store = 'MOTO';
+    else if (apiOrder.store_domain?.includes('mattressmade')) store = 'MYBE';
+    else if (apiOrder.store_domain?.includes('d587eb')) store = 'CARA';
+
+    return {
+      id: apiOrder.id.toString(),
+      store: store,
+      orderNumber: apiOrder.order_number || 'Unknown',
       customer: {
-        name: 'John Smith',
-        email: 'john.smith@email.com'
+        name: apiOrder.customer_name || 'Unknown Customer',
+        email: apiOrder.customer_email || ''
       },
-      orderDate: '2025-09-03',
-      status: 'pending_review',
+      orderDate: apiOrder.created_date ? new Date(apiOrder.created_date).toISOString().split('T')[0] : '',
+      status: apiOrder.processing_status === 'received' ? 'pending_review' : 'ready_to_send',
       lineItems: [{
-        sku: 'MAT-FIRM-001',
+        sku: orderData.sku || 'Unknown SKU',
         quantity: 1,
         properties: {
-          'Dimension A': '1800mm',
-          'Dimension B': '1200mm',
-          'Dimension C': '150mm',
-          'Dimension D': '200mm',
-          'Dimension E': '300mm',
-          'Dimension F': '100mm',
-          'Dimension G': '50mm'
+          'Dimension A': '',
+          'Dimension B': '',
+          'Dimension C': '',
+          'Dimension D': '',
+          'Dimension E': '',
+          'Dimension F': '',
+          'Dimension G': ''
         }
       }],
-      supplierCode: 'FIRM-CV-001',
-      shapeNumber: '7',
+      supplierCode: orderData.supplierSpecification || '',
+      shapeNumber: orderData.shapeNumber || '',
       shapeDiagramUrl: null,
       linkAttachment: 'Standard Links',
-      deliveryOption: 'Standard Delivery (7-10 days)'
-    },
-    {
-      id: 'MYBE002345',
-      store: 'MYBE', 
-      orderNumber: 'MYBE002345',
-      customer: {
-        name: 'Sarah Wilson',
-        email: 'sarah.wilson@email.com'
-      },
-      orderDate: '2025-09-02',
-      status: 'ready_to_send',
-      lineItems: [{
-        sku: 'MAT-SOFT-002',
-        quantity: 2,
-        properties: {
-          'Dimension A': '1900mm',
-          'Dimension B': '1400mm', 
-          'Dimension C': '160mm',
-          'Dimension D': '220mm',
-          'Dimension E': '320mm',
-          'Dimension F': '110mm',
-          'Dimension G': '60mm'
-        }
-      }],
-      supplierCode: 'SOFT-CV-002',
-      shapeNumber: '12',
-      shapeDiagramUrl: 'https://via.placeholder.com/600x400/f8fafc/475569?text=Shape+12+Diagram',
-      linkAttachment: 'Heavy Duty Links', 
-      deliveryOption: 'Express Delivery (3-5 days)'
+      deliveryOption: 'Standard Delivery (7-10 days)',
+      totalPrice: apiOrder.total_price,
+      supplierName: apiOrder.supplier_name || orderData.supplierName
+    };
+  };
+
+  // Fetch orders from API
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await fetch('/api/orders');
+      if (!response.ok) {
+        throw new Error(`Failed to fetch orders: ${response.status}`);
+      }
+      
+      const apiOrders = await response.json();
+      console.log('Fetched orders from API:', apiOrders);
+      
+      // Transform API data to component format
+      const transformedOrders = apiOrders.map(transformApiOrder);
+      setOrders(transformedOrders);
+      
+    } catch (err) {
+      console.error('Error fetching orders:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
   useEffect(() => {
-    setOrders(sampleOrders);
+    fetchOrders();
   }, []);
 
   const handleOrderSelect = (order) => {
@@ -136,17 +149,59 @@ const OrderManager = () => {
     order.customer.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-2 text-slate-600">Loading orders...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">Error loading orders: {error}</p>
+          <button 
+            onClick={fetchOrders}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
       <div className="bg-white border-b shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-4">
-          <h1 className="text-2xl font-bold text-slate-900">
-            Bespoke Mattress Order Manager
-          </h1>
-          <p className="text-slate-600 mt-1">
-            Review and process Shopify orders before sending to suppliers
-          </p>
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">
+                Bespoke Mattress Order Manager
+              </h1>
+              <p className="text-slate-600 mt-1">
+                Review and process Shopify orders before sending to suppliers
+              </p>
+            </div>
+            <div className="text-sm text-slate-500">
+              {orders.length} orders loaded
+              <button 
+                onClick={fetchOrders}
+                className="ml-2 px-3 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200"
+              >
+                Refresh
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -168,35 +223,58 @@ const OrderManager = () => {
               </div>
               
               <div className="max-h-96 overflow-y-auto">
-                {filteredOrders.map((order) => (
-                  <div
-                    key={order.id}
-                    className={`p-4 border-b cursor-pointer hover:bg-slate-50 ${
-                      selectedOrder?.id === order.id ? 'bg-blue-50' : ''
-                    }`}
-                    onClick={() => handleOrderSelect(order)}
-                  >
-                    <div className="font-semibold text-sm">{order.orderNumber}</div>
-                    <div className="text-slate-600 text-sm">{order.customer.name}</div>
-                    <div className="text-slate-500 text-xs">{order.orderDate}</div>
-                    <div className="mt-1">
-                      <span className={`px-2 py-1 rounded text-xs ${
-                        order.status === 'ready_to_send' 
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {order.status === 'ready_to_send' ? 'Ready' : 'Review'}
-                      </span>
-                    </div>
+                {filteredOrders.length === 0 ? (
+                  <div className="p-4 text-center text-slate-500">
+                    {searchTerm ? 'No orders match your search' : 'No orders found'}
                   </div>
-                ))}
+                ) : (
+                  filteredOrders.map((order) => (
+                    <div
+                      key={order.id}
+                      className={`p-4 border-b cursor-pointer hover:bg-slate-50 ${
+                        selectedOrder?.id === order.id ? 'bg-blue-50' : ''
+                      }`}
+                      onClick={() => handleOrderSelect(order)}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-semibold text-sm">{order.orderNumber}</span>
+                            <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
+                              order.store === 'MOTO' ? 'bg-purple-100 text-purple-700' :
+                              order.store === 'MYBE' ? 'bg-green-100 text-green-700' :
+                              order.store === 'CARA' ? 'bg-orange-100 text-orange-700' :
+                              'bg-slate-100 text-slate-700'
+                            }`}>
+                              {order.store}
+                            </span>
+                          </div>
+                          <div className="text-slate-600 text-sm">{order.customer.name}</div>
+                          <div className="text-slate-500 text-xs">{order.orderDate}</div>
+                          {order.supplierName && (
+                            <div className="text-slate-500 text-xs mt-1">→ {order.supplierName}</div>
+                          )}
+                        </div>
+                        <div>
+                          <span className={`px-2 py-1 rounded text-xs ${
+                            order.status === 'ready_to_send' 
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {order.status === 'ready_to_send' ? 'Ready' : 'Review'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>
 
           {/* Order Details */}
           <div className="lg:col-span-2">
-            {selectedOrder && (
+            {selectedOrder ? (
               <div className="bg-white rounded-lg shadow border">
                 <div className="p-4 border-b bg-slate-50 flex justify-between items-center">
                   <div>
@@ -334,6 +412,11 @@ const OrderManager = () => {
                         />
                       </div>
                     </div>
+                    {selectedOrder.supplierName && (
+                      <div className="mt-2 text-sm text-slate-600">
+                        Assigned to: <span className="font-medium">{selectedOrder.supplierName}</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Measurements and Shape Diagram */}
@@ -410,7 +493,9 @@ const OrderManager = () => {
                           ) : (
                             <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
                               <div className="text-sm mb-1">No diagram uploaded</div>
-                              <div className="text-xs">Shape #{selectedOrder.shapeNumber}</div>
+                              {selectedOrder.shapeNumber && (
+                                <div className="text-xs">Shape #{selectedOrder.shapeNumber}</div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -463,6 +548,16 @@ const OrderManager = () => {
                     </div>
                   </div>
 
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg shadow border p-8 text-center">
+                <div className="text-slate-400">
+                  <svg className="mx-auto h-12 w-12 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <h3 className="text-lg font-medium text-slate-900 mb-2">Select an Order</h3>
+                  <p className="text-slate-500">Choose an order from the list to view and edit its details.</p>
                 </div>
               </div>
             )}
