@@ -209,13 +209,16 @@ async function generatePO(orderData, productData, supplierInfo) {
         console.log('🔄 Creating document...');
         console.log(`📝 Document title: ${docTitle}`);
         
-        const createResponse = await docs.documents.create({
+        // CRITICAL FIX: Use Drive API with parents parameter to avoid quota error
+        const createResponse = await drive.files.create({
             resource: {
-                title: docTitle
+                name: docTitle,
+                parents: [PO_OUTPUT_FOLDER_ID],
+                mimeType: 'application/vnd.google-apps.document'
             }
         });
         
-        const documentId = createResponse.data.documentId;
+        const documentId = createResponse.data.id;
         console.log(`📄 Created document: ${documentId}`);
         
         // Build document content
