@@ -295,12 +295,8 @@ async function generatePO(orderData, productData, supplierInfo) {
             await insertShapeDiagram(documentId, product.shapeInfo.shapeNumber);
         }
         
-        // Move document to orders folder for review
-        await drive.files.update({
-            fileId: documentId,
-            addParents: PO_OUTPUT_FOLDER_ID,
-            removeParents: 'root'
-        });
+        // Document is already in correct folder, no need to move it
+        // The redundant files.update() call has been removed
         
         // Get shareable link
         await drive.permissions.create({
