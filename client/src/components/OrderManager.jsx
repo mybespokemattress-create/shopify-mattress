@@ -16,6 +16,7 @@ const OrderManager = () => {
     // Debug logging to track the data structure
     console.log('Order ID:', apiOrder.id);
     console.log('Order data:', orderData);
+    console.log('Full apiOrder structure:', JSON.stringify(apiOrder, null, 2));  // ADD THIS LINE HERE
     console.log('Extracted measurements:', orderData.extracted_measurements);
     
     // Log the exact structure of measurements if they exist
