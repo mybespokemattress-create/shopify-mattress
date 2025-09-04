@@ -2,7 +2,6 @@
 const crypto = require('crypto');
 const db = require('../database/db');
 const googleSheets = require('../google-sheets');
-// const googleDocsPO = require('../google-docs-po'); // DISABLED - problematic file removed
 
 const router = express.Router();
 
@@ -13,7 +12,7 @@ const ORDER_PREFIXES = {
     'd587eb.myshopify.com': '#CARA'
 };
 
-// Safe service account parsing with validation
+// Safe service account parsing
 function getSafeServiceAccount() {
     if (!process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
         throw new Error('GOOGLE_SERVICE_ACCOUNT_KEY environment variable is not set');
@@ -22,9 +21,8 @@ function getSafeServiceAccount() {
     try {
         const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
         
-        // Basic validation of required fields
         if (!serviceAccount.client_email || !serviceAccount.private_key || !serviceAccount.project_id) {
-            throw new Error('Service account JSON is missing required fields (client_email, private_key, or project_id)');
+            throw new Error('Service account JSON is missing required fields');
         }
         
         return serviceAccount;
@@ -32,7 +30,7 @@ function getSafeServiceAccount() {
         if (error instanceof SyntaxError) {
             throw new Error(`Invalid JSON format in GOOGLE_SERVICE_ACCOUNT_KEY: ${error.message}`);
         }
-        throw error; // Re-throw if it's our validation error or other error
+        throw error;
     }
 }
 
@@ -123,77 +121,9 @@ function extractCustomerData(order, storeDomain) {
     };
 }
 
-// Determine measurement option from order properties
-function determineMeasurementOption(measurements) {
-    const hasDimensions = Object.keys(measurements).some(key => 
-        key.match(/^[A-G]$/) && measurements[key].value
-    );
-    
-    if (hasDimensions) {
-        return 'option1';
-    }
-    
-    const measurementChoice = Object.keys(measurements).find(key => 
-        key.toLowerCase().includes('measurement') && key.toLowerCase().includes('option')
-    );
-    
-    if (measurementChoice) {
-        const choice = measurements[measurementChoice];
-        if (choice.includes('later') || choice.includes('send')) {
-            return 'option2';
-        }
-        if (choice.includes('kit') || choice.includes('measuring')) {
-            return 'option3';
-        }
-    }
-    
-    return hasDimensions ? 'option1' : 'option2';
-}
-
-// Extract customer measurements and validate completeness
-function extractCustomerMeasurements(properties) {
-    const measurements = {};
-    const dimensionValues = {};
-    
-    if (!properties || !Array.isArray(properties)) {
-        return { complete: false, data: {}, missing: [], option: 'option2' };
-    }
-    
-    properties.forEach(prop => {
-        const propName = prop.name?.toLowerCase();
-        
-        if (propName?.includes('dimension')) {
-            const dimensionMatch = propName.match(/dimension\s*([a-g])/i);
-            if (dimensionMatch && prop.value) {
-                const letter = dimensionMatch[1].toUpperCase();
-                dimensionValues[letter] = {
-                    value: prop.value,
-                    unit: 'cm'
-                };
-            }
-        }
-        
-        measurements[`property_${prop.name}`] = prop.value;
-    });
-    
-    const providedDimensions = Object.keys(dimensionValues);
-    const expectedDimensions = ['A', 'B', 'C', 'D', 'E'];
-    const missingDimensions = expectedDimensions.filter(dim => !providedDimensions.includes(dim));
-    
-    return {
-        complete: missingDimensions.length === 0 && providedDimensions.length > 0,
-        data: { ...measurements, ...dimensionValues },
-        missing: missingDimensions,
-        provided: providedDimensions,
-        option: determineMeasurementOption({ ...measurements, ...dimensionValues })
-    };
-}
-
-// Enhanced product data extraction with shape metafields
+// Extract product data
 function extractProductData(lineItems) {
     return lineItems.map(item => {
-        const customerMeasurements = extractCustomerMeasurements(item.properties);
-        
         return {
             shopifySku: item.sku,
             productTitle: item.title,
@@ -203,71 +133,35 @@ function extractProductData(lineItems) {
             lineItemId: item.id,
             productId: item.product_id,
             variantId: item.variant_id,
-            
-            shapeInfo: {
-                shapeNumber: null,
-                availableMeasurements: null,
-                requiredMeasurements: null,
-                diagramUrl: null
-            },
-            
-            measurementStatus: {
-                option: customerMeasurements.option,
-                hasCompleteMeasurements: customerMeasurements.complete,
-                measurements: customerMeasurements.data,
-                missingDimensions: customerMeasurements.missing,
-                providedDimensions: customerMeasurements.provided
-            }
+            properties: item.properties || []
         };
     });
 }
 
-// Enhanced product mapping check with shape information
-async function enhanceProductWithShapeInfo(product) {
-    if (product.shopifySku) {
-        try {
-            const mapping = await db.productMappings.getBySku(product.shopifySku);
-            if (mapping) {
-                console.log(`Found mapping for SKU: ${product.shopifySku}`);
-                product.supplierSpecification = mapping.supplier_specification;
-                product.shapeId = mapping.shape_id;
-                
-                if (mapping.shape_id) {
-                    const shapeMatch = mapping.shape_id.match(/(\d+)/);
-                    if (shapeMatch) {
-                        product.shapeInfo.shapeNumber = shapeMatch[1];
-                        console.log(`Shape ${product.shapeInfo.shapeNumber} assigned to ${product.shopifySku}`);
-                    }
+// Check product mappings
+async function checkProductMappings(products) {
+    const unmappedProducts = [];
+    
+    for (const product of products) {
+        if (product.shopifySku) {
+            try {
+                const mapping = await db.productMappings.getBySku(product.shopifySku);
+                if (!mapping) {
+                    unmappedProducts.push(product.shopifySku);
+                    console.log(`No mapping found for SKU: ${product.shopifySku}`);
+                } else {
+                    console.log(`Found mapping for SKU: ${product.shopifySku}`);
+                    product.supplierSpecification = mapping.supplier_specification;
+                    product.shapeId = mapping.shape_id;
                 }
-                
-                return true;
-            } else {
-                console.log(`No mapping found for SKU: ${product.shopifySku}`);
-                return false;
+            } catch (error) {
+                console.error(`Error checking mapping for SKU ${product.shopifySku}:`, error);
+                unmappedProducts.push(product.shopifySku);
             }
-        } catch (error) {
-            console.error(`Error checking mapping for SKU ${product.shopifySku}:`, error);
-            return false;
         }
     }
-    return false;
-}
-
-// Helper function to determine which step failed
-function determineFailedStep(error) {
-    const errorMessage = error.message.toLowerCase();
     
-    if (errorMessage.includes('create') || errorMessage.includes('documents.create')) {
-        return 'Step 1: Document creation failed - Service account cannot create documents';
-    } else if (errorMessage.includes('update') || errorMessage.includes('addparents')) {
-        return 'Step 2: Folder placement failed - Service account cannot move files to Orders folder';
-    } else if (errorMessage.includes('batchupdate') || errorMessage.includes('inserttext')) {
-        return 'Step 3: Content insertion failed - Service account cannot edit document content';
-    } else if (errorMessage.includes('get') || errorMessage.includes('webviewlink')) {
-        return 'Step 4: Link generation failed - Service account cannot generate shareable links';
-    } else {
-        return 'Unknown step - Check error message for details';
-    }
+    return unmappedProducts;
 }
 
 // Main webhook handler for order creation
@@ -279,6 +173,7 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
         let order;
         let rawBodyString;
         
+        // Parse the request body
         if (typeof req.body === 'string') {
             rawBodyString = req.body;
             order = JSON.parse(req.body);
@@ -293,12 +188,14 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
         console.log('Body type:', typeof req.body);
         console.log('Order ID:', order.id);
         
+        // Verify webhook signature
         const signature = req.get('X-Shopify-Hmac-Sha256');
         if (!signature) {
             console.error('Missing webhook signature');
             return res.status(401).json({ error: 'Missing signature' });
         }
         
+        // Get store configuration
         const store = getStoreFromHeaders(req);
         if (!store) {
             console.error('Could not verify webhook signature or identify store');
@@ -307,17 +204,20 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
         
         console.log(`Verified webhook from store: ${store.config.name} (${store.domain})`);
         
+        // Verify signature
         if (!verifyWebhookSignature(rawBodyString, signature, store.config.webhookSecret)) {
             console.error('Webhook signature verification failed');
             return res.status(401).json({ error: 'Invalid signature' });
         }
         
+        // Extract data
         const customerData = extractCustomerData(order, store.domain);
         const productData = extractProductData(order.line_items || []);
         
         console.log(`Processing order ${customerData.shopifyOrderNumber} from ${customerData.customerName}`);
         console.log(`Products: ${productData.length} items`);
         
+        // Check product mappings and enhance with shape info
         const unmappedProducts = [];
         for (const product of productData) {
             const hasMapping = await enhanceProductWithShapeInfo(product);
@@ -326,62 +226,82 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
             }
         }
         
-        let supplierAssignment = null;
-        let supplierName = null;
-        
-        const detectedSupplier = googleSheets.determineSupplier(productData);
-        if (detectedSupplier) {
-            supplierAssignment = detectedSupplier;
-            supplierName = googleSheets.SUPPLIERS[detectedSupplier].name;
-            console.log(`Auto-assigned to supplier: ${supplierName}`);
-        } else {
-            console.log('No supplier match found for order SKUs');
-        }
-        
+        // Log product details including measurements
         productData.forEach((product, index) => {
             console.log(`Product ${index + 1}: ${product.productTitle}`);
             
             if (product.shapeInfo.shapeNumber) {
-                console.log(`Shape: ${product.shapeInfo.shapeNumber}`);
+                console.log(`  Shape: ${product.shapeInfo.shapeNumber}`);
             }
             
-            console.log(`Measurement option: ${product.measurementStatus.option}`);
-            console.log(`Complete measurements: ${product.measurementStatus.hasCompleteMeasurements}`);
+            console.log(`  Measurement option: ${product.measurementStatus.option}`);
+            console.log(`  Complete measurements: ${product.measurementStatus.hasCompleteMeasurements}`);
             
             if (product.measurementStatus.providedDimensions.length > 0) {
-                console.log(`Provided dimensions: ${product.measurementStatus.providedDimensions.join(', ')}`);
+                console.log(`  Provided dimensions: ${product.measurementStatus.providedDimensions.join(', ')}`);
             }
             
             if (product.measurementStatus.missingDimensions.length > 0) {
-                console.log(`Missing dimensions: ${product.measurementStatus.missingDimensions.join(', ')}`);
+                console.log(`  Missing dimensions: ${product.measurementStatus.missingDimensions.join(', ')}`);
             }
         });
         
-        let dbOrder;
-        try {
-            dbOrder = await db.orders.create({
-                orderId: customerData.orderId,
-                storeDomain: customerData.storeDomain,
-                shopifyOrderNumber: customerData.shopifyOrderNumber,
-                customerName: customerData.customerName,
-                customerEmail: customerData.customerEmail,
-                status: unmappedProducts.length > 0 ? 'needs_mapping' : 'received',
-                supplierAssigned: supplierAssignment,
-                supplierName: supplierName
-            });
-            
-            console.log('Order stored in database successfully');
-        } catch (error) {
-            console.error('Error storing order in database:', error);
+        // Determine supplier
+        let supplierAssignment = null;
+        let supplierName = null;
+        
+        if (googleSheets && googleSheets.determineSupplier) {
+            const detectedSupplier = googleSheets.determineSupplier(productData);
+            if (detectedSupplier) {
+                supplierAssignment = detectedSupplier;
+                supplierName = googleSheets.SUPPLIERS[detectedSupplier].name;
+                console.log(`Auto-assigned to supplier: ${supplierName}`);
+            }
         }
         
+        // Store order in database
+        let dbOrder;
+        try {
+            console.log('Attempting to store order in database...');
+            
+            const orderDataForDb = {
+                orderId: customerData.orderId,
+                order_number: customerData.shopifyOrderNumber,
+                store_domain: customerData.storeDomain,
+                customerName: customerData.customerName,
+                customerEmail: customerData.customerEmail,
+                totalPrice: customerData.totalPrice,
+                order_data: order,
+                supplier_assigned: supplierAssignment,
+                supplier_name: supplierName
+            };
+            
+            console.log('Creating order with data:', {
+                orderId: orderDataForDb.orderId,
+                order_number: orderDataForDb.order_number,
+                store_domain: orderDataForDb.store_domain,
+                customerName: orderDataForDb.customerName
+            });
+            
+            dbOrder = await db.orders.create(orderDataForDb);
+            
+            console.log('Order stored in database successfully');
+            console.log('Database returned order ID:', dbOrder.id);
+            
+        } catch (error) {
+            console.error('ERROR storing order in database:', error);
+            console.error('Full error stack:', error.stack);
+            // Continue processing even if DB fails
+        }
+        
+        // Add to Google Sheets if configured
         let sheetsResult = null;
         if (supplierAssignment && process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
             try {
                 console.log('Adding order to Google Sheets...');
                 sheetsResult = await googleSheets.addOrderToSheet(customerData, productData);
                 
-                if (sheetsResult.success) {
+                if (sheetsResult && sheetsResult.success) {
                     await db.orders.updateSheetsSync(
                         customerData.orderId,
                         customerData.storeDomain,
@@ -390,59 +310,23 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
                         sheetsResult.sheetRange
                     );
                     console.log(`Order added to ${sheetsResult.supplierName}`);
-                } else {
-                    console.log(`Could not add to sheets: ${sheetsResult.reason}`);
                 }
             } catch (error) {
                 console.error('Error adding to Google Sheets:', error.message);
-                await db.orders.updateSheetsSync(
-                    customerData.orderId,
-                    customerData.storeDomain,
-                    false,
-                    null,
-                    null,
-                    error.message
-                );
             }
         }
         
-        // PO GENERATION TEMPORARILY DISABLED
-        let poResult = null;
-        console.log('PO generation temporarily disabled - Google Docs integration needs fixing');
-        
-        /*
-        // DISABLED PO GENERATION CODE - can be re-enabled once google-docs-po.js is fixed
-        if (sheetsResult && sheetsResult.success && supplierAssignment) {
-            try {
-                console.log('Generating Purchase Order...');
-                
-                const supplierInfo = {
-                    key: supplierAssignment,
-                    name: supplierName
-                };
-                
-                poResult = await googleDocsPO.generatePO(customerData, productData, supplierInfo);
-                
-                if (poResult.success) {
-                    console.log(`PO generated: ${poResult.documentUrl}`);
-                    console.log(`PO Type: ${poResult.poType}`);
-                } else {
-                    console.log('PO generation failed');
-                }
-                
-            } catch (error) {
-                console.error('Error generating PO:', error.message);
-            }
-        } else {
-            console.log('Skipping PO generation - Google Sheets sync required first');
-        }
-        */
-        
+        // Log summary
+        console.log('Order processed successfully');
         console.log(`Customer: ${customerData.customerEmail}`);
-        console.log(`Phone: ${customerData.customerPhone}`);
         console.log(`Total: ${customerData.currency} ${customerData.totalPrice}`);
         
-        const response = {
+        if (unmappedProducts.length > 0) {
+            console.log(`Warning: ${unmappedProducts.length} products need mapping`);
+        }
+        
+        // Send response
+        res.status(200).json({
             success: true,
             orderId: customerData.orderId,
             orderNumber: customerData.shopifyOrderNumber,
@@ -450,47 +334,13 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
             productsProcessed: productData.length,
             supplierAssigned: supplierName,
             sheetsUpdated: sheetsResult?.success || false,
-            poGenerated: false, // Always false since PO generation is disabled
-            poUrl: null,
-            poType: null,
             unmappedProducts: unmappedProducts.length > 0 ? unmappedProducts : undefined,
             timestamp
-        };
-        
-        console.log('Order processed successfully');
-        if (unmappedProducts.length > 0) {
-            console.log(`Warning: ${unmappedProducts.length} products need mapping`);
-        }
-        if (sheetsResult?.success) {
-            console.log(`Google Sheets updated: ${sheetsResult.supplierName}`);
-        }
-        
-        res.status(200).json(response);
+        });
         
     } catch (error) {
         console.error('Webhook processing error:', error);
-        
-        try {
-            let order;
-            if (typeof req.body === 'string') {
-                order = JSON.parse(req.body);
-            } else if (Buffer.isBuffer(req.body)) {
-                order = JSON.parse(req.body.toString());
-            } else {
-                order = req.body;
-            }
-            
-            if (order && order.id) {
-                await db.orders.updateStatus(
-                    order.id.toString(),
-                    'unknown',
-                    'error',
-                    error.message
-                );
-            }
-        } catch (dbError) {
-            console.error('Failed to log error to database:', dbError);
-        }
+        console.error('Stack trace:', error.stack);
         
         res.status(500).json({
             error: 'Webhook processing failed',
@@ -500,485 +350,64 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
     }
 });
 
-// Test endpoints with domain-wide delegation
-
-router.get('/po/regular-drive-test', async (req, res) => {
+// Test endpoint to manually create an order
+router.post('/test/create-order', async (req, res) => {
     try {
-        console.log('Testing document creation in regular Drive folder...');
-        
-        const { GoogleAuth } = require('google-auth-library');
-        const { google } = require('googleapis');
-        
-        const serviceAccount = getSafeServiceAccount();
-        
-        const auth = new GoogleAuth({
-            credentials: serviceAccount,
-            scopes: [
-                'https://www.googleapis.com/auth/drive',
-                'https://www.googleapis.com/auth/documents'
-            ],
-            subject: 'dev@mybespokemattress.com'
-        });
-        
-        const docs = google.docs({ version: 'v1', auth });
-        const drive = google.drive({ version: 'v3', auth });
-        
-        console.log('APIs initialised');
-        
-        // Use your regular Drive test folder instead of Shared Drive
-        const testFolderId = '14ezm3B3_sf14uDg5PV-ruFkiYzPZrmW8';
-        
-        console.log('Creating document in regular Drive folder...');
-        
-        const createResponse = await docs.documents.create({
-            resource: {
-                title: 'Regular Drive Test - ' + new Date().toISOString()
+        const timestamp = Date.now().toString();
+        const testOrderData = {
+            orderId: timestamp,
+            order_number: `#TEST-${timestamp}`,
+            store_domain: 'test-store.myshopify.com',
+            customerName: 'Test Customer',
+            customerEmail: 'test@example.com',
+            totalPrice: 99.99,
+            order_data: { 
+                id: timestamp,
+                test: true,
+                line_items: [{
+                    sku: 'TEST-SKU',
+                    title: 'Test Product',
+                    quantity: 1,
+                    price: 99.99
+                }]
             }
-        });
-        
-        const documentId = createResponse.data.documentId;
-        console.log('Document created:', documentId);
-        
-        // Move to test folder
-        await drive.files.update({
-            fileId: documentId,
-            addParents: testFolderId,
-            removeParents: 'root'
-        });
-        
-        console.log('Document moved to test folder');
-        
-        // Add content
-        await docs.documents.batchUpdate({
-            documentId: documentId,
-            resource: {
-                requests: [
-                    {
-                        insertText: {
-                            location: { index: 1 },
-                            text: 'REGULAR DRIVE TEST\n\nThis document was created successfully in a regular Drive folder via domain-wide delegation.\n\nCreated: ' + new Date().toISOString()
-                        }
-                    }
-                ]
-            }
-        });
-        
-        console.log('Content added');
-        
-        // Get shareable link
-        await drive.permissions.create({
-            fileId: documentId,
-            resource: {
-                role: 'reader',
-                type: 'anyone'
-            }
-        });
-        
-        const file = await drive.files.get({
-            fileId: documentId,
-            fields: 'webViewLink'
-        });
-        
-        const documentUrl = file.data.webViewLink;
-        console.log('Document URL:', documentUrl);
-        
-        res.json({
-            message: 'Regular Drive test completed successfully',
-            success: true,
-            documentId: documentId,
-            documentUrl: documentUrl,
-            testFolder: testFolderId,
-            steps: [
-                'Document creation: Success',
-                'Folder placement: Success', 
-                'Content insertion: Success',
-                'Shareable link: Success'
-            ],
-            timestamp: new Date().toISOString()
-        });
-        
-    } catch (error) {
-        console.error('Regular Drive test failed:', error);
-        
-        res.status(500).json({
-            message: 'Regular Drive test failed',
-            success: false,
-            error: error.message,
-            errorCode: error.code,
-            timestamp: new Date().toISOString()
-        });
-    }
-});
-
-router.get('/po/debug-request', async (req, res) => {
-    try {
-        console.log('Debugging exact HTTP request vs APIs Explorer...');
-        
-        const { GoogleAuth } = require('google-auth-library');
-        const { google } = require('googleapis');
-        
-        const serviceAccount = getSafeServiceAccount();
-        
-        const auth = new GoogleAuth({
-            credentials: serviceAccount,
-            scopes: [
-                'https://www.googleapis.com/auth/drive',
-                'https://www.googleapis.com/auth/documents'
-            ],
-            subject: 'dev@mybespokemattress.com'
-        });
-        
-        const drive = google.drive({ version: 'v3', auth });
-        
-        console.log('Drive API initialised');
-        
-        const requestBody = {
-            name: 'Debug HTTP Request Test',
-            mimeType: 'application/vnd.google-apps.document',
-            parents: ['1-zamjJmI9pHXUKlCsyNiYjHQzAcDmc9x']
         };
         
-        console.log('Request body:', JSON.stringify(requestBody, null, 2));
+        console.log('Creating test order:', testOrderData);
+        const testOrder = await db.orders.create(testOrderData);
         
-        const authClient = await auth.getClient();
-        const tokenInfo = await authClient.getAccessToken();
-        console.log('Token exists:', !!tokenInfo.token);
-        console.log('Token length:', tokenInfo.token ? tokenInfo.token.length : 0);
-        
-        console.log('Making Drive API request...');
-        
-        const createResponse = await drive.files.create({
-            resource: requestBody,
-            fields: 'id,name,mimeType,parents'
+        res.json({ 
+            success: true, 
+            order: testOrder,
+            message: 'Test order created successfully'
         });
-        
-        console.log('SUCCESS! Document created:', createResponse.data);
-        
-        await drive.files.delete({
-            fileId: createResponse.data.id
-        });
-        console.log('Test document deleted');
-        
-        res.json({
-            message: 'Debug request completed successfully',
-            success: true,
-            documentData: createResponse.data,
-            timestamp: new Date().toISOString()
-        });
-        
     } catch (error) {
-        console.error('Debug request failed:', error);
-        
-        res.status(500).json({
-            message: 'Debug request failed',
-            success: false,
-            error: error.message,
-            errorCode: error.code,
-            errorStatus: error.status,
-            errorResponse: error.response?.data,
-            timestamp: new Date().toISOString()
+        console.error('Test order creation failed:', error);
+        res.status(500).json({ 
+            error: error.message, 
+            stack: error.stack
         });
     }
 });
 
-router.get('/po/copy-permissions-test', async (req, res) => {
-    try {
-        console.log('Testing if service account can copy existing Google Docs vs create new ones...');
-        
-        const { GoogleAuth } = require('google-auth-library');
-        const { google } = require('googleapis');
-        
-        const serviceAccount = getSafeServiceAccount();
-        
-        const auth = new GoogleAuth({
-            credentials: serviceAccount,
-            scopes: [
-                'https://www.googleapis.com/auth/drive',
-                'https://www.googleapis.com/auth/documents'
-            ],
-            subject: 'dev@mybespokemattress.com'
-        });
-        
-        const drive = google.drive({ version: 'v3', auth });
-        
-        console.log('Drive API initialised');
-        
-        console.log('Looking for existing Google Docs in Orders folder to copy...');
-        
-        const ordersFolder = '1-zamjJmI9pHXUKlCsyNiYjHQzAcDmc9x';
-        
-        const searchResponse = await drive.files.list({
-            q: `parents in '${ordersFolder}' and mimeType='application/vnd.google-apps.document'`,
-            fields: 'files(id, name)',
-            pageSize: 5
-        });
-        
-        if (searchResponse.data.files.length === 0) {
-            throw new Error('No existing Google Docs found in Orders folder to test copying');
-        }
-        
-        const templateDoc = searchResponse.data.files[0];
-        console.log(`Found existing doc to copy: ${templateDoc.name} (${templateDoc.id})`);
-        
-        console.log('Testing document copying...');
-        
-        const copyResponse = await drive.files.copy({
-            fileId: templateDoc.id,
-            resource: {
-                name: 'Copy Permission Test - ' + new Date().toISOString(),
-                parents: [ordersFolder]
-            },
-            fields: 'id,webViewLink,name'
-        });
-        
-        const copiedDocId = copyResponse.data.id;
-        const copiedDocUrl = copyResponse.data.webViewLink;
-        const copiedDocName = copyResponse.data.name;
-        
-        console.log('Document copied successfully:', copiedDocName);
-        console.log('Copied document ID:', copiedDocId);
-        console.log('Copied document URL:', copiedDocUrl);
-        
-        await drive.files.delete({
-            fileId: copiedDocId
-        });
-        console.log('Test copy deleted');
-        
-        res.json({
-            message: 'Document copying test completed successfully',
-            success: true,
-            method: 'copy_existing_document',
-            sourceDocument: templateDoc.name,
-            copiedDocumentId: copiedDocId,
-            copiedDocumentUrl: copiedDocUrl,
-            timestamp: new Date().toISOString()
-        });
-        
-    } catch (error) {
-        console.error('Copy permissions test failed:', error);
-        
-        res.status(500).json({
-            message: 'Copy permissions test failed',
-            success: false,
-            error: error.message,
-            errorCode: error.code,
-            timestamp: new Date().toISOString()
-        });
-    }
-});
-
-router.get('/po/simple-test', async (req, res) => {
-    try {
-        console.log('Testing simple Google Docs creation with domain-wide delegation...');
-        
-        const { GoogleAuth } = require('google-auth-library');
-        const { google } = require('googleapis');
-        
-        const serviceAccount = getSafeServiceAccount();
-        
-        const auth = new GoogleAuth({
-            credentials: serviceAccount,
-            scopes: [
-                'https://www.googleapis.com/auth/drive',
-                'https://www.googleapis.com/auth/documents'
-            ],
-            subject: 'dev@mybespokemattress.com'
-        });
-        
-        const docs = google.docs({ version: 'v1', auth });
-        const drive = google.drive({ version: 'v3', auth });
-        
-        console.log('APIs initialised');
-        
-        console.log('Creating document with direct service account authentication...');
-        
-        const createResponse = await docs.documents.create({
-            resource: {
-                title: 'Simple Test Document - ' + new Date().toISOString()
-            }
-        });
-        
-        const documentId = createResponse.data.documentId;
-        console.log('Document created successfully:', documentId);
-        
-        const file = await drive.files.get({
-            fileId: documentId,
-            fields: 'webViewLink'
-        });
-        
-        const documentUrl = file.data.webViewLink;
-        console.log('Document URL:', documentUrl);
-        
-        await drive.files.delete({
-            fileId: documentId
-        });
-        console.log('Test document deleted');
-        
-        res.json({
-            message: 'Simple Google Docs test completed successfully with domain-wide delegation',
-            success: true,
-            documentId: documentId,
-            documentUrl: documentUrl,
-            timestamp: new Date().toISOString()
-        });
-        
-    } catch (error) {
-        console.error('Simple Google Docs test failed:', error);
-        
-        res.status(500).json({
-            message: 'Simple Google Docs test failed',
-            success: false,
-            error: error.message,
-            errorCode: error.code,
-            timestamp: new Date().toISOString()
-        });
-    }
-});
-
-router.get('/po/create-test', async (req, res) => {
-    try {
-        console.log('Testing Google Docs document creation with domain-wide delegation...');
-        
-        const { GoogleAuth } = require('google-auth-library');
-        const { google } = require('googleapis');
-        
-        const serviceAccount = getSafeServiceAccount();
-        
-        const auth = new GoogleAuth({
-            credentials: serviceAccount,
-            scopes: [
-                'https://www.googleapis.com/auth/drive',
-                'https://www.googleapis.com/auth/documents'
-            ],
-            subject: 'dev@mybespokemattress.com'
-        });
-        
-        console.log('Auth client created');
-        
-        const docs = google.docs({ version: 'v1', auth });
-        const drive = google.drive({ version: 'v3', auth });
-        
-        console.log('APIs initialised');
-        
-        console.log('Step 1: Creating basic document...');
-        
-        const createResponse = await docs.documents.create({
-            resource: {
-                title: 'PO Test Document - ' + new Date().toISOString()
-            }
-        });
-        
-        const documentId = createResponse.data.documentId;
-        console.log('Step 1: Document created successfully:', documentId);
-        
-        console.log('Step 2: Moving document to Orders folder...');
-        
-        const ordersFolder = '1-zamjJmI9pHXUKlCsyNiYjHQzAcDmc9x';
-        
-        await drive.files.update({
-            fileId: documentId,
-            addParents: ordersFolder,
-            removeParents: 'root'
-        });
-        
-        console.log('Step 2: Document moved to folder successfully');
-        
-        console.log('Step 3: Adding content to document...');
-        
-        await docs.documents.batchUpdate({
-            documentId: documentId,
-            resource: {
-                requests: [
-                    {
-                        insertText: {
-                            location: {
-                                index: 1
-                            },
-                            text: 'TEST PURCHASE ORDER\n\nThis is a test document to verify Google Docs API permissions.\n\nCreated: ' + new Date().toISOString()
-                        }
-                    }
-                ]
-            }
-        });
-        
-        console.log('Step 3: Content added successfully');
-        
-        console.log('Step 4: Creating shareable link...');
-        
-        await drive.permissions.create({
-            fileId: documentId,
-            resource: {
-                role: 'reader',
-                type: 'anyone'
-            }
-        });
-        
-        const shareResponse = await drive.files.get({
-            fileId: documentId,
-            fields: 'webViewLink'
-        });
-        
-        const documentUrl = shareResponse.data.webViewLink;
-        console.log('Step 4: Shareable link created:', documentUrl);
-        
-        console.log('Cleaning up test document...');
-        await drive.files.delete({
-            fileId: documentId
-        });
-        console.log('Test document deleted');
-        
-        res.json({
-            message: 'Google Docs creation test completed successfully with domain-wide delegation',
-            success: true,
-            steps: [
-                'Document creation: Success',
-                'Folder placement: Success',
-                'Content insertion: Success',
-                'Shareable link: Success',
-                'Cleanup: Success'
-            ],
-            documentUrl: documentUrl,
-            timestamp: new Date().toISOString()
-        });
-        
-    } catch (error) {
-        console.error('Google Docs test failed:', error);
-        
-        res.status(500).json({
-            message: 'Google Docs creation test failed',
-            success: false,
-            error: error.message,
-            step: determineFailedStep(error),
-            timestamp: new Date().toISOString()
-        });
-    }
-});
-
-// DISABLED PO TEST ENDPOINT
-router.get('/po/test', async (req, res) => {
-    res.json({
-        message: 'PO generation test endpoint - temporarily disabled',
-        initialized: false,
-        note: 'PO generation is disabled until Google Docs integration is fixed',
-        availableTests: [
-            '/webhook/po/simple-test',
-            '/webhook/po/create-test',
-            '/webhook/po/debug-request',
-            '/webhook/po/copy-permissions-test'
-        ],
-        timestamp: new Date().toISOString()
-    });
-});
-
+// Google Sheets test endpoint
 router.get('/sheets/test', async (req, res) => {
     try {
-        const connected = await googleSheets.testConnection();
-        res.json({
-            message: 'Google Sheets test endpoint',
-            connected,
-            suppliers: Object.keys(googleSheets.SUPPLIERS),
-            timestamp: new Date().toISOString()
-        });
+        if (googleSheets && googleSheets.testConnection) {
+            const connected = await googleSheets.testConnection();
+            res.json({
+                message: 'Google Sheets test endpoint',
+                connected,
+                suppliers: googleSheets.SUPPLIERS ? Object.keys(googleSheets.SUPPLIERS) : [],
+                timestamp: new Date().toISOString()
+            });
+        } else {
+            res.json({
+                message: 'Google Sheets not configured',
+                connected: false,
+                timestamp: new Date().toISOString()
+            });
+        }
     } catch (error) {
         res.status(500).json({
             error: 'Sheets test failed',
@@ -988,6 +417,7 @@ router.get('/sheets/test', async (req, res) => {
     }
 });
 
+// Basic webhook test endpoint
 router.get('/test', (req, res) => {
     res.json({
         message: 'Webhook endpoint is active',

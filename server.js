@@ -56,6 +56,7 @@ app.use((req, res, next) => {
 // API Routes for React frontend
 app.get('/api/orders', async (req, res) => {
     try {
+        console.log('API: Fetching orders...');
         const { search, limit = 20 } = req.query;
         let orders;
 
@@ -65,10 +66,19 @@ app.get('/api/orders', async (req, res) => {
             orders = await db.orders.getAllOrders(parseInt(limit));
         }
 
+        console.log(`API: Found ${orders.length} orders`);
+        if (orders.length > 0) {
+            console.log('First order sample:', {
+                id: orders[0].id,
+                order_number: orders[0].order_number,
+                customer_name: orders[0].customer_name
+            });
+        }
+        
         res.json(orders);
     } catch (error) {
         console.error('Error fetching orders:', error);
-        res.status(500).json({ error: 'Failed to fetch orders' });
+        res.status(500).json({ error: 'Failed to fetch orders', details: error.message });
     }
 });
 
@@ -109,7 +119,7 @@ app.get('/api/stats', async (req, res) => {
     }
 });
 
-// Debug endpoint to check raw database
+// Debug endpoint to check database contents
 app.get('/api/debug/check', async (req, res) => {
     try {
         const { Pool } = require('pg');
@@ -147,6 +157,52 @@ app.get('/api/debug/check', async (req, res) => {
     }
 });
 
+// Test endpoint to manually create an order
+app.post('/api/test/create-order', async (req, res) => {
+    try {
+        const timestamp = Date.now().toString();
+        const testOrderData = {
+            orderId: timestamp,
+            order_number: `#TEST-${timestamp}`,
+            store_domain: 'test-store.myshopify.com',
+            customerName: 'Test Customer',
+            customerEmail: 'test@example.com',
+            totalPrice: 99.99,
+            order_data: { 
+                id: timestamp,
+                test: true,
+                line_items: [{
+                    sku: 'TEST-SKU',
+                    title: 'Test Product',
+                    quantity: 1,
+                    price: 99.99
+                }],
+                customer: {
+                    email: 'test@example.com',
+                    first_name: 'Test',
+                    last_name: 'Customer'
+                }
+            }
+        };
+        
+        console.log('Creating test order with data:', testOrderData);
+        const testOrder = await db.orders.create(testOrderData);
+        
+        res.json({ 
+            success: true, 
+            order: testOrder,
+            message: 'Test order created successfully'
+        });
+    } catch (error) {
+        console.error('Test order creation failed:', error);
+        res.status(500).json({ 
+            error: error.message, 
+            stack: error.stack,
+            details: 'Check server logs for more information'
+        });
+    }
+});
+
 // PDF generation endpoint (placeholder)
 app.get('/api/orders/:id/pdf', async (req, res) => {
     try {
@@ -171,16 +227,31 @@ app.post('/api/orders/:id/email', async (req, res) => {
 app.get('/health', async (req, res) => {
     const reactBuildExists = require('fs').existsSync(path.join(__dirname, 'client/build/index.html'));
     
-    res.json({
-        status: 'healthy',
-        database: await db.isHealthy(),
-        stores: Object.keys(storeConfigs),
-        reactBuild: reactBuildExists ? 'available' : 'missing',
-        timestamp: new Date().toISOString()
-    });
+    try {
+        const dbHealthy = await db.isHealthy();
+        const orderCount = await db.orders.getAllOrders(1);
+        
+        res.json({
+            status: 'healthy',
+            database: dbHealthy,
+            orderCount: orderCount.length,
+            stores: Object.keys(storeConfigs),
+            reactBuild: reactBuildExists ? 'available' : 'missing',
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.json({
+            status: 'partial',
+            database: false,
+            error: error.message,
+            stores: Object.keys(storeConfigs),
+            reactBuild: reactBuildExists ? 'available' : 'missing',
+            timestamp: new Date().toISOString()
+        });
+    }
 });
 
-// Alternative catch-all route using middleware instead of app.get('*')
+// Catch-all route for React app
 app.use((req, res, next) => {
     // Skip if this is an API route or already handled
     if (req.path.startsWith('/api/') || req.path.startsWith('/webhook/') || req.path === '/health') {
@@ -222,6 +293,8 @@ async function startServer() {
         app.listen(PORT, () => {
             console.log(`Server running on port ${PORT}`);
             console.log(`React App: http://localhost:${PORT}/`);
+            console.log(`API Orders: http://localhost:${PORT}/api/orders`);
+            console.log(`Health Check: http://localhost:${PORT}/health`);
             console.log(`Webhook endpoint: http://localhost:${PORT}/webhook/orders/create`);
             console.log(`Configured stores: ${Object.keys(storeConfigs).length}`);
             Object.keys(storeConfigs).forEach((domain, index) => {
