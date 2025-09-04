@@ -48,17 +48,9 @@ async function initialize() {
             )
         `);
         
-        // Drop existing processed_orders table if it exists with wrong schema
-        try {
-            await pool.query(`DROP TABLE IF EXISTS processed_orders CASCADE`);
-            console.log('🗑️ Dropped existing processed_orders table to recreate with correct schema');
-        } catch (error) {
-            console.log('ℹ️ No existing processed_orders table to drop');
-        }
-
         // Create processed_orders table with correct schema
         await pool.query(`
-            CREATE TABLE processed_orders (
+            CREATE TABLE IF NOT EXISTS processed_orders (
                 id SERIAL PRIMARY KEY,
                 shopify_order_id BIGINT NOT NULL,
                 order_number VARCHAR(255) NOT NULL,
