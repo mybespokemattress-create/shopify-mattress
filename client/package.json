@@ -5,14 +5,12 @@
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-scripts": "^5.0.1",
     "lucide-react": "^0.263.1"
   },
   "scripts": {
     "build": "react-scripts build",
     "start": "react-scripts start"
-  },
-  "devDependencies": {
-    "react-scripts": "^5.0.1"
   },
   "browserslist": {
     "production": [">0.2%", "not dead", "not op_mini all"],
