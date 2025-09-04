@@ -33,7 +33,7 @@ const OrderManager = () => {
     else if (apiOrder.store_domain?.includes('d587eb')) store = 'CARA';
 
     // Extract measurements - FIXED PATH
-    const measurements = orderData.extracted_measurements?.[0]?.measurements || {};
+    const measurements = orderData.order_data?.extracted_measurements?.[0]?.measurements || orderData.extracted_measurements?.[0]?.measurements || {};
     
     // Build properties object with measurements and units
     const properties = {};
