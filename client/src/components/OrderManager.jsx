@@ -45,6 +45,9 @@ const OrderManager = () => {
     
     // Look in the nested line_items properties array
     const lineItems = orderData.order_data?.line_items || orderData.line_items;
+    console.log('Debug - orderData:', orderData);
+    console.log('Debug - orderData.order_data:', orderData.order_data);
+    console.log('Debug - lineItems:', lineItems);
     if (lineItems && lineItems[0] && lineItems[0].properties) {
       const diagramProperty = lineItems[0].properties.find(prop => prop.name === 'Diagram Number');
       diagramNumber = diagramProperty ? diagramProperty.value : null;
