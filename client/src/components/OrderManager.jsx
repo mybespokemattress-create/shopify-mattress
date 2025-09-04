@@ -42,10 +42,17 @@ const OrderManager = () => {
     dimensions.forEach(dim => {
       const measurement = measurements[dim];
       if (measurement) {
-        // Include both value and unit if available
-        properties[`Dimension ${dim}`] = measurement.unit 
-          ? `${measurement.value} ${measurement.unit}`
-          : measurement.value || '';
+        // Check if measurement is an object with value property
+        if (typeof measurement === 'object' && 'value' in measurement) {
+          // Construct the display string with unit if available
+          const displayValue = measurement.unit 
+            ? `${measurement.value} ${measurement.unit}`
+            : measurement.value;
+          properties[`Dimension ${dim}`] = displayValue;
+        } else {
+          // Fallback for simple string values
+          properties[`Dimension ${dim}`] = String(measurement);
+        }
       } else {
         properties[`Dimension ${dim}`] = '';
       }
