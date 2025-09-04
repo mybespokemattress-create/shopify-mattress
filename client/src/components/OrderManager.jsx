@@ -40,15 +40,22 @@ const OrderManager = () => {
     console.log('Order properties:', orderData.properties);
     
     // NEW: Extract diagram number from order properties
-    // The API flattens properties with "property_" prefix, check multiple locations
-    const diagramNumber = apiOrder['property_Diagram Number'] ||
-                         orderData.properties?.['Diagram Number'] || 
-                         orderData.line_items?.[0]?.properties?.['Diagram Number'] ||
-                         orderData.order_data?.properties?.['Diagram Number'] ||
-                         null;
+    // Check the nested line_items properties structure
+    let diagramNumber = null;
     
-    console.log('Checking apiOrder keys:', Object.keys(apiOrder));
-    console.log('Checking for property_ keys:', Object.keys(apiOrder).filter(key => key.startsWith('property_')));
+    // Look in the nested line_items properties array
+    const lineItems = orderData.order_data?.line_items || orderData.line_items;
+    if (lineItems && lineItems[0] && lineItems[0].properties) {
+      const diagramProperty = lineItems[0].properties.find(prop => prop.name === 'Diagram Number');
+      diagramNumber = diagramProperty ? diagramProperty.value : null;
+    }
+    
+    // Fallback to other locations
+    if (!diagramNumber) {
+      diagramNumber = apiOrder['property_Diagram Number'] ||
+                     orderData.properties?.['Diagram Number'] || 
+                     null;
+    }
     
     console.log('Diagram Number value:', diagramNumber);
     console.log('All property keys:', Object.keys(orderData.properties || {}));
