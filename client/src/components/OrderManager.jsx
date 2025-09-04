@@ -492,15 +492,6 @@ const OrderManager = () => {
                           })}
                         </div>
 
-                        {/* Display measurement status */}
-                        {selectedOrder.rawMeasurements && (
-                          <div className="mt-3 pt-3 border-t">
-                            <div className="text-xs text-slate-500">
-                              Measurements provided: {Object.keys(selectedOrder.rawMeasurements).filter(k => k.length === 1).length} of 7
-                            </div>
-                          </div>
-                        )}
-
                         {/* Additional Specifications */}
                         <div className="mt-4 pt-4 border-t">
                           <h4 className="text-sm text-slate-600 mb-3">Additional Specifications</h4>

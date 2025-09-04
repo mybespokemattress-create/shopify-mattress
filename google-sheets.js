@@ -7,12 +7,12 @@ const { google } = require('googleapis');
 const SUPPLIERS = {
     SOUTHERN: {
         name: 'Southern Production Schedule',
-        sheetId: '1q2gHW-ku8oH19WSTc3qDIDDE5tQthyGy--IWaKMfP7c',
+        sheetId: '1msn3axI6YVuRbHYYf32APoxQPG61zKKlNx6CZR1iO3w',
         keywords: ['Essential', 'Grand', 'Cool', 'Novo', 'Body']
     },
     MATTRESSSHIRE: {
         name: 'Mattressshire Production Schedule', 
-        sheetId: '1qfKja18P0GPubqHMj0VEO89D6VsvZD0gudPMwBHncFA',
+        sheetId: '16IssobN0vG-oYEyEW8HgZIOqAsiIO_pTCOt0czmqQJM',
         keywords: ['Comfi', 'Imperial']
     }
 };
