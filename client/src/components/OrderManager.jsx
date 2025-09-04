@@ -11,22 +11,12 @@ const OrderManager = () => {
 
   // NEW: Diagram URL generation function
   const getDiagramImageUrl = (diagramNumber) => {
-    if (!diagramNumber) return null;
-    
-    // Using local storage method (recommended for better performance)
-    // Place diagram files in: public/images/diagrams/
-    return `/images/diagrams/Shape ${diagramNumber} Caravan Mattress Measuring Diagram.jpg`;
-    
-    // Alternative: Google Drive method (uncomment if using public Google Drive files)
-    // const driveFileIds = {
-    //   '40': 'your_google_drive_file_id_for_shape_40',
-    //   '42': 'your_google_drive_file_id_for_shape_42',
-    //   '48': 'your_google_drive_file_id_for_shape_48',
-    //   // Add mappings for all your shapes
-    // };
-    // const fileId = driveFileIds[diagramNumber];
-    // return fileId ? `https://drive.google.com/uc?export=view&id=${fileId}` : null;
-  };
+  if (!diagramNumber) return null;
+  
+  // Using local storage method (recommended for better performance)
+  // Place diagram files in: public/images/diagrams/
+  return `/images/diagrams/Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`;
+};
 
   // Function to transform API data to component format
   const transformApiOrder = (apiOrder) => {
