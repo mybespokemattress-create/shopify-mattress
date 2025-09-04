@@ -9,6 +9,25 @@ const OrderManager = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // NEW: Diagram URL generation function
+  const getDiagramImageUrl = (diagramNumber) => {
+    if (!diagramNumber) return null;
+    
+    // Using local storage method (recommended for better performance)
+    // Place diagram files in: public/images/diagrams/
+    return `/images/diagrams/Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`;
+    
+    // Alternative: Google Drive method (uncomment if using public Google Drive files)
+    // const driveFileIds = {
+    //   '40': 'your_google_drive_file_id_for_shape_40',
+    //   '42': 'your_google_drive_file_id_for_shape_42',
+    //   '48': 'your_google_drive_file_id_for_shape_48',
+    //   // Add mappings for all your shapes
+    // };
+    // const fileId = driveFileIds[diagramNumber];
+    // return fileId ? `https://drive.google.com/uc?export=view&id=${fileId}` : null;
+  };
+
   // Function to transform API data to component format
   const transformApiOrder = (apiOrder) => {
     const orderData = apiOrder.order_data || {};
@@ -19,7 +38,13 @@ const OrderManager = () => {
     console.log('Extracted measurements:', orderData.extracted_measurements);
     console.log('Checking for diagram number...');
     console.log('Order properties:', orderData.properties);
-    console.log('Diagram Number value:', orderData.properties?.['Diagram Number']);
+    
+    // NEW: Extract diagram number from order properties
+    const diagramNumber = orderData.properties?.['Diagram Number'] || 
+                         orderData.line_items?.[0]?.properties?.['Diagram Number'] ||
+                         null;
+    
+    console.log('Diagram Number value:', diagramNumber);
     console.log('All property keys:', Object.keys(orderData.properties || {}));
     console.log('Full apiOrder structure:', JSON.stringify(apiOrder, null, 2));
     
@@ -84,7 +109,9 @@ const OrderManager = () => {
       }],
       supplierCode: orderData.supplierSpecification || '',
       shapeNumber: orderData.shapeNumber || '',
-      shapeDiagramUrl: null,
+      // NEW: Add diagram-related fields
+      diagramNumber: diagramNumber,
+      shapeDiagramUrl: getDiagramImageUrl(diagramNumber),
       linkAttachment: 'Standard Links',
       deliveryOption: 'Standard Delivery (7-10 days)',
       totalPrice: apiOrder.total_price,
@@ -290,6 +317,12 @@ const OrderManager = () => {
                             }`}>
                               {order.store}
                             </span>
+                            {/* NEW: Display diagram indicator in order list */}
+                            {order.diagramNumber && (
+                              <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
+                                Shape {order.diagramNumber}
+                              </span>
+                            )}
                           </div>
                           <div className="text-slate-600 text-sm">{order.customer.name}</div>
                           <div className="text-slate-500 text-xs">{order.orderDate}</div>
@@ -532,21 +565,49 @@ const OrderManager = () => {
                         </div>
                       </div>
 
-                      {/* RIGHT: Shape Diagram */}
+                      {/* RIGHT: Shape Diagram - UPDATED SECTION */}
                       <div>
-                        <h4 className="text-sm text-slate-600 mb-3">Shape Diagram</h4>
+                        <h4 className="text-sm text-slate-600 mb-3">
+                          Shape Diagram
+                          {selectedOrder.diagramNumber && (
+                            <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-medium">
+                              Shape {selectedOrder.diagramNumber}
+                            </span>
+                          )}
+                        </h4>
                         <div className="border rounded bg-slate-50" style={{height: '500px'}}>
                           {selectedOrder.shapeDiagramUrl ? (
-                            <img 
-                              src={selectedOrder.shapeDiagramUrl} 
-                              alt="Shape Diagram"
-                              className="w-full h-full object-contain"
-                            />
+                            <div className="w-full h-full">
+                              <img 
+                                src={selectedOrder.shapeDiagramUrl} 
+                                alt={`Shape ${selectedOrder.diagramNumber} Measuring Diagram`}
+                                className="w-full h-full object-contain"
+                                onError={(e) => {
+                                  console.error('Diagram failed to load:', selectedOrder.shapeDiagramUrl);
+                                  e.target.style.display = 'none';
+                                  e.target.nextSibling.style.display = 'flex';
+                                }}
+                              />
+                              <div className="w-full h-full flex-col items-center justify-center text-slate-400 hidden">
+                                <div className="text-sm mb-1">Diagram failed to load</div>
+                                <div className="text-xs">Shape #{selectedOrder.diagramNumber}</div>
+                                <div className="text-xs mt-2 text-slate-300">
+                                  Check: /images/diagrams/Shape_{selectedOrder.diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg
+                                </div>
+                              </div>
+                            </div>
                           ) : (
                             <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
-                              <div className="text-sm mb-1">No diagram uploaded</div>
-                              {selectedOrder.shapeNumber && (
-                                <div className="text-xs">Shape #{selectedOrder.shapeNumber}</div>
+                              <div className="text-sm mb-1">
+                                {selectedOrder.diagramNumber ? 'Diagram configured but not accessible' : 'No diagram specified'}
+                              </div>
+                              {selectedOrder.diagramNumber && (
+                                <div className="text-xs">Shape #{selectedOrder.diagramNumber}</div>
+                              )}
+                              {!selectedOrder.diagramNumber && (
+                                <div className="text-xs mt-2 text-slate-300">
+                                  Diagram number not found in order properties
+                                </div>
                               )}
                             </div>
                           )}
