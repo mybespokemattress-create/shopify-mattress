@@ -16,7 +16,7 @@ const OrderManager = () => {
     // Add this debug logging
     console.log('Order ID:', apiOrder.id);
     console.log('Order data:', orderData);
-    console.log('Extracted measurements:', orderData.extracted_measurements);
+    console.log('Extracted measurements:', orderData.order_data?.extracted_measurements);
     
     // Extract store name from order number or domain
     let store = 'UNKNOWN';
@@ -42,13 +42,13 @@ const OrderManager = () => {
         productTitle: orderData.line_items?.[0]?.title || 'Unknown Product',
         quantity: 1,
         properties: {
-        'Dimension A': orderData.extracted_measurements?.[0]?.measurements?.A?.value || '',
-        'Dimension B': orderData.extracted_measurements?.[0]?.measurements?.B?.value || '',
-        'Dimension C': orderData.extracted_measurements?.[0]?.measurements?.C?.value || '',
-        'Dimension D': orderData.extracted_measurements?.[0]?.measurements?.D?.value || '',
-        'Dimension E': orderData.extracted_measurements?.[0]?.measurements?.E?.value || '',
-        'Dimension F': orderData.extracted_measurements?.[0]?.measurements?.F?.value || '',
-        'Dimension G': orderData.extracted_measurements?.[0]?.measurements?.G?.value || ''
+        'Dimension A': orderData.order_data?.extracted_measurements?.[0]?.measurements?.A?.value || '',
+        'Dimension B': orderData.order_data?.extracted_measurements?.[0]?.measurements?.B?.value || '',
+        'Dimension C': orderData.order_data?.extracted_measurements?.[0]?.measurements?.C?.value || '',
+        'Dimension D': orderData.order_data?.extracted_measurements?.[0]?.measurements?.D?.value || '',
+        'Dimension E': orderData.order_data?.extracted_measurements?.[0]?.measurements?.E?.value || '',
+        'Dimension F': orderData.order_data?.extracted_measurements?.[0]?.measurements?.F?.value || '',
+        'Dimension G': orderData.order_data?.extracted_measurements?.[0]?.measurements?.G?.value || ''
         }
       }],
       supplierCode: orderData.supplierSpecification || '',
