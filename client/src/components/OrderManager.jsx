@@ -12,6 +12,11 @@ const OrderManager = () => {
   // Function to transform API data to component format
   const transformApiOrder = (apiOrder) => {
     const orderData = apiOrder.order_data || {};
+
+    // Add this debug logging
+    console.log('Order ID:', apiOrder.id);
+    console.log('Order data:', orderData);
+    console.log('Extracted measurements:', orderData.extracted_measurements);
     
     // Extract store name from order number or domain
     let store = 'UNKNOWN';
