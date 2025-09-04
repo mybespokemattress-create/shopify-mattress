@@ -251,19 +251,21 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
         productData.forEach((product, index) => {
             console.log(`Product ${index + 1}: ${product.productTitle}`);
             
-            if (product.shapeInfo.shapeNumber) {
+            if (product.shapeInfo && product.shapeInfo.shapeNumber) {
                 console.log(`  Shape: ${product.shapeInfo.shapeNumber}`);
             }
             
-            console.log(`  Measurement option: ${product.measurementStatus.option}`);
-            console.log(`  Complete measurements: ${product.measurementStatus.hasCompleteMeasurements}`);
-            
-            if (product.measurementStatus.providedDimensions.length > 0) {
-                console.log(`  Provided dimensions: ${product.measurementStatus.providedDimensions.join(', ')}`);
-            }
-            
-            if (product.measurementStatus.missingDimensions.length > 0) {
-                console.log(`  Missing dimensions: ${product.measurementStatus.missingDimensions.join(', ')}`);
+            if (product.measurementStatus) {
+                console.log(`  Measurement option: ${product.measurementStatus.option}`);
+                console.log(`  Complete measurements: ${product.measurementStatus.hasCompleteMeasurements}`);
+                
+                if (product.measurementStatus.providedDimensions && product.measurementStatus.providedDimensions.length > 0) {
+                    console.log(`  Provided dimensions: ${product.measurementStatus.providedDimensions.join(', ')}`);
+                }
+                
+                if (product.measurementStatus.missingDimensions && product.measurementStatus.missingDimensions.length > 0) {
+                    console.log(`  Missing dimensions: ${product.measurementStatus.missingDimensions.join(', ')}`);
+                }
             }
         });
         
