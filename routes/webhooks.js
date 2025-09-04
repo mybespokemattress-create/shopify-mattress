@@ -121,9 +121,83 @@ function extractCustomerData(order, storeDomain) {
     };
 }
 
-// Extract product data
+// Determine measurement option from order properties
+function determineMeasurementOption(measurements) {
+    const hasDimensions = Object.keys(measurements).some(key => 
+        key.match(/^[A-G]$/) && measurements[key].value
+    );
+    
+    if (hasDimensions) {
+        return 'option1';
+    }
+    
+    const measurementChoice = Object.keys(measurements).find(key => 
+        key.toLowerCase().includes('measurement') && key.toLowerCase().includes('option')
+    );
+    
+    if (measurementChoice) {
+        const choice = measurements[measurementChoice];
+        if (choice.includes('later') || choice.includes('send')) {
+            return 'option2';
+        }
+        if (choice.includes('kit') || choice.includes('measuring')) {
+            return 'option3';
+        }
+    }
+    
+    return hasDimensions ? 'option1' : 'option2';
+}
+
+// Extract customer measurements and validate completeness
+function extractCustomerMeasurements(properties) {
+    const measurements = {};
+    const dimensionValues = {};
+    
+    if (!properties || !Array.isArray(properties)) {
+        return { complete: false, data: {}, missing: [], provided: [], option: 'option2' };
+    }
+    
+    properties.forEach(prop => {
+        const propName = prop.name?.toLowerCase();
+        
+        // Check for dimension patterns: "Enter Dimension A (cm)" or "Dimension A"
+        if (propName?.includes('dimension')) {
+            // Extract the letter (A-G) from various formats
+            const letterMatch = propName.match(/dimension\s*([a-g])/i);
+            if (letterMatch && prop.value) {
+                const letter = letterMatch[1].toUpperCase();
+                dimensionValues[letter] = {
+                    value: prop.value,
+                    unit: 'cm'
+                };
+                console.log(`Extracted Dimension ${letter}: ${prop.value}`);
+            }
+        }
+        
+        measurements[`property_${prop.name}`] = prop.value;
+    });
+    
+    const providedDimensions = Object.keys(dimensionValues);
+    const expectedDimensions = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+    const missingDimensions = expectedDimensions.filter(dim => !providedDimensions.includes(dim));
+    
+    console.log(`Dimensions extracted: ${providedDimensions.join(', ') || 'none'}`);
+    console.log(`Missing dimensions: ${missingDimensions.join(', ') || 'none'}`);
+    
+    return {
+        complete: missingDimensions.length === 0 && providedDimensions.length > 0,
+        data: { ...measurements, ...dimensionValues },
+        missing: missingDimensions,
+        provided: providedDimensions,
+        option: determineMeasurementOption({ ...measurements, ...dimensionValues })
+    };
+}
+
+// Enhanced product data extraction with measurements and shape info
 function extractProductData(lineItems) {
     return lineItems.map(item => {
+        const customerMeasurements = extractCustomerMeasurements(item.properties);
+        
         return {
             shopifySku: item.sku,
             productTitle: item.title,
@@ -133,35 +207,23 @@ function extractProductData(lineItems) {
             lineItemId: item.id,
             productId: item.product_id,
             variantId: item.variant_id,
-            properties: item.properties || []
+            
+            shapeInfo: {
+                shapeNumber: null,
+                availableMeasurements: null,
+                requiredMeasurements: null,
+                diagramUrl: null
+            },
+            
+            measurementStatus: {
+                option: customerMeasurements.option,
+                hasCompleteMeasurements: customerMeasurements.complete,
+                measurements: customerMeasurements.data,
+                missingDimensions: customerMeasurements.missing,
+                providedDimensions: customerMeasurements.provided
+            }
         };
     });
-}
-
-// Check product mappings
-async function checkProductMappings(products) {
-    const unmappedProducts = [];
-    
-    for (const product of products) {
-        if (product.shopifySku) {
-            try {
-                const mapping = await db.productMappings.getBySku(product.shopifySku);
-                if (!mapping) {
-                    unmappedProducts.push(product.shopifySku);
-                    console.log(`No mapping found for SKU: ${product.shopifySku}`);
-                } else {
-                    console.log(`Found mapping for SKU: ${product.shopifySku}`);
-                    product.supplierSpecification = mapping.supplier_specification;
-                    product.shapeId = mapping.shape_id;
-                }
-            } catch (error) {
-                console.error(`Error checking mapping for SKU ${product.shopifySku}:`, error);
-                unmappedProducts.push(product.shopifySku);
-            }
-        }
-    }
-    
-    return unmappedProducts;
 }
 
 // Main webhook handler for order creation
@@ -217,10 +279,26 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
         console.log(`Processing order ${customerData.shopifyOrderNumber} from ${customerData.customerName}`);
         console.log(`Products: ${productData.length} items`);
         
+        // Debug: Log raw line item properties
+        if (order.line_items && order.line_items.length > 0) {
+            console.log('=== DEBUG: Line Item Properties ===');
+            order.line_items.forEach((item, index) => {
+                console.log(`Item ${index + 1}: ${item.title}`);
+                if (item.properties && item.properties.length > 0) {
+                    console.log('Properties found:');
+                    item.properties.forEach(prop => {
+                        console.log(`  - ${prop.name}: ${prop.value}`);
+                    });
+                } else {
+                    console.log('  No properties on this item');
+                }
+            });
+            console.log('=== END DEBUG ===');
+        }
+        
         // Check product mappings and enhance with shape info
         const unmappedProducts = [];
         for (const product of productData) {
-            // Enhanced product mapping check with shape information
             if (product.shopifySku) {
                 try {
                     const mapping = await db.productMappings.getBySku(product.shopifySku);
@@ -282,10 +360,21 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
             }
         }
         
-        // Store order in database
+        // Store order in database with measurements
         let dbOrder;
         try {
             console.log('Attempting to store order in database...');
+            
+            // Include measurement data in the order_data JSON
+            const orderWithMeasurements = {
+                ...order,
+                extracted_measurements: productData.map(p => ({
+                    sku: p.shopifySku,
+                    measurements: p.measurementStatus?.measurements || {},
+                    provided: p.measurementStatus?.providedDimensions || [],
+                    missing: p.measurementStatus?.missingDimensions || []
+                }))
+            };
             
             const orderDataForDb = {
                 orderId: customerData.orderId,
@@ -294,7 +383,7 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
                 customerName: customerData.customerName,
                 customerEmail: customerData.customerEmail,
                 totalPrice: customerData.totalPrice,
-                order_data: order,
+                order_data: orderWithMeasurements,
                 supplier_assigned: supplierAssignment,
                 supplier_name: supplierName
             };
@@ -391,7 +480,11 @@ router.post('/test/create-order', async (req, res) => {
                     sku: 'TEST-SKU',
                     title: 'Test Product',
                     quantity: 1,
-                    price: 99.99
+                    price: 99.99,
+                    properties: [
+                        { name: 'Enter Dimension A (cm)', value: '100' },
+                        { name: 'Enter Dimension B (cm)', value: '200' }
+                    ]
                 }]
             }
         };
