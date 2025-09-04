@@ -33,16 +33,17 @@ const OrderManager = () => {
       orderDate: apiOrder.created_date ? new Date(apiOrder.created_date).toISOString().split('T')[0] : '',
       status: apiOrder.processing_status === 'received' ? 'pending_review' : 'ready_to_send',
       lineItems: [{
-        sku: orderData.sku || 'Unknown SKU',
+        sku: orderData.sku || orderData.line_items?.[0]?.sku || 'Unknown SKU',
+        productTitle: orderData.line_items?.[0]?.title || 'Unknown Product',
         quantity: 1,
         properties: {
-          'Dimension A': '',
-          'Dimension B': '',
-          'Dimension C': '',
-          'Dimension D': '',
-          'Dimension E': '',
-          'Dimension F': '',
-          'Dimension G': ''
+        'Dimension A': orderData.extracted_measurements?.[0]?.measurements?.A?.value || '',
+        'Dimension B': orderData.extracted_measurements?.[0]?.measurements?.B?.value || '',
+        'Dimension C': orderData.extracted_measurements?.[0]?.measurements?.C?.value || '',
+        'Dimension D': orderData.extracted_measurements?.[0]?.measurements?.D?.value || '',
+        'Dimension E': orderData.extracted_measurements?.[0]?.measurements?.E?.value || '',
+        'Dimension F': orderData.extracted_measurements?.[0]?.measurements?.F?.value || '',
+        'Dimension G': orderData.extracted_measurements?.[0]?.measurements?.G?.value || ''
         }
       }],
       supplierCode: orderData.supplierSpecification || '',
