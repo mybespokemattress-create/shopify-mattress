@@ -1,598 +1,617 @@
-﻿const express = require('express');
-const crypto = require('crypto');
-const db = require('../database/db');
-const googleSheets = require('../google-sheets');
+﻿import React, { useState, useEffect } from 'react';
+import { Download, Mail, Edit3, Save, X } from 'lucide-react';
 
-const router = express.Router();
+const OrderManager = () => {
+  const [orders, setOrders] = useState([]);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [editMode, setEditMode] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-// Store-specific order prefixes
-const ORDER_PREFIXES = {
-    'uxyxaq-pu.myshopify.com': '#MOTO',
-    'mattressmade.myshopify.com': '#MYBE',
-    'd587eb.myshopify.com': '#CARA'
+  // Function to transform API data to component format
+  const transformApiOrder = (apiOrder) => {
+    const orderData = apiOrder.order_data || {};
+
+    // Debug logging to track the data structure
+    console.log('Order ID:', apiOrder.id);
+    console.log('Order data:', orderData);
+    console.log('Extracted measurements:', orderData.extracted_measurements);
+    
+    // Log the exact structure of measurements if they exist
+    if (orderData.extracted_measurements?.[0]?.measurements) {
+      console.log('Measurements object:', JSON.stringify(orderData.extracted_measurements[0].measurements, null, 2));
+    }
+    
+    // Extract store name from order number or domain
+    let store = 'UNKNOWN';
+    if (apiOrder.order_number?.includes('MOTO')) store = 'MOTO';
+    else if (apiOrder.order_number?.includes('MYBE')) store = 'MYBE'; 
+    else if (apiOrder.order_number?.includes('CARA')) store = 'CARA';
+    else if (apiOrder.store_domain?.includes('uxyxaq-pu')) store = 'MOTO';
+    else if (apiOrder.store_domain?.includes('mattressmade')) store = 'MYBE';
+    else if (apiOrder.store_domain?.includes('d587eb')) store = 'CARA';
+
+    // Extract measurements - FIXED PATH
+    const measurements = orderData.extracted_measurements?.[0]?.measurements || {};
+    
+    // Build properties object with measurements and units
+    const properties = {};
+    const dimensions = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+    
+    dimensions.forEach(dim => {
+      const measurement = measurements[dim];
+      if (measurement) {
+        // Include both value and unit if available
+        properties[`Dimension ${dim}`] = measurement.unit 
+          ? `${measurement.value} ${measurement.unit}`
+          : measurement.value || '';
+      } else {
+        properties[`Dimension ${dim}`] = '';
+      }
+    });
+
+    return {
+      id: apiOrder.id.toString(),
+      store: store,
+      orderNumber: apiOrder.order_number || 'Unknown',
+      customer: {
+        name: apiOrder.customer_name || 'Unknown Customer',
+        email: apiOrder.customer_email || ''
+      },
+      orderDate: apiOrder.created_date ? new Date(apiOrder.created_date).toISOString().split('T')[0] : '',
+      status: apiOrder.processing_status === 'received' ? 'pending_review' : 'ready_to_send',
+      lineItems: [{
+        sku: orderData.sku || orderData.line_items?.[0]?.sku || 'Unknown SKU',
+        productTitle: orderData.line_items?.[0]?.title || 'Unknown Product',
+        quantity: 1,
+        properties: properties
+      }],
+      supplierCode: orderData.supplierSpecification || '',
+      shapeNumber: orderData.shapeNumber || '',
+      shapeDiagramUrl: null,
+      linkAttachment: 'Standard Links',
+      deliveryOption: 'Standard Delivery (7-10 days)',
+      totalPrice: apiOrder.total_price,
+      supplierName: apiOrder.supplier_name || orderData.supplierName,
+      // Store raw measurements for reference
+      rawMeasurements: measurements
+    };
+  };
+
+  // Fetch orders from API
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await fetch('/api/orders');
+      if (!response.ok) {
+        throw new Error(`Failed to fetch orders: ${response.status}`);
+      }
+      
+      const apiOrders = await response.json();
+      console.log('Fetched orders from API:', apiOrders);
+      
+      // Transform API data to component format
+      const transformedOrders = apiOrders.map(transformApiOrder);
+      setOrders(transformedOrders);
+      
+    } catch (err) {
+      console.error('Error fetching orders:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrders();
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(fetchOrders, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleOrderSelect = (order) => {
+    // If clicking the same order, toggle it closed
+    if (selectedOrder?.id === order.id) {
+      setSelectedOrder(null);
+      setEditMode(false);
+    } else {
+      // Otherwise open the new order
+      setSelectedOrder({ ...order });
+      setEditMode(false);
+    }
+  };
+
+  const handleEdit = () => setEditMode(true);
+  const handleSave = () => {
+    setOrders(orders.map(order => 
+      order.id === selectedOrder.id ? selectedOrder : order
+    ));
+    setEditMode(false);
+  };
+
+  const handleCancel = () => {
+    const originalOrder = orders.find(order => order.id === selectedOrder.id);
+    setSelectedOrder({ ...originalOrder });
+    setEditMode(false);
+  };
+
+  const updateOrderField = (field, value) => {
+    setSelectedOrder(prev => ({ ...prev, [field]: value }));
+  };
+
+  const updateCustomerField = (field, value) => {
+    setSelectedOrder(prev => ({
+      ...prev,
+      customer: { ...prev.customer, [field]: value }
+    }));
+  };
+
+  const updateMeasurement = (dimension, value) => {
+    setSelectedOrder(prev => ({
+      ...prev,
+      lineItems: prev.lineItems.map(item => ({
+        ...item,
+        properties: { ...item.properties, [dimension]: value }
+      }))
+    }));
+  };
+
+  const generatePDF = () => {
+    console.log('Generating PDF for order:', selectedOrder.orderNumber);
+    alert('PDF generated successfully!');
+  };
+
+  const openZohoMail = () => {
+    const subject = `Purchase Order ${selectedOrder.orderNumber}`;
+    const zohoUrl = `https://mail.zoho.eu/zm/h/compose?subject=${encodeURIComponent(subject)}`;
+    window.open(zohoUrl, '_blank');
+    alert('Zoho Mail opened. Please attach PDF and send.');
+  };
+
+  const filteredOrders = orders.filter(order =>
+    order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    order.customer.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-2 text-slate-600">Loading orders...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">Error loading orders: {error}</p>
+          <button 
+            onClick={fetchOrders}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      {/* Header */}
+      <div className="bg-white border-b shadow-sm">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">
+                Bespoke Mattress Order Manager
+              </h1>
+              <p className="text-slate-600 mt-1">
+                Review and process Shopify orders before sending to suppliers
+              </p>
+            </div>
+            <div className="text-sm text-slate-500">
+              {orders.length} orders loaded
+              <button 
+                onClick={fetchOrders}
+                className="ml-2 px-3 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200"
+              >
+                Refresh
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          {/* Orders List */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-lg shadow border">
+              <div className="p-4 border-b bg-slate-50">
+                <h2 className="text-lg font-semibold mb-3">Orders Queue</h2>
+                <input
+                  type="text"
+                  placeholder="Search orders..."
+                  className="w-full px-3 py-2 border rounded-lg"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              
+              <div className="max-h-96 overflow-y-auto">
+                {filteredOrders.length === 0 ? (
+                  <div className="p-4 text-center text-slate-500">
+                    {searchTerm ? 'No orders match your search' : 'No orders found'}
+                  </div>
+                ) : (
+                  filteredOrders.map((order) => (
+                    <div
+                      key={order.id}
+                      className={`p-4 border-b cursor-pointer hover:bg-slate-50 ${
+                        selectedOrder?.id === order.id ? 'bg-blue-50' : ''
+                      }`}
+                      onClick={() => handleOrderSelect(order)}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-semibold text-sm">{order.orderNumber}</span>
+                            <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
+                              order.store === 'MOTO' ? 'bg-purple-100 text-purple-700' :
+                              order.store === 'MYBE' ? 'bg-green-100 text-green-700' :
+                              order.store === 'CARA' ? 'bg-orange-100 text-orange-700' :
+                              'bg-slate-100 text-slate-700'
+                            }`}>
+                              {order.store}
+                            </span>
+                          </div>
+                          <div className="text-slate-600 text-sm">{order.customer.name}</div>
+                          <div className="text-slate-500 text-xs">{order.orderDate}</div>
+                          {order.supplierName && (
+                            <div className="text-slate-500 text-xs mt-1">→ {order.supplierName}</div>
+                          )}
+                        </div>
+                        <div>
+                          <span className={`px-2 py-1 rounded text-xs ${
+                            order.status === 'ready_to_send' 
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {order.status === 'ready_to_send' ? 'Ready' : 'Review'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Order Details */}
+          <div className="lg:col-span-2">
+            {selectedOrder ? (
+              <div className="bg-white rounded-lg shadow border">
+                <div className="p-4 border-b bg-slate-50 flex justify-between items-center">
+                  <div>
+                    <h2 className="text-lg font-semibold">Order Details</h2>
+                    <p className="text-sm text-slate-600">{selectedOrder.orderNumber}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    {!editMode ? (
+                      <>
+                        <button
+                          onClick={handleEdit}
+                          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-2"
+                        >
+                          <Edit3 size={16} />
+                          Edit
+                        </button>
+                        <button
+                          onClick={generatePDF}
+                          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-2"
+                        >
+                          <Download size={16} />
+                          Download PDF
+                        </button>
+                        <button
+                          onClick={() => {
+                            generatePDF();
+                            setTimeout(() => openZohoMail(), 500);
+                          }}
+                          className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 flex items-center gap-2"
+                        >
+                          <Mail size={16} />
+                          <Download size={14} />
+                          Download and Email
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={handleSave}
+                          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-2"
+                        >
+                          <Save size={16} />
+                          Save
+                        </button>
+                        <button
+                          onClick={handleCancel}
+                          className="px-4 py-2 bg-slate-500 text-white rounded hover:bg-slate-600 flex items-center gap-2"
+                        >
+                          <X size={16} />
+                          Cancel
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-6 space-y-6">
+                  
+                  {/* Order Information */}
+                  <div className="border rounded-lg p-4">
+                    <h3 className="font-semibold mb-3">Order Information</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm text-slate-600 mb-1">Order Number</label>
+                        <input
+                          type="text"
+                          value={selectedOrder.orderNumber}
+                          onChange={(e) => updateOrderField('orderNumber', e.target.value)}
+                          disabled={!editMode}
+                          className="w-full px-3 py-2 border rounded disabled:bg-slate-100"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-slate-600 mb-1">Order Date</label>
+                        <input
+                          type="date"
+                          value={selectedOrder.orderDate}
+                          onChange={(e) => updateOrderField('orderDate', e.target.value)}
+                          disabled={!editMode}
+                          className="w-full px-3 py-2 border rounded disabled:bg-slate-100"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Customer Information */}
+                  <div className="border rounded-lg p-4">
+                    <h3 className="font-semibold mb-3">Customer Information</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm text-slate-600 mb-1">Customer Name</label>
+                        <input
+                          type="text"
+                          value={selectedOrder.customer.name}
+                          onChange={(e) => updateCustomerField('name', e.target.value)}
+                          disabled={!editMode}
+                          className="w-full px-3 py-2 border rounded disabled:bg-slate-100"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-slate-600 mb-1">Email</label>
+                        <input
+                          type="email"
+                          value={selectedOrder.customer.email}
+                          onChange={(e) => updateCustomerField('email', e.target.value)}
+                          disabled={!editMode}
+                          className="w-full px-3 py-2 border rounded disabled:bg-slate-100"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Product Information */}
+                  <div className="border rounded-lg p-4">
+                    <h3 className="font-semibold mb-3">Product Information</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm text-slate-600 mb-1">Supplier Code</label>
+                        <input
+                          type="text"
+                          value={selectedOrder.supplierCode}
+                          onChange={(e) => updateOrderField('supplierCode', e.target.value)}
+                          disabled={!editMode}
+                          className="w-full px-3 py-2 border rounded disabled:bg-slate-100 font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-slate-600 mb-1">Quantity</label>
+                        <input
+                          type="number"
+                          value={selectedOrder.lineItems[0]?.quantity || 1}
+                          onChange={(e) => updateOrderField('quantity', parseInt(e.target.value))}
+                          disabled={!editMode}
+                          className="w-full px-3 py-2 border rounded disabled:bg-slate-100"
+                        />
+                      </div>
+                    </div>
+                    {selectedOrder.supplierName && (
+                      <div className="mt-2 text-sm text-slate-600">
+                        Assigned to: <span className="font-medium">{selectedOrder.supplierName}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Measurements and Shape Diagram */}
+                  <div className="border rounded-lg p-4">
+                    <h3 className="font-semibold mb-3">Measurements & Shape Diagram</h3>
+                    
+                    <div className="grid grid-cols-2 gap-6">
+                      {/* LEFT: Measurements */}
+                      <div>
+                        <h4 className="text-sm text-slate-600 mb-3">Dimensions</h4>
+                        <div className="space-y-2">
+                          {['Dimension A', 'Dimension B', 'Dimension C', 'Dimension D', 'Dimension E', 'Dimension F', 'Dimension G'].map((dimension) => {
+                            const value = selectedOrder.lineItems[0]?.properties[dimension] || '';
+                            const hasValue = value && value !== '';
+                            
+                            return (
+                              <div key={dimension} className="flex items-center gap-2">
+                                <label className="w-6 text-sm font-medium text-center">
+                                  {dimension.replace('Dimension ', '')}
+                                </label>
+                                <input
+                                  type="text"
+                                  value={value}
+                                  onChange={(e) => updateMeasurement(dimension, e.target.value)}
+                                  disabled={!editMode}
+                                  placeholder="Not provided"
+                                  className={`flex-1 px-3 py-2 border rounded disabled:bg-slate-100 font-mono ${
+                                    hasValue ? 'text-slate-900' : 'text-slate-400'
+                                  }`}
+                                />
+                                {hasValue && !editMode && (
+                                  <span className="text-xs text-green-600">✓</span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* Display measurement status */}
+                        {selectedOrder.rawMeasurements && (
+                          <div className="mt-3 pt-3 border-t">
+                            <div className="text-xs text-slate-500">
+                              Measurements provided: {Object.keys(selectedOrder.rawMeasurements).filter(k => k.length === 1).length} of 7
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Additional Specifications */}
+                        <div className="mt-4 pt-4 border-t">
+                          <h4 className="text-sm text-slate-600 mb-3">Additional Specifications</h4>
+                          <div className="space-y-2">
+                            <div>
+                              <label className="block text-sm text-slate-600 mb-1">Radius of Top Corner</label>
+                              <input
+                                type="text"
+                                disabled={!editMode}
+                                placeholder="Enter radius"
+                                className="w-full px-3 py-2 border rounded disabled:bg-slate-100"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm text-slate-600 mb-1">Radius of Bottom Corner</label>
+                              <input
+                                type="text"
+                                disabled={!editMode}
+                                placeholder="Enter radius"
+                                className="w-full px-3 py-2 border rounded disabled:bg-slate-100"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm text-slate-600 mb-1">Finished Size Must Not Exceed</label>
+                              <input
+                                type="text"
+                                disabled={!editMode}
+                                placeholder="Enter maximum size"
+                                className="w-full px-3 py-2 border rounded disabled:bg-slate-100"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* RIGHT: Shape Diagram */}
+                      <div>
+                        <h4 className="text-sm text-slate-600 mb-3">Shape Diagram</h4>
+                        <div className="border rounded bg-slate-50" style={{height: '500px'}}>
+                          {selectedOrder.shapeDiagramUrl ? (
+                            <img 
+                              src={selectedOrder.shapeDiagramUrl} 
+                              alt="Shape Diagram"
+                              className="w-full h-full object-contain"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
+                              <div className="text-sm mb-1">No diagram uploaded</div>
+                              {selectedOrder.shapeNumber && (
+                                <div className="text-xs">Shape #{selectedOrder.shapeNumber}</div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        
+                        {editMode && (
+                          <div className="flex gap-2 mt-2">
+                            <button className="flex-1 px-3 py-1 bg-blue-600 text-white rounded text-sm">
+                              Upload
+                            </button>
+                            <button className="flex-1 px-3 py-1 bg-slate-500 text-white rounded text-sm">
+                              Generate
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Manufacturing Options */}
+                  <div className="border rounded-lg p-4">
+                    <h3 className="font-semibold mb-3">Manufacturing Options</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm text-slate-600 mb-1">Link Attachment</label>
+                        <select
+                          value={selectedOrder.linkAttachment}
+                          onChange={(e) => updateOrderField('linkAttachment', e.target.value)}
+                          disabled={!editMode}
+                          className="w-full px-3 py-2 border rounded disabled:bg-slate-100"
+                        >
+                          <option value="Standard Links">Standard Links</option>
+                          <option value="Heavy Duty Links">Heavy Duty Links</option>
+                          <option value="No Links Required">No Links Required</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm text-slate-600 mb-1">Delivery Option</label>
+                        <select
+                          value={selectedOrder.deliveryOption}
+                          onChange={(e) => updateOrderField('deliveryOption', e.target.value)}
+                          disabled={!editMode}
+                          className="w-full px-3 py-2 border rounded disabled:bg-slate-100"
+                        >
+                          <option value="Standard Delivery (7-10 days)">Standard Delivery (7-10 days)</option>
+                          <option value="Express Delivery (3-5 days)">Express Delivery (3-5 days)</option>
+                          <option value="Next Day Delivery">Next Day Delivery</option>
+                          <option value="Collection">Collection</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg shadow border p-8 text-center">
+                <div className="text-slate-400">
+                  <svg className="mx-auto h-12 w-12 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <h3 className="text-lg font-medium text-slate-900 mb-2">Select an Order</h3>
+                  <p className="text-slate-500">Choose an order from the list to view and edit its details.</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
 
-// Safe service account parsing
-function getSafeServiceAccount() {
-    if (!process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
-        throw new Error('GOOGLE_SERVICE_ACCOUNT_KEY environment variable is not set');
-    }
-    
-    try {
-        const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
-        
-        if (!serviceAccount.client_email || !serviceAccount.private_key || !serviceAccount.project_id) {
-            throw new Error('Service account JSON is missing required fields');
-        }
-        
-        return serviceAccount;
-    } catch (error) {
-        if (error instanceof SyntaxError) {
-            throw new Error(`Invalid JSON format in GOOGLE_SERVICE_ACCOUNT_KEY: ${error.message}`);
-        }
-        throw error;
-    }
-}
-
-// Webhook signature verification
-function verifyWebhookSignature(data, signature, secret) {
-    const hmac = crypto.createHmac('sha256', secret);
-    hmac.update(data, 'utf8');
-    const calculatedSignature = hmac.digest('base64');
-    
-    const expectedSignature = signature.replace('sha256=', '');
-    
-    console.log('Calculated signature (base64):', calculatedSignature);
-    console.log('Expected signature (base64):', expectedSignature);
-    
-    return calculatedSignature === expectedSignature;
-}
-
-// Get store config from webhook
-function getStoreFromHeaders(req) {
-    const shopDomain = req.get('X-Shopify-Shop-Domain');
-    
-    if (shopDomain && req.app.locals.storeConfigs[shopDomain]) {
-        return {
-            domain: shopDomain,
-            config: req.app.locals.storeConfigs[shopDomain]
-        };
-    }
-    
-    const signature = req.get('X-Shopify-Hmac-Sha256');
-    let bodyString;
-    
-    if (typeof req.body === 'string') {
-        bodyString = req.body;
-    } else if (Buffer.isBuffer(req.body)) {
-        bodyString = req.body.toString();
-    } else {
-        bodyString = JSON.stringify(req.body);
-    }
-    
-    for (const [domain, config] of Object.entries(req.app.locals.storeConfigs)) {
-        if (verifyWebhookSignature(bodyString, signature, config.webhookSecret)) {
-            return { domain, config };
-        }
-    }
-    
-    return null;
-}
-
-// Extract customer data from Shopify order
-function extractCustomerData(order, storeDomain) {
-    const customer = order.customer;
-    const billing = order.billing_address;
-    const shipping = order.shipping_address;
-    
-    const orderPrefix = ORDER_PREFIXES[storeDomain] || '#';
-    
-    const orderNumber = order.order_number || order.name;
-    const fullOrderNumber = orderNumber.toString().startsWith('#') 
-        ? orderNumber 
-        : `${orderPrefix}${orderNumber}`;
-    
-    return {
-        orderId: order.id.toString(),
-        storeDomain,
-        shopifyOrderNumber: fullOrderNumber,
-        customerName: customer ? `${customer.first_name} ${customer.last_name}` : 'Guest Customer',
-        customerEmail: customer?.email || order.email || '',
-        customerPhone: customer?.phone || billing?.phone || shipping?.phone || '',
-        billingAddress: billing ? {
-            address1: billing.address1,
-            address2: billing.address2,
-            city: billing.city,
-            province: billing.province,
-            zip: billing.zip,
-            country: billing.country
-        } : null,
-        shippingAddress: shipping ? {
-            address1: shipping.address1,
-            address2: shipping.address2,
-            city: shipping.city,
-            province: shipping.province,
-            zip: shipping.zip,
-            country: shipping.country
-        } : null,
-        orderDate: order.created_at,
-        totalPrice: order.total_price,
-        currency: order.currency
-    };
-}
-
-// Determine measurement option from order properties
-function determineMeasurementOption(measurements) {
-    const hasDimensions = Object.keys(measurements).some(key => 
-        key.match(/^[A-G]$/) && measurements[key].value
-    );
-    
-    if (hasDimensions) {
-        return 'option1';
-    }
-    
-    const measurementChoice = Object.keys(measurements).find(key => 
-        key.toLowerCase().includes('measurement') && key.toLowerCase().includes('option')
-    );
-    
-    if (measurementChoice) {
-        const choice = measurements[measurementChoice];
-        if (choice.includes('later') || choice.includes('send')) {
-            return 'option2';
-        }
-        if (choice.includes('kit') || choice.includes('measuring')) {
-            return 'option3';
-        }
-    }
-    
-    return hasDimensions ? 'option1' : 'option2';
-}
-
-// Enhanced measurement extraction with unit support
-function extractCustomerMeasurements(properties) {
-    const measurements = {};
-    const dimensionValues = {};
-    
-    if (!properties || !Array.isArray(properties)) {
-        return { complete: false, data: {}, missing: [], provided: [], option: 'option2' };
-    }
-    
-    properties.forEach(prop => {
-        const propName = prop.name?.toLowerCase();
-        
-        // Check for dimension patterns: "Enter Dimension A (cm)" or "Dimension A"
-        if (propName?.includes('dimension')) {
-            // Extract the letter (A-G) from various formats
-            const letterMatch = propName.match(/dimension\s*([a-g])/i);
-            if (letterMatch && prop.value) {
-                const letter = letterMatch[1].toUpperCase();
-                
-                // Extract unit from property name
-                let unit = 'cm'; // default unit
-                if (prop.name.includes('(mm)')) {
-                    unit = 'mm';
-                } else if (prop.name.includes('(in)') || prop.name.includes('(inches)')) {
-                    unit = 'in';
-                } else if (prop.name.includes('(cm)')) {
-                    unit = 'cm';
-                }
-                
-                dimensionValues[letter] = {
-                    value: prop.value,
-                    unit: unit
-                };
-                console.log(`Extracted Dimension ${letter}: ${prop.value} ${unit}`);
-            }
-        }
-        
-        // Store original property for reference
-        measurements[`property_${prop.name}`] = prop.value;
-    });
-    
-    const providedDimensions = Object.keys(dimensionValues);
-    const expectedDimensions = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
-    const missingDimensions = expectedDimensions.filter(dim => !providedDimensions.includes(dim));
-    
-    console.log(`Dimensions extracted: ${providedDimensions.join(', ') || 'none'}`);
-    console.log(`Missing dimensions: ${missingDimensions.join(', ') || 'none'}`);
-    
-    return {
-        complete: missingDimensions.length === 0 && providedDimensions.length > 0,
-        data: { ...measurements, ...dimensionValues },
-        missing: missingDimensions,
-        provided: providedDimensions,
-        option: determineMeasurementOption({ ...measurements, ...dimensionValues })
-    };
-}
-
-// Enhanced product data extraction with measurements and shape info
-function extractProductData(lineItems) {
-    return lineItems.map(item => {
-        const customerMeasurements = extractCustomerMeasurements(item.properties);
-        
-        return {
-            shopifySku: item.sku,
-            productTitle: item.title,
-            variantTitle: item.variant_title,
-            quantity: item.quantity,
-            price: item.price,
-            lineItemId: item.id,
-            productId: item.product_id,
-            variantId: item.variant_id,
-            
-            shapeInfo: {
-                shapeNumber: null,
-                availableMeasurements: null,
-                requiredMeasurements: null,
-                diagramUrl: null
-            },
-            
-            measurementStatus: {
-                option: customerMeasurements.option,
-                hasCompleteMeasurements: customerMeasurements.complete,
-                measurements: customerMeasurements.data,
-                missingDimensions: customerMeasurements.missing,
-                providedDimensions: customerMeasurements.provided
-            }
-        };
-    });
-}
-
-// Main webhook handler for order creation
-router.post('/orders/create', express.raw({ type: 'application/json' }), async (req, res) => {
-    const timestamp = new Date().toISOString();
-    console.log(`[${timestamp}] Received webhook from Shopify`);
-    
-    try {
-        let order;
-        let rawBodyString;
-        
-        // Parse the request body
-        if (typeof req.body === 'string') {
-            rawBodyString = req.body;
-            order = JSON.parse(req.body);
-        } else if (Buffer.isBuffer(req.body)) {
-            rawBodyString = req.body.toString();
-            order = JSON.parse(rawBodyString);
-        } else {
-            order = req.body;
-            rawBodyString = JSON.stringify(req.body);
-        }
-        
-        console.log('Body type:', typeof req.body);
-        console.log('Order ID:', order.id);
-        
-        // Verify webhook signature
-        const signature = req.get('X-Shopify-Hmac-Sha256');
-        if (!signature) {
-            console.error('Missing webhook signature');
-            return res.status(401).json({ error: 'Missing signature' });
-        }
-        
-        // Get store configuration
-        const store = getStoreFromHeaders(req);
-        if (!store) {
-            console.error('Could not verify webhook signature or identify store');
-            return res.status(401).json({ error: 'Invalid signature or unknown store' });
-        }
-        
-        console.log(`Verified webhook from store: ${store.config.name} (${store.domain})`);
-        
-        // Verify signature
-        if (!verifyWebhookSignature(rawBodyString, signature, store.config.webhookSecret)) {
-            console.error('Webhook signature verification failed');
-            return res.status(401).json({ error: 'Invalid signature' });
-        }
-        
-        // Extract data
-        const customerData = extractCustomerData(order, store.domain);
-        const productData = extractProductData(order.line_items || []);
-        
-        console.log(`Processing order ${customerData.shopifyOrderNumber} from ${customerData.customerName}`);
-        console.log(`Products: ${productData.length} items`);
-        
-        // Debug: Log raw line item properties
-        if (order.line_items && order.line_items.length > 0) {
-            console.log('=== DEBUG: Line Item Properties ===');
-            order.line_items.forEach((item, index) => {
-                console.log(`Item ${index + 1}: ${item.title}`);
-                if (item.properties && item.properties.length > 0) {
-                    console.log('Properties found:');
-                    item.properties.forEach(prop => {
-                        console.log(`  - ${prop.name}: ${prop.value}`);
-                    });
-                } else {
-                    console.log('  No properties on this item');
-                }
-            });
-            console.log('=== END DEBUG ===');
-        }
-        
-        // Check product mappings and enhance with shape info
-        const unmappedProducts = [];
-        for (const product of productData) {
-            if (product.shopifySku) {
-                try {
-                    const mapping = await db.productMappings.getBySku(product.shopifySku);
-                    if (mapping) {
-                        console.log(`Found mapping for SKU: ${product.shopifySku}`);
-                        product.supplierSpecification = mapping.supplier_specification;
-                        product.shapeId = mapping.shape_id;
-                        
-                        if (mapping.shape_id) {
-                            const shapeMatch = mapping.shape_id.match(/(\d+)/);
-                            if (shapeMatch) {
-                                product.shapeInfo.shapeNumber = shapeMatch[1];
-                                console.log(`Shape ${product.shapeInfo.shapeNumber} assigned to ${product.shopifySku}`);
-                            }
-                        }
-                    } else {
-                        console.log(`No mapping found for SKU: ${product.shopifySku}`);
-                        unmappedProducts.push(product.shopifySku);
-                    }
-                } catch (error) {
-                    console.error(`Error checking mapping for SKU ${product.shopifySku}:`, error);
-                    unmappedProducts.push(product.shopifySku);
-                }
-            }
-        }
-        
-        // Log product details including measurements
-        productData.forEach((product, index) => {
-            console.log(`Product ${index + 1}: ${product.productTitle}`);
-            
-            if (product.shapeInfo && product.shapeInfo.shapeNumber) {
-                console.log(`  Shape: ${product.shapeInfo.shapeNumber}`);
-            }
-            
-            if (product.measurementStatus) {
-                console.log(`  Measurement option: ${product.measurementStatus.option}`);
-                console.log(`  Complete measurements: ${product.measurementStatus.hasCompleteMeasurements}`);
-                
-                if (product.measurementStatus.providedDimensions && product.measurementStatus.providedDimensions.length > 0) {
-                    console.log(`  Provided dimensions: ${product.measurementStatus.providedDimensions.join(', ')}`);
-                    // Log actual values with units
-                    product.measurementStatus.providedDimensions.forEach(dim => {
-                        const measurement = product.measurementStatus.measurements[dim];
-                        if (measurement) {
-                            console.log(`    ${dim}: ${measurement.value} ${measurement.unit}`);
-                        }
-                    });
-                }
-                
-                if (product.measurementStatus.missingDimensions && product.measurementStatus.missingDimensions.length > 0) {
-                    console.log(`  Missing dimensions: ${product.measurementStatus.missingDimensions.join(', ')}`);
-                }
-            }
-        });
-        
-        // Determine supplier
-        let supplierAssignment = null;
-        let supplierName = null;
-        
-        if (googleSheets && googleSheets.determineSupplier) {
-            const detectedSupplier = googleSheets.determineSupplier(productData);
-            if (detectedSupplier) {
-                supplierAssignment = detectedSupplier;
-                supplierName = googleSheets.SUPPLIERS[detectedSupplier].name;
-                console.log(`Auto-assigned to supplier: ${supplierName}`);
-            }
-        }
-        
-        // Store order in database with measurements
-        let dbOrder;
-        try {
-            console.log('Attempting to store order in database...');
-            
-            // Create extracted_measurements array with proper structure
-            const extractedMeasurements = productData.map(p => {
-                const measurements = {};
-                
-                // Only include A-G dimensions with their values and units
-                ['A', 'B', 'C', 'D', 'E', 'F', 'G'].forEach(dim => {
-                    if (p.measurementStatus?.measurements[dim]) {
-                        measurements[dim] = p.measurementStatus.measurements[dim];
-                    }
-                });
-                
-                return {
-                    sku: p.shopifySku,
-                    measurements: measurements,
-                    provided: p.measurementStatus?.providedDimensions || [],
-                    missing: p.measurementStatus?.missingDimensions || [],
-                    // Include all original properties for reference
-                    ...Object.fromEntries(
-                        Object.entries(p.measurementStatus?.measurements || {})
-                            .filter(([key]) => key.startsWith('property_'))
-                    )
-                };
-            });
-            
-            // Include measurement data in the order_data JSON
-            const orderWithMeasurements = {
-                ...order,
-                extracted_measurements: extractedMeasurements
-            };
-            
-            const orderDataForDb = {
-                orderId: customerData.orderId,
-                order_number: customerData.shopifyOrderNumber,
-                store_domain: customerData.storeDomain,
-                customerName: customerData.customerName,
-                customerEmail: customerData.customerEmail,
-                totalPrice: customerData.totalPrice,
-                order_data: orderWithMeasurements,
-                supplier_assigned: supplierAssignment,
-                supplier_name: supplierName
-            };
-            
-            console.log('Creating order with data:', {
-                orderId: orderDataForDb.orderId,
-                order_number: orderDataForDb.order_number,
-                store_domain: orderDataForDb.store_domain,
-                customerName: orderDataForDb.customerName
-            });
-            
-            dbOrder = await db.orders.create(orderDataForDb);
-            
-            console.log('Order stored in database successfully');
-            console.log('Database returned order ID:', dbOrder.id);
-            console.log('Measurements stored:', JSON.stringify(extractedMeasurements, null, 2));
-            
-        } catch (error) {
-            console.error('ERROR storing order in database:', error);
-            console.error('Full error stack:', error.stack);
-            // Continue processing even if DB fails
-        }
-        
-        // Add to Google Sheets if configured
-        let sheetsResult = null;
-        if (supplierAssignment && process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
-            try {
-                console.log('Adding order to Google Sheets...');
-                sheetsResult = await googleSheets.addOrderToSheet(customerData, productData);
-                
-                if (sheetsResult && sheetsResult.success) {
-                    await db.orders.updateSheetsSync(
-                        customerData.orderId,
-                        customerData.storeDomain,
-                        true,
-                        new Date().toISOString(),
-                        sheetsResult.sheetRange
-                    );
-                    console.log(`Order added to ${sheetsResult.supplierName}`);
-                }
-            } catch (error) {
-                console.error('Error adding to Google Sheets:', error.message);
-            }
-        }
-        
-        // Log summary
-        console.log('Order processed successfully');
-        console.log(`Customer: ${customerData.customerEmail}`);
-        console.log(`Total: ${customerData.currency} ${customerData.totalPrice}`);
-        
-        if (unmappedProducts.length > 0) {
-            console.log(`Warning: ${unmappedProducts.length} products need mapping`);
-        }
-        
-        // Send response
-        res.status(200).json({
-            success: true,
-            orderId: customerData.orderId,
-            orderNumber: customerData.shopifyOrderNumber,
-            store: store.config.name,
-            productsProcessed: productData.length,
-            supplierAssigned: supplierName,
-            sheetsUpdated: sheetsResult?.success || false,
-            unmappedProducts: unmappedProducts.length > 0 ? unmappedProducts : undefined,
-            measurementsExtracted: productData.some(p => p.measurementStatus?.providedDimensions?.length > 0),
-            timestamp
-        });
-        
-    } catch (error) {
-        console.error('Webhook processing error:', error);
-        console.error('Stack trace:', error.stack);
-        
-        res.status(500).json({
-            error: 'Webhook processing failed',
-            message: error.message,
-            timestamp
-        });
-    }
-});
-
-// Test endpoint to manually create an order with measurements
-router.post('/test/create-order', async (req, res) => {
-    try {
-        const timestamp = Date.now().toString();
-        const testOrderData = {
-            orderId: timestamp,
-            order_number: `#TEST-${timestamp}`,
-            store_domain: 'test-store.myshopify.com',
-            customerName: 'Test Customer',
-            customerEmail: 'test@example.com',
-            totalPrice: 99.99,
-            order_data: { 
-                id: timestamp,
-                test: true,
-                line_items: [{
-                    sku: 'TEST-SKU',
-                    title: 'Test Product',
-                    quantity: 1,
-                    price: 99.99,
-                    properties: [
-                        { name: 'Enter Dimension A (cm)', value: '100' },
-                        { name: 'Enter Dimension B (cm)', value: '200' },
-                        { name: 'Enter Dimension C (mm)', value: '300' },
-                        { name: 'Enter Dimension D (in)', value: '12' }
-                    ]
-                }],
-                extracted_measurements: [{
-                    sku: 'TEST-SKU',
-                    measurements: {
-                        A: { value: '100', unit: 'cm' },
-                        B: { value: '200', unit: 'cm' },
-                        C: { value: '300', unit: 'mm' },
-                        D: { value: '12', unit: 'in' }
-                    },
-                    provided: ['A', 'B', 'C', 'D'],
-                    missing: ['E', 'F', 'G']
-                }]
-            }
-        };
-        
-        console.log('Creating test order:', testOrderData);
-        const testOrder = await db.orders.create(testOrderData);
-        
-        res.json({ 
-            success: true, 
-            order: testOrder,
-            message: 'Test order created successfully with measurements'
-        });
-    } catch (error) {
-        console.error('Test order creation failed:', error);
-        res.status(500).json({ 
-            error: error.message, 
-            stack: error.stack
-        });
-    }
-});
-
-// Google Sheets test endpoint
-router.get('/sheets/test', async (req, res) => {
-    try {
-        if (googleSheets && googleSheets.testConnection) {
-            const connected = await googleSheets.testConnection();
-            res.json({
-                message: 'Google Sheets test endpoint',
-                connected,
-                suppliers: googleSheets.SUPPLIERS ? Object.keys(googleSheets.SUPPLIERS) : [],
-                timestamp: new Date().toISOString()
-            });
-        } else {
-            res.json({
-                message: 'Google Sheets not configured',
-                connected: false,
-                timestamp: new Date().toISOString()
-            });
-        }
-    } catch (error) {
-        res.status(500).json({
-            error: 'Sheets test failed',
-            message: error.message,
-            timestamp: new Date().toISOString()
-        });
-    }
-});
-
-// Basic webhook test endpoint
-router.get('/test', (req, res) => {
-    res.json({
-        message: 'Webhook endpoint is active',
-        stores: Object.keys(req.app.locals.storeConfigs),
-        timestamp: new Date().toISOString()
-    });
-});
-
-module.exports = router;
+export default OrderManager;
