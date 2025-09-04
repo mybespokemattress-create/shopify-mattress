@@ -213,9 +213,27 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
         // Extract data
         const customerData = extractCustomerData(order, store.domain);
         const productData = extractProductData(order.line_items || []);
-        
+
         console.log(`Processing order ${customerData.shopifyOrderNumber} from ${customerData.customerName}`);
         console.log(`Products: ${productData.length} items`);
+        
+        // ========== ADD THIS DEBUG CODE HERE ==========
+        if (order.line_items && order.line_items.length > 0) {
+            console.log('=== DEBUG: Line Item Properties ===');
+            order.line_items.forEach((item, index) => {
+                console.log(`Item ${index + 1}: ${item.title}`);
+                if (item.properties && item.properties.length > 0) {
+                    console.log('Properties found:');
+                    item.properties.forEach(prop => {
+                        console.log(`  - ${prop.name}: ${prop.value}`);
+                    });
+                } else {
+                    console.log('  No properties on this item');
+                }
+            });
+            console.log('=== END DEBUG ===');
+        }
+        // ========== END OF DEBUG CODE ==========
         
         // Check product mappings and enhance with shape info
         const unmappedProducts = [];
