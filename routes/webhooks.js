@@ -148,7 +148,7 @@ function determineMeasurementOption(measurements) {
     return hasDimensions ? 'option1' : 'option2';
 }
 
-// Extract customer measurements and validate completeness
+// Enhanced measurement extraction with unit support
 function extractCustomerMeasurements(properties) {
     const measurements = {};
     const dimensionValues = {};
@@ -166,14 +166,26 @@ function extractCustomerMeasurements(properties) {
             const letterMatch = propName.match(/dimension\s*([a-g])/i);
             if (letterMatch && prop.value) {
                 const letter = letterMatch[1].toUpperCase();
+                
+                // Extract unit from property name
+                let unit = 'cm'; // default unit
+                if (prop.name.includes('(mm)')) {
+                    unit = 'mm';
+                } else if (prop.name.includes('(in)') || prop.name.includes('(inches)')) {
+                    unit = 'in';
+                } else if (prop.name.includes('(cm)')) {
+                    unit = 'cm';
+                }
+                
                 dimensionValues[letter] = {
                     value: prop.value,
-                    unit: 'cm'
+                    unit: unit
                 };
-                console.log(`Extracted Dimension ${letter}: ${prop.value}`);
+                console.log(`Extracted Dimension ${letter}: ${prop.value} ${unit}`);
             }
         }
         
+        // Store original property for reference
         measurements[`property_${prop.name}`] = prop.value;
     });
     
@@ -339,6 +351,13 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
                 
                 if (product.measurementStatus.providedDimensions && product.measurementStatus.providedDimensions.length > 0) {
                     console.log(`  Provided dimensions: ${product.measurementStatus.providedDimensions.join(', ')}`);
+                    // Log actual values with units
+                    product.measurementStatus.providedDimensions.forEach(dim => {
+                        const measurement = product.measurementStatus.measurements[dim];
+                        if (measurement) {
+                            console.log(`    ${dim}: ${measurement.value} ${measurement.unit}`);
+                        }
+                    });
                 }
                 
                 if (product.measurementStatus.missingDimensions && product.measurementStatus.missingDimensions.length > 0) {
@@ -365,15 +384,34 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
         try {
             console.log('Attempting to store order in database...');
             
+            // Create extracted_measurements array with proper structure
+            const extractedMeasurements = productData.map(p => {
+                const measurements = {};
+                
+                // Only include A-G dimensions with their values and units
+                ['A', 'B', 'C', 'D', 'E', 'F', 'G'].forEach(dim => {
+                    if (p.measurementStatus?.measurements[dim]) {
+                        measurements[dim] = p.measurementStatus.measurements[dim];
+                    }
+                });
+                
+                return {
+                    sku: p.shopifySku,
+                    measurements: measurements,
+                    provided: p.measurementStatus?.providedDimensions || [],
+                    missing: p.measurementStatus?.missingDimensions || [],
+                    // Include all original properties for reference
+                    ...Object.fromEntries(
+                        Object.entries(p.measurementStatus?.measurements || {})
+                            .filter(([key]) => key.startsWith('property_'))
+                    )
+                };
+            });
+            
             // Include measurement data in the order_data JSON
             const orderWithMeasurements = {
                 ...order,
-                extracted_measurements: productData.map(p => ({
-                    sku: p.shopifySku,
-                    measurements: p.measurementStatus?.measurements || {},
-                    provided: p.measurementStatus?.providedDimensions || [],
-                    missing: p.measurementStatus?.missingDimensions || []
-                }))
+                extracted_measurements: extractedMeasurements
             };
             
             const orderDataForDb = {
@@ -399,6 +437,7 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
             
             console.log('Order stored in database successfully');
             console.log('Database returned order ID:', dbOrder.id);
+            console.log('Measurements stored:', JSON.stringify(extractedMeasurements, null, 2));
             
         } catch (error) {
             console.error('ERROR storing order in database:', error);
@@ -447,6 +486,7 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
             supplierAssigned: supplierName,
             sheetsUpdated: sheetsResult?.success || false,
             unmappedProducts: unmappedProducts.length > 0 ? unmappedProducts : undefined,
+            measurementsExtracted: productData.some(p => p.measurementStatus?.providedDimensions?.length > 0),
             timestamp
         });
         
@@ -462,7 +502,7 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
     }
 });
 
-// Test endpoint to manually create an order
+// Test endpoint to manually create an order with measurements
 router.post('/test/create-order', async (req, res) => {
     try {
         const timestamp = Date.now().toString();
@@ -483,8 +523,21 @@ router.post('/test/create-order', async (req, res) => {
                     price: 99.99,
                     properties: [
                         { name: 'Enter Dimension A (cm)', value: '100' },
-                        { name: 'Enter Dimension B (cm)', value: '200' }
+                        { name: 'Enter Dimension B (cm)', value: '200' },
+                        { name: 'Enter Dimension C (mm)', value: '300' },
+                        { name: 'Enter Dimension D (in)', value: '12' }
                     ]
+                }],
+                extracted_measurements: [{
+                    sku: 'TEST-SKU',
+                    measurements: {
+                        A: { value: '100', unit: 'cm' },
+                        B: { value: '200', unit: 'cm' },
+                        C: { value: '300', unit: 'mm' },
+                        D: { value: '12', unit: 'in' }
+                    },
+                    provided: ['A', 'B', 'C', 'D'],
+                    missing: ['E', 'F', 'G']
                 }]
             }
         };
@@ -495,7 +548,7 @@ router.post('/test/create-order', async (req, res) => {
         res.json({ 
             success: true, 
             order: testOrder,
-            message: 'Test order created successfully'
+            message: 'Test order created successfully with measurements'
         });
     } catch (error) {
         console.error('Test order creation failed:', error);
