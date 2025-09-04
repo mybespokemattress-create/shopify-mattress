@@ -15,7 +15,7 @@ const OrderManager = () => {
     
     // Using local storage method (recommended for better performance)
     // Place diagram files in: public/images/diagrams/
-    return `/images/diagrams/Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`;
+    return `/images/diagrams/Shape ${diagramNumber} Caravan Mattress Measuring Diagram.jpg`;
     
     // Alternative: Google Drive method (uncomment if using public Google Drive files)
     // const driveFileIds = {
@@ -40,7 +40,9 @@ const OrderManager = () => {
     console.log('Order properties:', orderData.properties);
     
     // NEW: Extract diagram number from order properties
-    const diagramNumber = orderData.properties?.['Diagram Number'] || 
+    // The API flattens properties with "property_" prefix
+    const diagramNumber = apiOrder['property_Diagram Number'] ||
+                         orderData.properties?.['Diagram Number'] || 
                          orderData.line_items?.[0]?.properties?.['Diagram Number'] ||
                          null;
     
