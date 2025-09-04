@@ -58,6 +58,9 @@ const OrderManager = () => {
       }
     });
 
+    // ADD THIS DEBUG LINE:
+    console.log('Properties being set:', properties);
+
     return {
       id: apiOrder.id.toString(),
       store: store,
