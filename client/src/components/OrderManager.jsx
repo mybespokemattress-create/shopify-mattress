@@ -16,10 +16,12 @@ const OrderManager = () => {
     // Debug logging to track the data structure
     console.log('Order ID:', apiOrder.id);
     console.log('Order data:', orderData);
-    console.log('Full apiOrder structure:', JSON.stringify(apiOrder, null, 2));  // ADD THIS LINE HERE
     console.log('Extracted measurements:', orderData.extracted_measurements);
+    console.log('Checking for diagram number...');
     console.log('Order properties:', orderData.properties);
-    console.log('Looking for Diagram Number:', orderData.properties?.['Diagram Number']);
+    console.log('Diagram Number value:', orderData.properties?.['Diagram Number']);
+    console.log('All property keys:', Object.keys(orderData.properties || {}));
+    console.log('Full apiOrder structure:', JSON.stringify(apiOrder, null, 2));
     
     // Log the exact structure of measurements if they exist
     if (orderData.extracted_measurements?.[0]?.measurements) {
