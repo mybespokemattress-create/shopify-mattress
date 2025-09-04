@@ -109,6 +109,44 @@ app.get('/api/stats', async (req, res) => {
     }
 });
 
+// Debug endpoint to check raw database
+app.get('/api/debug/check', async (req, res) => {
+    try {
+        const { Pool } = require('pg');
+        const pool = new Pool({
+            connectionString: process.env.DATABASE_URL,
+            ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+        });
+        
+        // Check what tables exist
+        const tables = await pool.query(`
+            SELECT tablename FROM pg_tables 
+            WHERE schemaname = 'public'
+        `);
+        
+        // Check processed_orders count
+        const orderCount = await pool.query(`
+            SELECT COUNT(*) as count FROM processed_orders
+        `);
+        
+        // Get first 5 orders
+        const orders = await pool.query(`
+            SELECT id, order_number, customer_name, created_date 
+            FROM processed_orders 
+            ORDER BY created_date DESC 
+            LIMIT 5
+        `);
+        
+        res.json({
+            tables: tables.rows.map(t => t.tablename),
+            orderCount: orderCount.rows[0].count,
+            sampleOrders: orders.rows
+        });
+    } catch (error) {
+        res.json({ error: error.message, stack: error.stack });
+    }
+});
+
 // PDF generation endpoint (placeholder)
 app.get('/api/orders/:id/pdf', async (req, res) => {
     try {
