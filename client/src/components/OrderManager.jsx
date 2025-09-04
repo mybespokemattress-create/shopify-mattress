@@ -18,6 +18,8 @@ const OrderManager = () => {
     console.log('Order data:', orderData);
     console.log('Full apiOrder structure:', JSON.stringify(apiOrder, null, 2));  // ADD THIS LINE HERE
     console.log('Extracted measurements:', orderData.extracted_measurements);
+    console.log('Order properties:', orderData.properties);
+    console.log('Looking for Diagram Number:', orderData.properties?.['Diagram Number']);
     
     // Log the exact structure of measurements if they exist
     if (orderData.extracted_measurements?.[0]?.measurements) {
