@@ -220,9 +220,30 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
         // Check product mappings and enhance with shape info
         const unmappedProducts = [];
         for (const product of productData) {
-            const hasMapping = await enhanceProductWithShapeInfo(product);
-            if (!hasMapping) {
-                unmappedProducts.push(product.shopifySku);
+            // Enhanced product mapping check with shape information
+            if (product.shopifySku) {
+                try {
+                    const mapping = await db.productMappings.getBySku(product.shopifySku);
+                    if (mapping) {
+                        console.log(`Found mapping for SKU: ${product.shopifySku}`);
+                        product.supplierSpecification = mapping.supplier_specification;
+                        product.shapeId = mapping.shape_id;
+                        
+                        if (mapping.shape_id) {
+                            const shapeMatch = mapping.shape_id.match(/(\d+)/);
+                            if (shapeMatch) {
+                                product.shapeInfo.shapeNumber = shapeMatch[1];
+                                console.log(`Shape ${product.shapeInfo.shapeNumber} assigned to ${product.shopifySku}`);
+                            }
+                        }
+                    } else {
+                        console.log(`No mapping found for SKU: ${product.shopifySku}`);
+                        unmappedProducts.push(product.shopifySku);
+                    }
+                } catch (error) {
+                    console.error(`Error checking mapping for SKU ${product.shopifySku}:`, error);
+                    unmappedProducts.push(product.shopifySku);
+                }
             }
         }
         
