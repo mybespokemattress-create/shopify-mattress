@@ -13,10 +13,15 @@ const OrderManager = () => {
   const transformApiOrder = (apiOrder) => {
     const orderData = apiOrder.order_data || {};
 
-    // Add this debug logging
+    // Debug logging to track the data structure
     console.log('Order ID:', apiOrder.id);
     console.log('Order data:', orderData);
-    console.log('Extracted measurements:', orderData.order_data?.extracted_measurements);
+    console.log('Extracted measurements:', orderData.extracted_measurements);
+    
+    // Log the exact structure of measurements if they exist
+    if (orderData.extracted_measurements?.[0]?.measurements) {
+      console.log('Measurements object:', JSON.stringify(orderData.extracted_measurements[0].measurements, null, 2));
+    }
     
     // Extract store name from order number or domain
     let store = 'UNKNOWN';
@@ -26,6 +31,25 @@ const OrderManager = () => {
     else if (apiOrder.store_domain?.includes('uxyxaq-pu')) store = 'MOTO';
     else if (apiOrder.store_domain?.includes('mattressmade')) store = 'MYBE';
     else if (apiOrder.store_domain?.includes('d587eb')) store = 'CARA';
+
+    // Extract measurements - FIXED PATH
+    const measurements = orderData.extracted_measurements?.[0]?.measurements || {};
+    
+    // Build properties object with measurements and units
+    const properties = {};
+    const dimensions = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+    
+    dimensions.forEach(dim => {
+      const measurement = measurements[dim];
+      if (measurement) {
+        // Include both value and unit if available
+        properties[`Dimension ${dim}`] = measurement.unit 
+          ? `${measurement.value} ${measurement.unit}`
+          : measurement.value || '';
+      } else {
+        properties[`Dimension ${dim}`] = '';
+      }
+    });
 
     return {
       id: apiOrder.id.toString(),
@@ -41,15 +65,7 @@ const OrderManager = () => {
         sku: orderData.sku || orderData.line_items?.[0]?.sku || 'Unknown SKU',
         productTitle: orderData.line_items?.[0]?.title || 'Unknown Product',
         quantity: 1,
-        properties: {
-        'Dimension A': orderData.order_data?.extracted_measurements?.[0]?.measurements?.A?.value || '',
-        'Dimension B': orderData.order_data?.extracted_measurements?.[0]?.measurements?.B?.value || '',
-        'Dimension C': orderData.order_data?.extracted_measurements?.[0]?.measurements?.C?.value || '',
-        'Dimension D': orderData.order_data?.extracted_measurements?.[0]?.measurements?.D?.value || '',
-        'Dimension E': orderData.order_data?.extracted_measurements?.[0]?.measurements?.E?.value || '',
-        'Dimension F': orderData.order_data?.extracted_measurements?.[0]?.measurements?.F?.value || '',
-        'Dimension G': orderData.order_data?.extracted_measurements?.[0]?.measurements?.G?.value || ''
-        }
+        properties: properties
       }],
       supplierCode: orderData.supplierSpecification || '',
       shapeNumber: orderData.shapeNumber || '',
@@ -57,7 +73,9 @@ const OrderManager = () => {
       linkAttachment: 'Standard Links',
       deliveryOption: 'Standard Delivery (7-10 days)',
       totalPrice: apiOrder.total_price,
-      supplierName: apiOrder.supplier_name || orderData.supplierName
+      supplierName: apiOrder.supplier_name || orderData.supplierName,
+      // Store raw measurements for reference
+      rawMeasurements: measurements
     };
   };
 
@@ -89,6 +107,9 @@ const OrderManager = () => {
 
   useEffect(() => {
     fetchOrders();
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(fetchOrders, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleOrderSelect = (order) => {
@@ -434,22 +455,41 @@ const OrderManager = () => {
                       <div>
                         <h4 className="text-sm text-slate-600 mb-3">Dimensions</h4>
                         <div className="space-y-2">
-                          {['Dimension A', 'Dimension B', 'Dimension C', 'Dimension D', 'Dimension E', 'Dimension F', 'Dimension G'].map((dimension) => (
-                            <div key={dimension} className="flex items-center gap-2">
-                              <label className="w-6 text-sm font-medium text-center">
-                                {dimension.replace('Dimension ', '')}
-                              </label>
-                              <input
-                                type="text"
-                                value={selectedOrder.lineItems[0]?.properties[dimension] || ''}
-                                onChange={(e) => updateMeasurement(dimension, e.target.value)}
-                                disabled={!editMode}
-                                placeholder="0mm"
-                                className="flex-1 px-3 py-2 border rounded disabled:bg-slate-100 font-mono"
-                              />
-                            </div>
-                          ))}
+                          {['Dimension A', 'Dimension B', 'Dimension C', 'Dimension D', 'Dimension E', 'Dimension F', 'Dimension G'].map((dimension) => {
+                            const value = selectedOrder.lineItems[0]?.properties[dimension] || '';
+                            const hasValue = value && value !== '';
+                            
+                            return (
+                              <div key={dimension} className="flex items-center gap-2">
+                                <label className="w-6 text-sm font-medium text-center">
+                                  {dimension.replace('Dimension ', '')}
+                                </label>
+                                <input
+                                  type="text"
+                                  value={value}
+                                  onChange={(e) => updateMeasurement(dimension, e.target.value)}
+                                  disabled={!editMode}
+                                  placeholder="Not provided"
+                                  className={`flex-1 px-3 py-2 border rounded disabled:bg-slate-100 font-mono ${
+                                    hasValue ? 'text-slate-900' : 'text-slate-400'
+                                  }`}
+                                />
+                                {hasValue && !editMode && (
+                                  <span className="text-xs text-green-600">✓</span>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
+
+                        {/* Display measurement status */}
+                        {selectedOrder.rawMeasurements && (
+                          <div className="mt-3 pt-3 border-t">
+                            <div className="text-xs text-slate-500">
+                              Measurements provided: {Object.keys(selectedOrder.rawMeasurements).filter(k => k.length === 1).length} of 7
+                            </div>
+                          </div>
+                        )}
 
                         {/* Additional Specifications */}
                         <div className="mt-4 pt-4 border-t">
