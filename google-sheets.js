@@ -71,6 +71,7 @@ function formatOrderData(orderData, productData) {
     if (orderData.shippingAddress) {
         const addr = orderData.shippingAddress;
         contactDetails = [
+            addr.company,
             addr.address1,
             addr.address2,
             addr.city,
@@ -82,6 +83,7 @@ function formatOrderData(orderData, productData) {
         // Fallback to billing address if no shipping address provided
         const addr = orderData.billingAddress;
         contactDetails = [
+            addr.company,
             addr.address1,
             addr.address2,
             addr.city,
