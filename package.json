@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
-    "build": "cd client && npm install && npx react-scripts build",
+    "build": "cd client && npm install && node node_modules/react-scripts/scripts/build.js",
     "start": "node server.js",
     "dev": "nodemon server.js",
     "init-db": "node database/init.js",
