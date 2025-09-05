@@ -1,4 +1,4 @@
-// OrderProcessor.jsx - Complete rewrite with fixed manufacturing options extratcion
+// OrderProcessor.jsx - Complete rewrite with fixed manufacturing options extraction
 
 import React, { useState, useEffect } from 'react';
 import { Download, Mail, Edit3, Save, X } from 'lucide-react';
@@ -530,9 +530,9 @@ const OrderProcessor = () => {
                     )}
                   </div>
 
-                  {/* Manufacturing Options - HIGHLIGHTED SECTION */}
-                  <div className="border-2 border-green-300 rounded-lg p-4 bg-green-50">
-                    <h3 className="font-semibold mb-3 text-green-800">Manufacturing Options (V5 Fixed)</h3>
+                  {/* Manufacturing Options */}
+                  <div className="border rounded-lg p-4">
+                    <h3 className="font-semibold mb-3">Manufacturing Options</h3>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm text-slate-600 mb-1">Link Attachment</label>
@@ -693,6 +693,40 @@ const OrderProcessor = () => {
                             </button>
                           </div>
                         )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Manufacturing Options - HIGHLIGHTED SECTION */}
+                  <div className="border-2 border-green-300 rounded-lg p-4 bg-green-50">
+                    <h3 className="font-semibold mb-3 text-green-800">Manufacturing Options (V5 Fixed)</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm text-slate-600 mb-1">Link Attachment</label>
+                        <select
+                          value={selectedOrder.linkAttachment}
+                          onChange={(e) => updateOrderField('linkAttachment', e.target.value)}
+                          disabled={!editMode}
+                          className="w-full px-3 py-2 border rounded disabled:bg-slate-100"
+                        >
+                          <option value="Standard Links">Standard Links</option>
+                          <option value="Leave Sections Loose">Leave Sections Loose</option>
+                          <option value="Leave Bolster Loose">Leave Bolster Loose</option>
+                          <option value="Fabric Link (+£40)">Fabric Link (+£40)</option>
+                          <option value="Zip-Link (+£40)">Zip-Link (+£40)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm text-slate-600 mb-1">Delivery Option</label>
+                        <select
+                          value={selectedOrder.deliveryOption}
+                          onChange={(e) => updateOrderField('deliveryOption', e.target.value)}
+                          disabled={!editMode}
+                          className="w-full px-3 py-2 border rounded disabled:bg-slate-100"
+                        >
+                          <option value="Rolled and Boxed">Rolled and Boxed</option>
+                          <option value="Full Size Ready to Use">Full Size Ready to Use</option>
+                        </select>
                       </div>
                     </div>
                   </div>
