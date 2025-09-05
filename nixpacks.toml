@@ -1,2 +1,0 @@
-[phases.start]
-cmd = "node server.js"
