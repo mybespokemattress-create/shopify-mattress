@@ -1,4 +1,4 @@
-// OrderProcessor.jsx - Complete rewrite with fixed manufacturing options extraction
+// OrderProcessor.jsx - Complete fresh version with manufacturing options extraction
 
 import React, { useState, useEffect } from 'react';
 import { Download, Mail, Edit3, Save, X } from 'lucide-react';
@@ -17,86 +17,62 @@ const OrderProcessor = () => {
     return `/images/diagrams/Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`;
   };
 
-  // Function to transform API data to component format
+  // Transform API data to component format
   const transformApiOrder = (apiOrder) => {
-    console.log('🔄 REWRITE V5.0 - Processing order:', apiOrder.order_number);
+    console.log('Processing order:', apiOrder.order_number);
     
     const orderData = apiOrder.order_data || {};
-    console.log('📋 Order data structure:', orderData);
-
-    // Extract diagram number from the correct path
+    
+    // Extract diagram number
     let diagramNumber = null;
     const lineItems = orderData.order_data?.line_items;
-    console.log('📦 Line items for diagram:', lineItems);
-    
     if (lineItems && lineItems[0] && lineItems[0].properties) {
       const diagramProperty = lineItems[0].properties.find(prop => prop.name === 'Diagram Number');
       diagramNumber = diagramProperty ? diagramProperty.value : null;
     }
-    console.log('🔢 Diagram Number extracted:', diagramNumber);
 
-    // Extract manufacturing options - FIXED LOGIC
-    let linkAttachment = 'Standard Links'; // Default
-    let deliveryOption = 'Rolled and Boxed'; // Default
+    // Extract manufacturing options
+    let linkAttachment = 'One Piece Construction';
+    let deliveryOption = 'Rolled and Boxed';
     
-    console.log('🔧 MANUFACTURING OPTIONS EXTRACTION START');
-    console.log('📋 Line items available:', lineItems);
+    console.log('EXTRACTING MANUFACTURING OPTIONS');
     
-    if (lineItems && lineItems[0]) {
-      const firstLineItem = lineItems[0];
-      console.log('🎯 Processing first line item:', firstLineItem);
-      console.log('🏷️ Variant title found:', firstLineItem.variant_title);
+    if (lineItems && lineItems[0] && lineItems[0].variant_title) {
+      const variantTitle = lineItems[0].variant_title;
+      const productTitle = lineItems[0].title || lineItems[0].name || '';
+      console.log('Variant title:', variantTitle);
+      console.log('Product title:', productTitle);
       
-      // Extract Link Attachment from variant_title
-      if (firstLineItem.variant_title) {
-        console.log('✅ Variant title exists, splitting...');
-        const parts = firstLineItem.variant_title.split(' / ');
-        console.log('🔪 Split parts:', parts);
-        
-        if (parts.length > 0) {
-          const lastPart = parts[parts.length - 1].trim();
-          console.log('🎯 Last part (potential link attachment):', lastPart);
-          
-          // Check for specific link attachment options
-          if (lastPart.includes('Leave Bolster Loose')) {
-            linkAttachment = 'Leave Bolster Loose';
-            console.log('✅ MATCHED: Leave Bolster Loose');
-          } else if (lastPart.includes('Leave Sections Loose')) {
-            linkAttachment = 'Leave Sections Loose';
-            console.log('✅ MATCHED: Leave Sections Loose');
-          } else if (lastPart.includes('Fabric Link')) {
-            linkAttachment = lastPart; // Include price if present
-            console.log('✅ MATCHED: Fabric Link');
-          } else if (lastPart.includes('Zip-Link')) {
-            linkAttachment = lastPart; // Include price if present
-            console.log('✅ MATCHED: Zip-Link');
-          } else {
-            console.log('⚪ No match found for:', lastPart);
-          }
-        }
+      // Check for specific selections first
+      if (variantTitle.includes('Leave Bolster Loose')) {
+        linkAttachment = 'Leave Bolster Loose';
+        console.log('FOUND: Leave Bolster Loose');
+      } else if (variantTitle.includes('Leave Sections Loose')) {
+        linkAttachment = 'Leave Sections Loose';
+        console.log('FOUND: Leave Sections Loose');
+      } else if (variantTitle.includes('Fabric Link')) {
+        linkAttachment = 'Fabric Link (+£40)';
+        console.log('FOUND: Fabric Link');
+      } else if (variantTitle.includes('Zip-Link')) {
+        linkAttachment = 'Zip-Link (+£40)';
+        console.log('FOUND: Zip-Link');
       } else {
-        console.log('❌ No variant_title found');
-      }
-      
-      // Extract Delivery Option from properties
-      if (firstLineItem.properties) {
-        console.log('📝 Checking properties for delivery option...');
-        const deliveryProperty = firstLineItem.properties.find(prop => prop.name === 'Delivery');
-        if (deliveryProperty && deliveryProperty.value) {
-          deliveryOption = deliveryProperty.value;
-          console.log('✅ EXTRACTED Delivery Option:', deliveryOption);
+        // Determine default based on mattress type
+        if (productTitle.toLowerCase().includes('bolster')) {
+          linkAttachment = 'Leave Bolster Loose';
+          console.log('DEFAULT: Bolster mattress - Leave Bolster Loose');
+        } else if (productTitle.toLowerCase().includes('section')) {
+          linkAttachment = 'Leave Sections Loose';
+          console.log('DEFAULT: Sectional mattress - Leave Sections Loose');
         } else {
-          console.log('ℹ️ No delivery property found, using default');
+          linkAttachment = 'One Piece Construction';
+          console.log('DEFAULT: One-piece mattress - One Piece Construction');
         }
       }
-    } else {
-      console.log('❌ No line items found for manufacturing options');
     }
     
-    console.log('🏭 FINAL MANUFACTURING OPTIONS:');
-    console.log('   Link Attachment:', linkAttachment);
-    console.log('   Delivery Option:', deliveryOption);
-    console.log('🔧 MANUFACTURING OPTIONS EXTRACTION END');
+    console.log('Final link attachment:', linkAttachment);
+    console.log('MANUFACTURING EXTRACTION COMPLETE');
 
     // Extract store information
     let store = 'UNKNOWN';
@@ -131,9 +107,6 @@ const OrderProcessor = () => {
       }
     });
 
-    console.log('📐 Properties built:', properties);
-    console.log('🔄 REWRITE V5.0 - Transform complete for:', apiOrder.order_number);
-
     return {
       id: apiOrder.id.toString(),
       store: store,
@@ -154,8 +127,8 @@ const OrderProcessor = () => {
       shapeNumber: orderData.shapeNumber || '',
       diagramNumber: diagramNumber,
       shapeDiagramUrl: getDiagramImageUrl(diagramNumber),
-      linkAttachment: linkAttachment,  // Now properly extracted
-      deliveryOption: deliveryOption,   // Now properly extracted
+      linkAttachment: linkAttachment,
+      deliveryOption: deliveryOption,
       totalPrice: apiOrder.total_price,
       supplierName: apiOrder.supplier_name || orderData.supplierName,
       rawMeasurements: measurements
@@ -168,21 +141,17 @@ const OrderProcessor = () => {
       setLoading(true);
       setError(null);
       
-      console.log('🌐 Fetching orders from API...');
       const response = await fetch('/api/orders');
       if (!response.ok) {
         throw new Error(`Failed to fetch orders: ${response.status}`);
       }
       
       const apiOrders = await response.json();
-      console.log('📡 Raw API response:', apiOrders);
-      
       const transformedOrders = apiOrders.map(transformApiOrder);
-      console.log('✅ Transformed orders:', transformedOrders);
       setOrders(transformedOrders);
       
     } catch (err) {
-      console.error('❌ Error fetching orders:', err);
+      console.error('Error fetching orders:', err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -292,10 +261,10 @@ const OrderProcessor = () => {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-2xl font-bold text-slate-900">
-                Bespoke Mattress Order Manager V5
+                Bespoke Mattress Order Processor
               </h1>
               <p className="text-slate-600 mt-1">
-                Complete rewrite - Manufacturing options fixed
+                Review and process Shopify orders before sending to suppliers
               </p>
             </div>
             <div className="text-sm text-slate-500">
@@ -530,40 +499,6 @@ const OrderProcessor = () => {
                     )}
                   </div>
 
-                  {/* Manufacturing Options */}
-                  <div className="border rounded-lg p-4">
-                    <h3 className="font-semibold mb-3">Manufacturing Options</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm text-slate-600 mb-1">Link Attachment</label>
-                        <select
-                          value={selectedOrder.linkAttachment}
-                          onChange={(e) => updateOrderField('linkAttachment', e.target.value)}
-                          disabled={!editMode}
-                          className="w-full px-3 py-2 border rounded disabled:bg-slate-100"
-                        >
-                          <option value="Standard Links">Standard Links</option>
-                          <option value="Leave Sections Loose">Leave Sections Loose</option>
-                          <option value="Leave Bolster Loose">Leave Bolster Loose</option>
-                          <option value="Fabric Link (+£40)">Fabric Link (+£40)</option>
-                          <option value="Zip-Link (+£40)">Zip-Link (+£40)</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm text-slate-600 mb-1">Delivery Option</label>
-                        <select
-                          value={selectedOrder.deliveryOption}
-                          onChange={(e) => updateOrderField('deliveryOption', e.target.value)}
-                          disabled={!editMode}
-                          className="w-full px-3 py-2 border rounded disabled:bg-slate-100"
-                        >
-                          <option value="Rolled and Boxed">Rolled and Boxed</option>
-                          <option value="Full Size Ready to Use">Full Size Ready to Use</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-
                   {/* Measurements and Shape Diagram */}
                   <div className="border rounded-lg p-4">
                     <h3 className="font-semibold mb-3">Measurements & Shape Diagram</h3>
@@ -709,7 +644,7 @@ const OrderProcessor = () => {
                           disabled={!editMode}
                           className="w-full px-3 py-2 border rounded disabled:bg-slate-100"
                         >
-                          <option value="Standard Links">Standard Links</option>
+                          <option value="One Piece Construction">One Piece Construction</option>
                           <option value="Leave Sections Loose">Leave Sections Loose</option>
                           <option value="Leave Bolster Loose">Leave Bolster Loose</option>
                           <option value="Fabric Link (+£40)">Fabric Link (+£40)</option>
