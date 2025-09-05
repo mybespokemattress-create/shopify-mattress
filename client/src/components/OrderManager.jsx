@@ -33,8 +33,8 @@ const OrderManager = () => {
     // Check the nested line_items properties structure
     let diagramNumber = null;
     
-    // Look in the nested line_items properties array
-    const lineItems = orderData.order_data?.line_items || orderData.line_items;
+    // FIXED: Correct data path for line items
+    const lineItems = orderData.order_data?.line_items;
     console.log('Debug - orderData:', orderData);
     console.log('Debug - orderData.order_data:', orderData.order_data);
     console.log('Debug - lineItems:', lineItems);
@@ -58,15 +58,21 @@ const OrderManager = () => {
     let linkAttachment = 'Standard Links'; // Default
     let deliveryOption = 'Rolled and Boxed'; // Default
     
-    // Check if manufacturing options were extracted in webhook
+    // FIXED: Check if manufacturing options were extracted in webhook - using correct data path
     if (lineItems && lineItems[0]) {
       const firstLineItem = lineItems[0];
+      
+      console.log('Debug - firstLineItem:', firstLineItem);
+      console.log('Debug - variant_title:', firstLineItem.variant_title);
       
       // Extract Link Attachment from variant_title (same logic as webhook)
       if (firstLineItem.variant_title) {
         const variantParts = firstLineItem.variant_title.split(' / ');
+        console.log('Debug - variantParts:', variantParts);
+        
         if (variantParts.length > 0) {
           const extractedLinkAttachment = variantParts[variantParts.length - 1].trim();
+          console.log('Debug - extracted before validation:', extractedLinkAttachment);
           
           // Check if it's a recognised Link Attachment option
           const linkOptions = [
@@ -78,9 +84,13 @@ const OrderManager = () => {
           
           if (linkOptions.some(option => extractedLinkAttachment.includes(option.split(' ')[0]))) {
             linkAttachment = extractedLinkAttachment;
-            console.log('Extracted Link Attachment in React:', linkAttachment);
+            console.log('✅ Extracted Link Attachment in React:', linkAttachment);
+          } else {
+            console.log('❌ Link attachment not recognized:', extractedLinkAttachment);
           }
         }
+      } else {
+        console.log('❌ No variant_title found in firstLineItem');
       }
       
       // Extract Delivery Option from properties
@@ -88,9 +98,13 @@ const OrderManager = () => {
         const deliveryProperty = firstLineItem.properties.find(prop => prop.name === 'Delivery');
         if (deliveryProperty && deliveryProperty.value) {
           deliveryOption = deliveryProperty.value;
-          console.log('Extracted Delivery Option in React:', deliveryOption);
+          console.log('✅ Extracted Delivery Option in React:', deliveryOption);
+        } else {
+          console.log('ℹ️ No Delivery property found, using default:', deliveryOption);
         }
       }
+    } else {
+      console.log('❌ No lineItems found in order data');
     }
     
     // Log the exact structure of measurements if they exist
@@ -133,8 +147,9 @@ const OrderManager = () => {
       }
     });
 
-    // ADD THIS DEBUG LINE:
     console.log('Properties being set:', properties);
+    console.log('Final linkAttachment value:', linkAttachment);
+    console.log('Final deliveryOption value:', deliveryOption);
 
     return {
       id: apiOrder.id.toString(),
