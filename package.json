@@ -5,7 +5,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "init-db": "node database/init.js"
+    "init-db": "node database/init.js",
+    "postinstall": "npx puppeteer browsers install chrome"
   },
   "dependencies": {
     "csv-parser": "^3.2.0",
@@ -16,7 +17,8 @@
     "googleapis": "^159.0.0",
     "multer": "^2.0.2",
     "node-fetch": "^3.3.2",
-    "pg": "^8.16.3"
+    "pg": "^8.16.3",
+    "puppeteer": "^21.11.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"

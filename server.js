@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const puppeteer = require('puppeteer');
 require('dotenv').config();
 
 const app = express();
@@ -265,13 +266,241 @@ app.get('/debug/count-orders', async (req, res) => {
     }
 });
 
-// PDF generation endpoint (placeholder)
+// PDF generation endpoint - Test version
 app.get('/api/orders/:id/pdf', async (req, res) => {
     try {
-        res.json({ message: 'PDF generation coming soon', orderId: req.params.id });
+        const orderId = req.params.id;
+        console.log(`PDF generation requested for order ${orderId}...`);
+        
+        // Get order data from database
+        const order = await db.orders.getOrderById(orderId);
+        if (!order) {
+            return res.status(404).json({ error: 'Order not found' });
+        }
+        
+        console.log('Order data retrieved, launching Puppeteer...');
+        
+        // Configure Puppeteer for Railway deployment
+        const browser = await puppeteer.launch({
+            headless: true, // Must be true for Railway
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage', // Prevents crashes in limited memory environments
+                '--no-first-run',
+                '--disable-gpu'
+            ],
+            ignoreDefaultArgs: ['--disable-extensions']
+        });
+
+        console.log('Browser launched successfully');
+        
+        const page = await browser.newPage();
+        
+        // Create HTML content with real order data
+        const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Purchase Order - ${order.order_number}</title>
+            <style>
+                body { 
+                    font-family: Arial, sans-serif; 
+                    margin: 0;
+                    padding: 20px;
+                    line-height: 1.4;
+                }
+                .header {
+                    border-bottom: 3px solid #333;
+                    padding-bottom: 20px;
+                    margin-bottom: 30px;
+                }
+                .company-name {
+                    font-size: 24px;
+                    font-weight: bold;
+                    color: #333;
+                }
+                .document-title {
+                    font-size: 20px;
+                    color: #666;
+                    margin-top: 10px;
+                }
+                .order-info {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 30px;
+                    margin-bottom: 30px;
+                }
+                .info-section h3 {
+                    color: #333;
+                    border-bottom: 1px solid #ddd;
+                    padding-bottom: 5px;
+                    margin-bottom: 15px;
+                }
+                .field {
+                    margin-bottom: 8px;
+                }
+                .label {
+                    font-weight: bold;
+                    color: #555;
+                }
+                .value {
+                    color: #333;
+                }
+                .measurements {
+                    background: #f8f9fa;
+                    padding: 20px;
+                    border-radius: 5px;
+                    margin-bottom: 20px;
+                }
+                .success-badge {
+                    background: #28a745;
+                    color: white;
+                    padding: 10px 15px;
+                    border-radius: 5px;
+                    display: inline-block;
+                    margin-bottom: 20px;
+                }
+                .footer {
+                    margin-top: 40px;
+                    padding-top: 20px;
+                    border-top: 1px solid #ddd;
+                    font-size: 12px;
+                    color: #666;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <div class="company-name">Mattress Company Ltd</div>
+                <div class="document-title">Purchase Order</div>
+            </div>
+            
+            <div class="success-badge">
+                Puppeteer Working Successfully on Railway!
+            </div>
+            
+            <div class="order-info">
+                <div class="info-section">
+                    <h3>Order Details</h3>
+                    <div class="field">
+                        <span class="label">Order Number:</span>
+                        <span class="value">${order.order_number || 'N/A'}</span>
+                    </div>
+                    <div class="field">
+                        <span class="label">Order ID:</span>
+                        <span class="value">${order.id}</span>
+                    </div>
+                    <div class="field">
+                        <span class="label">Store:</span>
+                        <span class="value">${order.store_domain || 'N/A'}</span>
+                    </div>
+                    <div class="field">
+                        <span class="label">Date Created:</span>
+                        <span class="value">${order.created_date ? new Date(order.created_date).toLocaleDateString('en-GB') : 'N/A'}</span>
+                    </div>
+                </div>
+                
+                <div class="info-section">
+                    <h3>Customer Information</h3>
+                    <div class="field">
+                        <span class="label">Name:</span>
+                        <span class="value">${order.customer_name || 'N/A'}</span>
+                    </div>
+                    <div class="field">
+                        <span class="label">Email:</span>
+                        <span class="value">${order.customer_email || 'N/A'}</span>
+                    </div>
+                    <div class="field">
+                        <span class="label">Total Price:</span>
+                        <span class="value">£${order.total_price || '0.00'}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="measurements">
+                <h3>Order Data Preview</h3>
+                <pre>${JSON.stringify(order.order_data || {}, null, 2)}</pre>
+            </div>
+            
+            <div class="footer">
+                <p>Generated: ${new Date().toLocaleString('en-GB')}</p>
+                <p>System: Railway Deployment with Puppeteer</p>
+                <p>Status: Ready for production use</p>
+            </div>
+        </body>
+        </html>
+        `;
+        
+        await page.setContent(htmlContent);
+        console.log('HTML content set, generating PDF...');
+        
+        // Generate PDF with proper settings for purchase orders
+        const pdfBuffer = await page.pdf({
+            format: 'A4',
+            printBackground: true,
+            margin: {
+                top: '20mm',
+                right: '15mm',
+                bottom: '20mm',
+                left: '15mm'
+            }
+        });
+        
+        console.log('PDF generated successfully');
+        
+        await browser.close();
+        console.log('Browser closed');
+        
+        // Send PDF as response
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="purchase-order-${order.order_number || orderId}.pdf"`);
+        res.setHeader('Content-Length', pdfBuffer.length);
+        res.send(pdfBuffer);
+        
     } catch (error) {
-        console.error('Error generating PDF:', error);
-        res.status(500).json({ error: 'Failed to generate PDF' });
+        console.error('PDF generation failed:', error);
+        res.status(500).json({ 
+            error: 'PDF generation failed', 
+            details: error.message,
+            orderId: req.params.id,
+            suggestion: 'Check Railway logs for more details'
+        });
+    }
+});
+
+// Add this simple test endpoint to verify Puppeteer works
+app.get('/api/test-puppeteer', async (req, res) => {
+    try {
+        console.log('Testing Puppeteer launch...');
+        
+        const browser = await puppeteer.launch({
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox'],
+            ignoreDefaultArgs: ['--disable-extensions']
+        });
+        
+        const version = await browser.version();
+        await browser.close();
+        
+        console.log('Puppeteer test successful');
+        
+        res.json({
+            success: true,
+            message: 'Puppeteer is working perfectly on Railway!',
+            chromeVersion: version,
+            timestamp: new Date().toISOString(),
+            ready: 'Your PDF generation system is ready to go!'
+        });
+        
+    } catch (error) {
+        console.error('Puppeteer test failed:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
     }
 });
 
