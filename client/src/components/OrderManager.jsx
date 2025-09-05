@@ -36,7 +36,7 @@ const OrderManagerV2 = () => {
     let diagramNumber = null;
     
     // FIXED: Correct data path for line items
-    const lineItems = orderData.order_data?.line_items;
+    const lineItems = orderData.lineItems;
     console.log('Debug - orderData:', orderData);
     console.log('Debug - orderData.order_data:', orderData.order_data);
     console.log('Debug - lineItems:', lineItems);
