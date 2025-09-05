@@ -1,10 +1,10 @@
 import React from 'react';
-import OrderManager from './components/OrderProcessor';
+import OrderProcessor from './components/OrderProcessor';
 
 function App() {
   return (
     <div className="App">
-      <OrderManager />
+      <OrderProcessor />
     </div>
   );
 }
