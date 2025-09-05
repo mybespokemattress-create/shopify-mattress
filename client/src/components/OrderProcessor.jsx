@@ -1,4 +1,4 @@
-// FORCE COMPLETE REBUILD - Manufacturing Options v2
+// OrderProcessor.jsx - Complete rewrite with fixed manufacturing options extraction
 
 import React, { useState, useEffect } from 'react';
 import { Download, Mail, Edit3, Save, X } from 'lucide-react';
@@ -11,131 +11,94 @@ const OrderManagerV2 = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // NEW: Diagram URL generation function
+  // Diagram URL generation function
   const getDiagramImageUrl = (diagramNumber) => {
-  if (!diagramNumber) return null;
-  
-  // Using local storage method (recommended for better performance)
-  // Place diagram files in: public/images/diagrams/
-  return `/images/diagrams/Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`;
-};
+    if (!diagramNumber) return null;
+    return `/images/diagrams/Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`;
+  };
 
   // Function to transform API data to component format
   const transformApiOrder = (apiOrder) => {
+    console.log('🔄 REWRITE V5.0 - Processing order:', apiOrder.order_number);
+    
     const orderData = apiOrder.order_data || {};
+    console.log('📋 Order data structure:', orderData);
 
-    // Debug logging to track the data structure
-    console.log('Order ID:', apiOrder.id);
-    console.log('Order data:', orderData);
-    console.log('Extracted measurements:', orderData.extracted_measurements);
-    console.log('Checking for diagram number...');
-    console.log('Order properties:', orderData.properties);
-    
-    // NEW: Extract diagram number from order properties
-    // Check the nested line_items properties structure
+    // Extract diagram number from the correct path
     let diagramNumber = null;
-    
-    // FIXED: Correct data path for line items
     const lineItems = orderData.order_data?.line_items;
-    console.log('Debug - orderData:', orderData);
-    console.log('Debug - orderData.order_data:', orderData.order_data);
-    console.log('Debug - lineItems:', lineItems);
+    console.log('📦 Line items for diagram:', lineItems);
+    
     if (lineItems && lineItems[0] && lineItems[0].properties) {
       const diagramProperty = lineItems[0].properties.find(prop => prop.name === 'Diagram Number');
       diagramNumber = diagramProperty ? diagramProperty.value : null;
     }
-    
-    // Fallback to other locations
-    if (!diagramNumber) {
-      diagramNumber = apiOrder['property_Diagram Number'] ||
-                     orderData.properties?.['Diagram Number'] || 
-                     null;
-    }
-    
-    console.log('Diagram Number value:', diagramNumber);
-    console.log('All property keys:', Object.keys(orderData.properties || {}));
-    console.log('Full apiOrder structure:', JSON.stringify(apiOrder, null, 2));
-    
-    // NEW: Extract manufacturing options from order data
+    console.log('🔢 Diagram Number extracted:', diagramNumber);
+
+    // Extract manufacturing options - FIXED LOGIC
     let linkAttachment = 'Standard Links'; // Default
     let deliveryOption = 'Rolled and Boxed'; // Default
     
-    // FIXED: Check if manufacturing options were extracted in webhook - using correct data path
-    console.log('🔍 Starting manufacturing options extraction...');
-    console.log('📋 Full order data structure:', orderData);
+    console.log('🔧 MANUFACTURING OPTIONS EXTRACTION START');
+    console.log('📋 Line items available:', lineItems);
     
-    // FIXED: Use correct path - orderData.lineItems (not orderData.order_data.line_items)
-    const lineItemsForOptions = orderData.order_data?.line_items;
-    console.log('📦 Line items found:', lineItemsForOptions);
-    
-    if (lineItemsForOptions && lineItemsForOptions[0]) {
-      const firstLineItem = lineItemsForOptions[0];
-      
-      console.log('🎯 First line item:', firstLineItem);
-      console.log('🏷️ Variant title:', firstLineItem.variant_title);
+    if (lineItems && lineItems[0]) {
+      const firstLineItem = lineItems[0];
+      console.log('🎯 Processing first line item:', firstLineItem);
+      console.log('🏷️ Variant title found:', firstLineItem.variant_title);
       
       // Extract Link Attachment from variant_title
       if (firstLineItem.variant_title) {
-        const variantParts = firstLineItem.variant_title.split(' / ');
-        console.log('🔪 Variant parts:', variantParts);
+        console.log('✅ Variant title exists, splitting...');
+        const parts = firstLineItem.variant_title.split(' / ');
+        console.log('🔪 Split parts:', parts);
         
-        if (variantParts.length > 0) {
-          const lastPart = variantParts[variantParts.length - 1].trim();
-          console.log('🎯 Last part of variant:', lastPart);
+        if (parts.length > 0) {
+          const lastPart = parts[parts.length - 1].trim();
+          console.log('🎯 Last part (potential link attachment):', lastPart);
           
-          // Check if it's a recognised Link Attachment option
-          const linkOptions = [
-            'Leave Sections Loose',
-            'Leave Bolster Loose', 
-            'Fabric Link',
-            'Zip-Link'
-          ];
-          
-          const matchedOption = linkOptions.find(option => lastPart.includes(option));
-          if (matchedOption) {
-            linkAttachment = lastPart; // Use the full text including price
-            console.log('✅ Extracted Link Attachment:', linkAttachment);
+          // Check for specific link attachment options
+          if (lastPart.includes('Leave Bolster Loose')) {
+            linkAttachment = 'Leave Bolster Loose';
+            console.log('✅ MATCHED: Leave Bolster Loose');
+          } else if (lastPart.includes('Leave Sections Loose')) {
+            linkAttachment = 'Leave Sections Loose';
+            console.log('✅ MATCHED: Leave Sections Loose');
+          } else if (lastPart.includes('Fabric Link')) {
+            linkAttachment = lastPart; // Include price if present
+            console.log('✅ MATCHED: Fabric Link');
+          } else if (lastPart.includes('Zip-Link')) {
+            linkAttachment = lastPart; // Include price if present
+            console.log('✅ MATCHED: Zip-Link');
           } else {
-            console.log('⚪ Link attachment not recognised:', lastPart);
+            console.log('⚪ No match found for:', lastPart);
           }
         }
+      } else {
+        console.log('❌ No variant_title found');
       }
-      
-      // Extract Delivery Option from properties (if exists)
-      if (firstLineItem.properties) {
-        const deliveryProperty = firstLineItem.properties.find(prop => prop.name === 'Delivery');
-        if (deliveryProperty && deliveryProperty.value) {
-          deliveryOption = deliveryProperty.value;
-          console.log('✅ Extracted Delivery Option:', deliveryOption);
-        }
-      }
-    } else {
-      console.log('❌ No line items found in order data');
-    }
-    
-    console.log('🏭 Final manufacturing options:', linkAttachment, deliveryOption);
-    console.log('🔄 OrderManager V4.0 - Fixed data paths');
       
       // Extract Delivery Option from properties
       if (firstLineItem.properties) {
+        console.log('📝 Checking properties for delivery option...');
         const deliveryProperty = firstLineItem.properties.find(prop => prop.name === 'Delivery');
         if (deliveryProperty && deliveryProperty.value) {
           deliveryOption = deliveryProperty.value;
-          console.log('✅ Extracted Delivery Option in React:', deliveryOption);
+          console.log('✅ EXTRACTED Delivery Option:', deliveryOption);
         } else {
-          console.log('ℹ️ No Delivery property found, using default:', deliveryOption);
+          console.log('ℹ️ No delivery property found, using default');
         }
       }
     } else {
-      console.log('❌ No lineItems found in order data');
+      console.log('❌ No line items found for manufacturing options');
     }
     
-    // Log the exact structure of measurements if they exist
-    if (orderData.extracted_measurements?.[0]?.measurements) {
-      console.log('Measurements object:', JSON.stringify(orderData.extracted_measurements[0].measurements, null, 2));
-    }
-    
-    // Extract store name from order number or domain
+    console.log('🏭 FINAL MANUFACTURING OPTIONS:');
+    console.log('   Link Attachment:', linkAttachment);
+    console.log('   Delivery Option:', deliveryOption);
+    console.log('🔧 MANUFACTURING OPTIONS EXTRACTION END');
+
+    // Extract store information
     let store = 'UNKNOWN';
     if (apiOrder.order_number?.includes('MOTO')) store = 'MOTO';
     else if (apiOrder.order_number?.includes('MYBE')) store = 'MYBE'; 
@@ -144,25 +107,23 @@ const OrderManagerV2 = () => {
     else if (apiOrder.store_domain?.includes('mattressmade')) store = 'MYBE';
     else if (apiOrder.store_domain?.includes('d587eb')) store = 'CARA';
 
-    // Extract measurements - FIXED PATH
-    const measurements = orderData.order_data?.extracted_measurements?.[0]?.measurements || orderData.extracted_measurements?.[0]?.measurements || {};
+    // Extract measurements
+    const measurements = orderData.order_data?.extracted_measurements?.[0]?.measurements || 
+                        orderData.extracted_measurements?.[0]?.measurements || {};
     
-    // Build properties object with measurements and units
+    // Build properties object with measurements
     const properties = {};
     const dimensions = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
     
     dimensions.forEach(dim => {
       const measurement = measurements[dim];
       if (measurement) {
-        // Check if measurement is an object with value property
         if (typeof measurement === 'object' && 'value' in measurement) {
-          // Construct the display string with unit if available
           const displayValue = measurement.unit 
             ? `${measurement.value} ${measurement.unit}`
             : measurement.value;
           properties[`Dimension ${dim}`] = displayValue;
         } else {
-          // Fallback for simple string values
           properties[`Dimension ${dim}`] = String(measurement);
         }
       } else {
@@ -170,9 +131,8 @@ const OrderManagerV2 = () => {
       }
     });
 
-    console.log('Properties being set:', properties);
-    console.log('Final linkAttachment value:', linkAttachment);
-    console.log('Final deliveryOption value:', deliveryOption);
+    console.log('📐 Properties built:', properties);
+    console.log('🔄 REWRITE V5.0 - Transform complete for:', apiOrder.order_number);
 
     return {
       id: apiOrder.id.toString(),
@@ -185,22 +145,19 @@ const OrderManagerV2 = () => {
       orderDate: apiOrder.created_date ? new Date(apiOrder.created_date).toISOString().split('T')[0] : '',
       status: apiOrder.processing_status === 'received' ? 'pending_review' : 'ready_to_send',
       lineItems: [{
-        sku: orderData.sku || orderData.line_items?.[0]?.sku || 'Unknown SKU',
-        productTitle: orderData.line_items?.[0]?.title || 'Unknown Product',
+        sku: orderData.sku || lineItems?.[0]?.sku || 'Unknown SKU',
+        productTitle: lineItems?.[0]?.title || 'Unknown Product',
         quantity: 1,
         properties: properties
       }],
       supplierCode: orderData.supplierSpecification || '',
       shapeNumber: orderData.shapeNumber || '',
-      // NEW: Add diagram-related fields
       diagramNumber: diagramNumber,
       shapeDiagramUrl: getDiagramImageUrl(diagramNumber),
-      // UPDATED: Use extracted manufacturing options instead of hardcoded values
-      linkAttachment: linkAttachment,
-      deliveryOption: deliveryOption,
+      linkAttachment: linkAttachment,  // Now properly extracted
+      deliveryOption: deliveryOption,   // Now properly extracted
       totalPrice: apiOrder.total_price,
       supplierName: apiOrder.supplier_name || orderData.supplierName,
-      // Store raw measurements for reference
       rawMeasurements: measurements
     };
   };
@@ -211,20 +168,21 @@ const OrderManagerV2 = () => {
       setLoading(true);
       setError(null);
       
+      console.log('🌐 Fetching orders from API...');
       const response = await fetch('/api/orders');
       if (!response.ok) {
         throw new Error(`Failed to fetch orders: ${response.status}`);
       }
       
       const apiOrders = await response.json();
-      console.log('Fetched orders from API:', apiOrders);
+      console.log('📡 Raw API response:', apiOrders);
       
-      // Transform API data to component format
       const transformedOrders = apiOrders.map(transformApiOrder);
+      console.log('✅ Transformed orders:', transformedOrders);
       setOrders(transformedOrders);
       
     } catch (err) {
-      console.error('Error fetching orders:', err);
+      console.error('❌ Error fetching orders:', err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -233,18 +191,15 @@ const OrderManagerV2 = () => {
 
   useEffect(() => {
     fetchOrders();
-    // Auto-refresh every 30 seconds
     const interval = setInterval(fetchOrders, 30000);
     return () => clearInterval(interval);
   }, []);
 
   const handleOrderSelect = (order) => {
-    // If clicking the same order, toggle it closed
     if (selectedOrder?.id === order.id) {
       setSelectedOrder(null);
       setEditMode(false);
     } else {
-      // Otherwise open the new order
       setSelectedOrder({ ...order });
       setEditMode(false);
     }
@@ -302,7 +257,6 @@ const OrderManagerV2 = () => {
     order.customer.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -314,7 +268,6 @@ const OrderManagerV2 = () => {
     );
   }
 
-  // Error state
   if (error) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -339,10 +292,10 @@ const OrderManagerV2 = () => {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-2xl font-bold text-slate-900">
-                Bespoke Mattress Order Manager
+                Bespoke Mattress Order Manager V5
               </h1>
               <p className="text-slate-600 mt-1">
-                Review and process Shopify orders before sending to suppliers
+                Complete rewrite - Manufacturing options fixed
               </p>
             </div>
             <div className="text-sm text-slate-500">
@@ -401,7 +354,6 @@ const OrderManagerV2 = () => {
                             }`}>
                               {order.store}
                             </span>
-                            {/* NEW: Display diagram indicator in order list */}
                             {order.diagramNumber && (
                               <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
                                 Shape {order.diagramNumber}
@@ -578,6 +530,40 @@ const OrderManagerV2 = () => {
                     )}
                   </div>
 
+                  {/* Manufacturing Options - HIGHLIGHTED SECTION */}
+                  <div className="border-2 border-green-300 rounded-lg p-4 bg-green-50">
+                    <h3 className="font-semibold mb-3 text-green-800">Manufacturing Options (V5 Fixed)</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm text-slate-600 mb-1">Link Attachment</label>
+                        <select
+                          value={selectedOrder.linkAttachment}
+                          onChange={(e) => updateOrderField('linkAttachment', e.target.value)}
+                          disabled={!editMode}
+                          className="w-full px-3 py-2 border rounded disabled:bg-slate-100"
+                        >
+                          <option value="Standard Links">Standard Links</option>
+                          <option value="Leave Sections Loose">Leave Sections Loose</option>
+                          <option value="Leave Bolster Loose">Leave Bolster Loose</option>
+                          <option value="Fabric Link (+£40)">Fabric Link (+£40)</option>
+                          <option value="Zip-Link (+£40)">Zip-Link (+£40)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm text-slate-600 mb-1">Delivery Option</label>
+                        <select
+                          value={selectedOrder.deliveryOption}
+                          onChange={(e) => updateOrderField('deliveryOption', e.target.value)}
+                          disabled={!editMode}
+                          className="w-full px-3 py-2 border rounded disabled:bg-slate-100"
+                        >
+                          <option value="Rolled and Boxed">Rolled and Boxed</option>
+                          <option value="Full Size Ready to Use">Full Size Ready to Use</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Measurements and Shape Diagram */}
                   <div className="border rounded-lg p-4">
                     <h3 className="font-semibold mb-3">Measurements & Shape Diagram</h3>
@@ -649,7 +635,7 @@ const OrderManagerV2 = () => {
                         </div>
                       </div>
 
-                      {/* RIGHT: Shape Diagram - UPDATED SECTION */}
+                      {/* RIGHT: Shape Diagram */}
                       <div>
                         <h4 className="text-sm text-slate-600 mb-3">
                           Shape Diagram
@@ -711,39 +697,6 @@ const OrderManagerV2 = () => {
                     </div>
                   </div>
 
-                  {/* Manufacturing Options */}
-                  <div className="border rounded-lg p-4">
-                    <h3 className="font-semibold mb-3">Manufacturing Options</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm text-slate-600 mb-1">Link Attachment</label>
-                        <select
-                          value={selectedOrder.linkAttachment}
-                          onChange={(e) => updateOrderField('linkAttachment', e.target.value)}
-                          disabled={!editMode}
-                          className="w-full px-3 py-2 border rounded disabled:bg-slate-100"
-                        >
-                          <option value="Leave Sections Loose">Leave Sections Loose</option>
-                          <option value="Leave Bolster Loose">Leave Bolster Loose</option>
-                          <option value="Fabric Link (+£40)">Fabric Link (+£40)</option>
-                          <option value="Zip-Link (+£40)">Zip-Link (+£40)</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm text-slate-600 mb-1">Delivery Option</label>
-                        <select
-                          value={selectedOrder.deliveryOption}
-                          onChange={(e) => updateOrderField('deliveryOption', e.target.value)}
-                          disabled={!editMode}
-                          className="w-full px-3 py-2 border rounded disabled:bg-slate-100"
-                        >
-                          <option value="Rolled and Boxed">Rolled and Boxed</option>
-                          <option value="Full Size Ready to Use">Full Size Ready to Use</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-
                 </div>
               </div>
             ) : (
@@ -764,4 +717,4 @@ const OrderManagerV2 = () => {
   );
 };
 
-export default OrderManager;
+export default OrderProcessor;
