@@ -61,39 +61,60 @@ const OrderManagerV2 = () => {
     let deliveryOption = 'Rolled and Boxed'; // Default
     
     // FIXED: Check if manufacturing options were extracted in webhook - using correct data path
-    if (lineItems && lineItems[0]) {
-      const firstLineItem = lineItems[0];
+    console.log('🔍 Starting manufacturing options extraction...');
+    console.log('📋 Full order data structure:', orderData);
+    
+    // FIXED: Use correct path - orderData.lineItems (not orderData.order_data.line_items)
+    const lineItemsForOptions = orderData.lineItems;
+    console.log('📦 Line items found:', lineItemsForOptions);
+    
+    if (lineItemsForOptions && lineItemsForOptions[0]) {
+      const firstLineItem = lineItemsForOptions[0];
       
-      console.log('Debug - firstLineItem:', firstLineItem);
-      console.log('Debug - variant_title:', firstLineItem.variant_title);
+      console.log('🎯 First line item:', firstLineItem);
+      console.log('🏷️ Variant title:', firstLineItem.variant_title);
       
-      // Extract Link Attachment from variant_title (same logic as webhook)
+      // Extract Link Attachment from variant_title
       if (firstLineItem.variant_title) {
         const variantParts = firstLineItem.variant_title.split(' / ');
-        console.log('Debug - variantParts:', variantParts);
+        console.log('🔪 Variant parts:', variantParts);
         
         if (variantParts.length > 0) {
-          const extractedLinkAttachment = variantParts[variantParts.length - 1].trim();
-          console.log('Debug - extracted before validation:', extractedLinkAttachment);
+          const lastPart = variantParts[variantParts.length - 1].trim();
+          console.log('🎯 Last part of variant:', lastPart);
           
           // Check if it's a recognised Link Attachment option
           const linkOptions = [
             'Leave Sections Loose',
             'Leave Bolster Loose', 
-            'Fabric Link (+£40)',
-            'Zip-Link (+£40)'
+            'Fabric Link',
+            'Zip-Link'
           ];
           
-          if (linkOptions.some(option => extractedLinkAttachment.includes(option.split(' ')[0]))) {
-            linkAttachment = extractedLinkAttachment;
-            console.log('✅ Extracted Link Attachment in React:', linkAttachment);
+          const matchedOption = linkOptions.find(option => lastPart.includes(option));
+          if (matchedOption) {
+            linkAttachment = lastPart; // Use the full text including price
+            console.log('✅ Extracted Link Attachment:', linkAttachment);
           } else {
-            console.log('❌ Link attachment not recognized:', extractedLinkAttachment);
+            console.log('⚪ Link attachment not recognised:', lastPart);
           }
         }
-      } else {
-        console.log('❌ No variant_title found in firstLineItem');
       }
+      
+      // Extract Delivery Option from properties (if exists)
+      if (firstLineItem.properties) {
+        const deliveryProperty = firstLineItem.properties.find(prop => prop.name === 'Delivery');
+        if (deliveryProperty && deliveryProperty.value) {
+          deliveryOption = deliveryProperty.value;
+          console.log('✅ Extracted Delivery Option:', deliveryOption);
+        }
+      }
+    } else {
+      console.log('❌ No line items found in order data');
+    }
+    
+    console.log('🏭 Final manufacturing options:', linkAttachment, deliveryOption);
+    console.log('🔄 OrderManager V4.0 - Fixed data paths');
       
       // Extract Delivery Option from properties
       if (firstLineItem.properties) {
