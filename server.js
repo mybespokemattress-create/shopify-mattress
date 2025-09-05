@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const PDFDocument = require('pdfkit');
 // const htmlPdf = require('html-pdf-node'); // COMMENTED OUT - will add Railway-compatible PDF solution
 require('dotenv').config();
 
@@ -266,180 +267,125 @@ app.get('/debug/count-orders', async (req, res) => {
     }
 });
 
-// PDF generation endpoint - Railway-compatible printable HTML
+// PDF generation functions
+function generatePurchaseOrderPDF(order) {
+    return new Promise((resolve, reject) => {
+        try {
+            const doc = new PDFDocument({
+                size: 'A4',
+                margins: { top: 50, bottom: 50, left: 50, right: 50 }
+            });
+
+            const chunks = [];
+            doc.on('data', chunk => chunks.push(chunk));
+            doc.on('end', () => resolve(Buffer.concat(chunks)));
+            doc.on('error', reject);
+
+            // Company colours
+            const primaryColor = '#2c3e50';
+            const accentColor = '#3498db';
+
+            // Header
+            doc.font('Helvetica-Bold').fontSize(24).fillColor(primaryColor)
+               .text('Bespoke Mattress Company', 50, 60);
+            doc.font('Helvetica').fontSize(16).fillColor(accentColor)
+               .text('Purchase Order', 50, 90);
+            doc.font('Helvetica-Bold').fontSize(14).fillColor(primaryColor)
+               .text(`Order: ${order.order_number || 'N/A'}`, 50, 115);
+
+            // Order info section
+            doc.rect(50, 150, 240, 100).fillColor('#f8f9fa').fill();
+            doc.font('Helvetica-Bold').fontSize(12).fillColor(primaryColor)
+               .text('Order Information', 60, 165);
+            doc.font('Helvetica').fontSize(10).fillColor('#333333')
+               .text(`Order Number: ${order.order_number || 'N/A'}`, 60, 185)
+               .text(`Date: ${order.created_date ? new Date(order.created_date).toLocaleDateString('en-GB') : 'N/A'}`, 60, 200)
+               .text(`Store: ${order.store_domain || 'N/A'}`, 60, 215);
+
+            // Customer info section  
+            doc.rect(305, 150, 240, 100).fillColor('#f8f9fa').fill();
+            doc.font('Helvetica-Bold').fontSize(12).fillColor(primaryColor)
+               .text('Customer Information', 315, 165);
+            doc.font('Helvetica').fontSize(10).fillColor('#333333')
+               .text(`Name: ${order.customer_name || 'N/A'}`, 315, 185)
+               .text(`Email: ${order.customer_email || 'N/A'}`, 315, 200)
+               .text(`Total: £${order.total_price || '0.00'}`, 315, 215);
+
+            // Items table header
+            doc.font('Helvetica-Bold').fontSize(12).fillColor(primaryColor)
+               .text('Order Items', 50, 280);
+            doc.rect(50, 300, 495, 25).fillColor(accentColor).fill();
+            doc.font('Helvetica-Bold').fontSize(10).fillColor('white')
+               .text('Product', 55, 308)
+               .text('SKU', 255, 308)
+               .text('Qty', 335, 308)
+               .text('Price', 375, 308)
+               .text('Total', 435, 308);
+
+            // Items
+            const lineItems = order.order_data?.line_items || [];
+            let yPos = 325;
+            if (lineItems.length === 0) {
+                doc.font('Helvetica').fontSize(10).fillColor('#666666')
+                   .text('No items found', 60, yPos);
+            } else {
+                lineItems.forEach((item, index) => {
+                    if (index % 2 === 0) {
+                        doc.rect(50, yPos, 495, 20).fillColor('#f8f9fa').fill();
+                    }
+                    doc.font('Helvetica').fontSize(9).fillColor('#333333')
+                       .text(item.title || 'Product', 55, yPos + 5, { width: 190, ellipsis: true })
+                       .text(item.sku || 'N/A', 255, yPos + 5)
+                       .text(item.quantity || '1', 335, yPos + 5)
+                       .text(`£${item.price || '0.00'}`, 375, yPos + 5)
+                       .text(`£${((item.quantity || 1) * (parseFloat(item.price) || 0)).toFixed(2)}`, 435, yPos + 5);
+                    yPos += 20;
+                });
+            }
+
+            // Total
+            doc.rect(350, yPos + 20, 195, 40).fillColor('#e8f5e8').fill();
+            doc.font('Helvetica-Bold').fontSize(14).fillColor('#27ae60')
+               .text('Total Amount:', 360, yPos + 32)
+               .text(`£${order.total_price || '0.00'}`, 470, yPos + 32);
+
+            // Footer
+            doc.font('Helvetica').fontSize(8).fillColor('#999999')
+               .text(`Generated: ${new Date().toLocaleString('en-GB')}`, 50, 720)
+               .text('Bespoke Mattress Company | Professional Order Processing', 50, 732);
+
+            doc.end();
+        } catch (error) {
+            reject(error);
+        }
+    });
+}
+
+// PDF download endpoint
 app.get('/api/orders/:id/pdf', async (req, res) => {
     try {
         const orderId = req.params.id;
         console.log(`PDF generation requested for order ${orderId}...`);
         
-        // Get order data from database
         const order = await db.orders.getOrderById(orderId);
         if (!order) {
             return res.status(404).json({ error: 'Order not found' });
         }
         
-        console.log('Order data retrieved, generating printable HTML...');
+        console.log('Generating styled PDF with PDFKit...');
+        const pdfBuffer = await generatePurchaseOrderPDF(order);
         
-        // Create HTML content with real order data
-        const htmlContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <title>Purchase Order - ${order.order_number}</title>
-            <style>
-                @media print {
-                    body { margin: 0; }
-                    .no-print { display: none; }
-                }
-                body { 
-                    font-family: Arial, sans-serif; 
-                    margin: 0;
-                    padding: 20px;
-                    line-height: 1.4;
-                }
-                .header {
-                    border-bottom: 3px solid #333;
-                    padding-bottom: 20px;
-                    margin-bottom: 30px;
-                }
-                .company-name {
-                    font-size: 24px;
-                    font-weight: bold;
-                    color: #333;
-                }
-                .document-title {
-                    font-size: 20px;
-                    color: #666;
-                    margin-top: 10px;
-                }
-                .order-info {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 30px;
-                    margin-bottom: 30px;
-                }
-                .info-section h3 {
-                    color: #333;
-                    border-bottom: 1px solid #ddd;
-                    padding-bottom: 5px;
-                    margin-bottom: 15px;
-                }
-                .field {
-                    margin-bottom: 8px;
-                }
-                .label {
-                    font-weight: bold;
-                    color: #555;
-                }
-                .value {
-                    color: #333;
-                }
-                .measurements {
-                    background: #f8f9fa;
-                    padding: 20px;
-                    border-radius: 5px;
-                    margin-bottom: 20px;
-                }
-                .success-badge {
-                    background: #28a745;
-                    color: white;
-                    padding: 10px 15px;
-                    border-radius: 5px;
-                    display: inline-block;
-                    margin-bottom: 20px;
-                }
-                .print-btn {
-                    background: #007cba;
-                    color: white;
-                    padding: 10px 20px;
-                    border: none;
-                    cursor: pointer;
-                    border-radius: 5px;
-                    margin-bottom: 20px;
-                }
-                .footer {
-                    margin-top: 40px;
-                    padding-top: 20px;
-                    border-top: 1px solid #ddd;
-                    font-size: 12px;
-                    color: #666;
-                }
-            </style>
-        </head>
-        <body>
-            <div class="no-print">
-                <button class="print-btn" onclick="window.print()">Print as PDF</button>
-            </div>
-            
-            <div class="success-badge">
-                Railway Deployment Successful - Database Connected!
-            </div>
-            
-            <div class="header">
-                <div class="company-name">Mattress Company Ltd</div>
-                <div class="document-title">Purchase Order</div>
-            </div>
-            
-            <div class="order-info">
-                <div class="info-section">
-                    <h3>Order Details</h3>
-                    <div class="field">
-                        <span class="label">Order Number:</span>
-                        <span class="value">${order.order_number || 'N/A'}</span>
-                    </div>
-                    <div class="field">
-                        <span class="label">Order ID:</span>
-                        <span class="value">${order.id}</span>
-                    </div>
-                    <div class="field">
-                        <span class="label">Store:</span>
-                        <span class="value">${order.store_domain || 'N/A'}</span>
-                    </div>
-                    <div class="field">
-                        <span class="label">Date Created:</span>
-                        <span class="value">${order.created_date ? new Date(order.created_date).toLocaleDateString('en-GB') : 'N/A'}</span>
-                    </div>
-                </div>
-                
-                <div class="info-section">
-                    <h3>Customer Information</h3>
-                    <div class="field">
-                        <span class="label">Name:</span>
-                        <span class="value">${order.customer_name || 'N/A'}</span>
-                    </div>
-                    <div class="field">
-                        <span class="label">Email:</span>
-                        <span class="value">${order.customer_email || 'N/A'}</span>
-                    </div>
-                    <div class="field">
-                        <span class="label">Total Price:</span>
-                        <span class="value">£${order.total_price || '0.00'}</span>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="measurements">
-                <h3>Order Data Preview</h3>
-                <pre>${JSON.stringify(order.order_data || {}, null, 2)}</pre>
-            </div>
-            
-            <div class="footer">
-                <p>Generated: ${new Date().toLocaleString('en-GB')}</p>
-                <p>System: Railway Deployment with Database Integration</p>
-                <p>Status: Fully operational</p>
-            </div>
-        </body>
-        </html>
-        `;
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="purchase-order-${order.order_number || orderId}.pdf"`);
+        res.setHeader('Content-Length', pdfBuffer.length);
+        res.send(pdfBuffer);
         
-        res.setHeader('Content-Type', 'text/html');
-        res.send(htmlContent);
+        console.log(`PDF generated and sent for order ${orderId}`);
         
     } catch (error) {
-        console.error('Order display failed:', error);
+        console.error('PDF generation failed:', error);
         res.status(500).json({ 
-            error: 'Failed to display order', 
+            error: 'PDF generation failed', 
             details: error.message,
             orderId: req.params.id
         });
