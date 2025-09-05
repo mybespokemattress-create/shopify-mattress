@@ -1,4 +1,4 @@
-// OrderProcessor.jsx - Complete rewrite with fixed manufacturing options extraction
+// OrderProcessor.jsx - Complete rewrite with fixed manufacturing options extratcion
 
 import React, { useState, useEffect } from 'react';
 import { Download, Mail, Edit3, Save, X } from 'lucide-react';
