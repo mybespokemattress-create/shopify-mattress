@@ -7,7 +7,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Import database functions - TEMPORARILY COMMENTED OUT
-// const db = require('./database/db');
+const db = require('./database/db');
 
 // Import webhook routes - TEMPORARILY COMMENTED OUT
 // const webhookRoutes = require('./routes/webhooks');
