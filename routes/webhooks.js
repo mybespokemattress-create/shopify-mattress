@@ -205,10 +205,13 @@ function extractCustomerMeasurements(properties) {
     };
 }
 
-// Enhanced product data extraction with measurements and shape info
+// Enhanced product data extraction with measurements, shape info, and manufacturing options
 function extractProductData(lineItems) {
     return lineItems.map(item => {
         const customerMeasurements = extractCustomerMeasurements(item.properties);
+        
+        // Extract manufacturing options from line item
+        const manufacturingOptions = extractManufacturingOptions(item);
         
         return {
             shopifySku: item.sku,
@@ -219,6 +222,9 @@ function extractProductData(lineItems) {
             lineItemId: item.id,
             productId: item.product_id,
             variantId: item.variant_id,
+            
+            // Manufacturing options
+            manufacturingOptions: manufacturingOptions,
             
             shapeInfo: {
                 shapeNumber: null,
@@ -236,6 +242,48 @@ function extractProductData(lineItems) {
             }
         };
     });
+}
+
+// Extract manufacturing options from line item
+function extractManufacturingOptions(lineItem) {
+    const manufacturingOptions = {
+        linkAttachment: null,
+        deliveryOption: "Rolled and Boxed" // Default for now
+    };
+    
+    // Extract Link Attachment from variant_title
+    if (lineItem.variant_title) {
+        // Split by " / " and get the last segment
+        const variantParts = lineItem.variant_title.split(' / ');
+        if (variantParts.length > 0) {
+            const linkAttachment = variantParts[variantParts.length - 1].trim();
+            
+            // Check if it's a recognised Link Attachment option
+            const linkOptions = [
+                'Leave Sections Loose',
+                'Leave Bolster Loose', 
+                'Fabric Link (+£40)',
+                'Zip-Link (+£40)'
+            ];
+            
+            if (linkOptions.some(option => linkAttachment.includes(option.split(' ')[0]))) {
+                manufacturingOptions.linkAttachment = linkAttachment;
+                console.log(`Extracted Link Attachment: ${linkAttachment}`);
+            }
+        }
+    }
+    
+    // Extract Delivery Option from properties (for future use)
+    if (lineItem.properties) {
+        const deliveryProperty = lineItem.properties.find(prop => 
+            prop.name === 'Delivery'
+        );
+        if (deliveryProperty && deliveryProperty.value) {
+            manufacturingOptions.deliveryOption = deliveryProperty.value;
+        }
+    }
+    
+    return manufacturingOptions;
 }
 
 // Main webhook handler for order creation
