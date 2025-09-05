@@ -36,7 +36,7 @@ const OrderManagerV2 = () => {
     let diagramNumber = null;
     
     // FIXED: Correct data path for line items
-    const lineItems = orderData.lineItems;
+    const lineItems = orderData.order_data?.line_items;
     console.log('Debug - orderData:', orderData);
     console.log('Debug - orderData.order_data:', orderData.order_data);
     console.log('Debug - lineItems:', lineItems);
@@ -65,7 +65,7 @@ const OrderManagerV2 = () => {
     console.log('📋 Full order data structure:', orderData);
     
     // FIXED: Use correct path - orderData.lineItems (not orderData.order_data.line_items)
-    const lineItemsForOptions = orderData.lineItems;
+    const lineItemsForOptions = orderData.order_data?.line_items;
     console.log('📦 Line items found:', lineItemsForOptions);
     
     if (lineItemsForOptions && lineItemsForOptions[0]) {
