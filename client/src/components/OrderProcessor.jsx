@@ -697,9 +697,9 @@ const OrderProcessor = () => {
                     </div>
                   </div>
 
-                  {/* Manufacturing Options - HIGHLIGHTED SECTION */}
-                  <div className="border-2 border-green-300 rounded-lg p-4 bg-green-50">
-                    <h3 className="font-semibold mb-3 text-green-800">Manufacturing Options (V5 Fixed)</h3>
+                  {/* Manufacturing Options */}
+                  <div className="border rounded-lg p-4">
+                    <h3 className="font-semibold mb-3">Manufacturing Options</h3>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm text-slate-600 mb-1">Link Attachment</label>
