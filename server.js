@@ -203,6 +203,68 @@ app.post('/api/test/create-order', async (req, res) => {
     }
 });
 
+// Debug endpoint to clear all orders
+app.get('/debug/clear-orders', async (req, res) => {
+    try {
+        console.log('🗑️ Clearing all orders from database...');
+        
+        const { Pool } = require('pg');
+        const pool = new Pool({
+            connectionString: process.env.DATABASE_URL,
+            ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+        });
+        
+        // Direct SQL query to delete all orders
+        const result = await pool.query('DELETE FROM processed_orders');
+        
+        console.log(`✅ Deleted ${result.rowCount || 0} orders from database`);
+        
+        res.json({ 
+            success: true,
+            message: `Successfully deleted ${result.rowCount || 0} orders from database`,
+            deletedCount: result.rowCount || 0,
+            timestamp: new Date().toISOString()
+        });
+        
+    } catch (error) {
+        console.error('❌ Error clearing orders:', error);
+        res.status(500).json({ 
+            success: false,
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+// Debug endpoint to count orders (useful for verification)
+app.get('/debug/count-orders', async (req, res) => {
+    try {
+        const { Pool } = require('pg');
+        const pool = new Pool({
+            connectionString: process.env.DATABASE_URL,
+            ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+        });
+        
+        const result = await pool.query('SELECT COUNT(*) as count FROM processed_orders');
+        const count = result.rows[0].count;
+        
+        res.json({
+            success: true,
+            orderCount: parseInt(count),
+            message: `Database contains ${count} orders`,
+            timestamp: new Date().toISOString()
+        });
+        
+    } catch (error) {
+        console.error('❌ Error counting orders:', error);
+        res.status(500).json({ 
+            success: false,
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
 // PDF generation endpoint (placeholder)
 app.get('/api/orders/:id/pdf', async (req, res) => {
     try {
