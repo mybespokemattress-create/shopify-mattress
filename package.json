@@ -3,11 +3,9 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
-    "build": "cd client && npm install && node node_modules/react-scripts/scripts/build.js",
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "init-db": "node database/init.js",
-    "postinstall": "cd client && npm install && node node_modules/webpack/bin/webpack.js --mode production"
+    "init-db": "node database/init.js"
   },
   "dependencies": {
     "csv-parser": "^3.2.0",
