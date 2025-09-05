@@ -32,7 +32,7 @@ const OrderProcessor = () => {
     }
 
     // Extract manufacturing options
-    let linkAttachment = 'One Piece Construction';
+    let linkAttachment = 'One Piece Mattress No Link Required';
     let deliveryOption = 'Rolled and Boxed';
     
     console.log('EXTRACTING MANUFACTURING OPTIONS');
@@ -65,7 +65,7 @@ const OrderProcessor = () => {
           linkAttachment = 'Leave Sections Loose';
           console.log('DEFAULT: Sectional mattress - Leave Sections Loose');
         } else {
-          linkAttachment = 'One Piece Construction';
+          linkAttachment = 'One Piece Mattress No Link Required';
           console.log('DEFAULT: One-piece mattress - One Piece Construction');
         }
       }
@@ -644,7 +644,7 @@ const OrderProcessor = () => {
                           disabled={!editMode}
                           className="w-full px-3 py-2 border rounded disabled:bg-slate-100"
                         >
-                          <option value="One Piece Construction">One Piece Construction</option>
+                          <option value="One Piece Construction">One Piece Mattress No Link Required</option>
                           <option value="Leave Sections Loose">Leave Sections Loose</option>
                           <option value="Leave Bolster Loose">Leave Bolster Loose</option>
                           <option value="Fabric Link (+£40)">Fabric Link (+£40)</option>
