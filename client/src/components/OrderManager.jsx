@@ -54,6 +54,45 @@ const OrderManager = () => {
     console.log('All property keys:', Object.keys(orderData.properties || {}));
     console.log('Full apiOrder structure:', JSON.stringify(apiOrder, null, 2));
     
+    // NEW: Extract manufacturing options from order data
+    let linkAttachment = 'Standard Links'; // Default
+    let deliveryOption = 'Rolled and Boxed'; // Default
+    
+    // Check if manufacturing options were extracted in webhook
+    if (lineItems && lineItems[0]) {
+      const firstLineItem = lineItems[0];
+      
+      // Extract Link Attachment from variant_title (same logic as webhook)
+      if (firstLineItem.variant_title) {
+        const variantParts = firstLineItem.variant_title.split(' / ');
+        if (variantParts.length > 0) {
+          const extractedLinkAttachment = variantParts[variantParts.length - 1].trim();
+          
+          // Check if it's a recognised Link Attachment option
+          const linkOptions = [
+            'Leave Sections Loose',
+            'Leave Bolster Loose', 
+            'Fabric Link (+£40)',
+            'Zip-Link (+£40)'
+          ];
+          
+          if (linkOptions.some(option => extractedLinkAttachment.includes(option.split(' ')[0]))) {
+            linkAttachment = extractedLinkAttachment;
+            console.log('Extracted Link Attachment in React:', linkAttachment);
+          }
+        }
+      }
+      
+      // Extract Delivery Option from properties
+      if (firstLineItem.properties) {
+        const deliveryProperty = firstLineItem.properties.find(prop => prop.name === 'Delivery');
+        if (deliveryProperty && deliveryProperty.value) {
+          deliveryOption = deliveryProperty.value;
+          console.log('Extracted Delivery Option in React:', deliveryOption);
+        }
+      }
+    }
+    
     // Log the exact structure of measurements if they exist
     if (orderData.extracted_measurements?.[0]?.measurements) {
       console.log('Measurements object:', JSON.stringify(orderData.extracted_measurements[0].measurements, null, 2));
@@ -118,8 +157,9 @@ const OrderManager = () => {
       // NEW: Add diagram-related fields
       diagramNumber: diagramNumber,
       shapeDiagramUrl: getDiagramImageUrl(diagramNumber),
-      linkAttachment: 'Standard Links',
-      deliveryOption: 'Standard Delivery (7-10 days)',
+      // UPDATED: Use extracted manufacturing options instead of hardcoded values
+      linkAttachment: linkAttachment,
+      deliveryOption: deliveryOption,
       totalPrice: apiOrder.total_price,
       supplierName: apiOrder.supplier_name || orderData.supplierName,
       // Store raw measurements for reference
@@ -645,9 +685,10 @@ const OrderManager = () => {
                           disabled={!editMode}
                           className="w-full px-3 py-2 border rounded disabled:bg-slate-100"
                         >
-                          <option value="Standard Links">Standard Links</option>
-                          <option value="Heavy Duty Links">Heavy Duty Links</option>
-                          <option value="No Links Required">No Links Required</option>
+                          <option value="Leave Sections Loose">Leave Sections Loose</option>
+                          <option value="Leave Bolster Loose">Leave Bolster Loose</option>
+                          <option value="Fabric Link (+£40)">Fabric Link (+£40)</option>
+                          <option value="Zip-Link (+£40)">Zip-Link (+£40)</option>
                         </select>
                       </div>
                       <div>
@@ -658,10 +699,8 @@ const OrderManager = () => {
                           disabled={!editMode}
                           className="w-full px-3 py-2 border rounded disabled:bg-slate-100"
                         >
-                          <option value="Standard Delivery (7-10 days)">Standard Delivery (7-10 days)</option>
-                          <option value="Express Delivery (3-5 days)">Express Delivery (3-5 days)</option>
-                          <option value="Next Day Delivery">Next Day Delivery</option>
-                          <option value="Collection">Collection</option>
+                          <option value="Rolled and Boxed">Rolled and Boxed</option>
+                          <option value="Full Size Ready to Use">Full Size Ready to Use</option>
                         </select>
                       </div>
                     </div>
