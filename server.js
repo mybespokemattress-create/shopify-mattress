@@ -1,6 +1,6 @@
 const express = require('express');
 const path = require('path');
-const htmlPdf = require('html-pdf-node');
+// const htmlPdf = require('html-pdf-node'); // COMMENTED OUT - will fix PDF generation later
 require('dotenv').config();
 
 const app = express();
@@ -266,7 +266,7 @@ app.get('/debug/count-orders', async (req, res) => {
     }
 });
 
-// PDF generation endpoint
+// PDF generation endpoint - TEMPORARILY DISABLED
 app.get('/api/orders/:id/pdf', async (req, res) => {
     try {
         const orderId = req.params.id;
@@ -278,9 +278,7 @@ app.get('/api/orders/:id/pdf', async (req, res) => {
             return res.status(404).json({ error: 'Order not found' });
         }
         
-        console.log('Order data retrieved, generating PDF...');
-        
-        // Create HTML content with real order data
+        // TEMPORARILY RETURN HTML INSTEAD OF PDF
         const htmlContent = `
         <!DOCTYPE html>
         <html>
@@ -288,10 +286,13 @@ app.get('/api/orders/:id/pdf', async (req, res) => {
             <meta charset="UTF-8">
             <title>Purchase Order - ${order.order_number}</title>
             <style>
+                @media print {
+                    body { margin: 0; }
+                    .no-print { display: none; }
+                }
                 body { 
                     font-family: Arial, sans-serif; 
-                    margin: 0;
-                    padding: 20px;
+                    margin: 20px;
                     line-height: 1.4;
                 }
                 .header {
@@ -331,37 +332,37 @@ app.get('/api/orders/:id/pdf', async (req, res) => {
                 .value {
                     color: #333;
                 }
-                .measurements {
-                    background: #f8f9fa;
-                    padding: 20px;
+                .print-btn {
+                    background: #007cba;
+                    color: white;
+                    padding: 10px 20px;
+                    border: none;
+                    cursor: pointer;
                     border-radius: 5px;
                     margin-bottom: 20px;
                 }
-                .success-badge {
-                    background: #28a745;
-                    color: white;
+                .status-badge {
+                    background: #ffc107;
+                    color: #212529;
                     padding: 10px 15px;
                     border-radius: 5px;
                     display: inline-block;
                     margin-bottom: 20px;
                 }
-                .footer {
-                    margin-top: 40px;
-                    padding-top: 20px;
-                    border-top: 1px solid #ddd;
-                    font-size: 12px;
-                    color: #666;
-                }
             </style>
         </head>
         <body>
+            <div class="no-print">
+                <button class="print-btn" onclick="window.print()">Print as PDF</button>
+            </div>
+            
+            <div class="status-badge">
+                PDF Generation Temporarily Disabled - Use Print Function
+            </div>
+            
             <div class="header">
                 <div class="company-name">Mattress Company Ltd</div>
                 <div class="document-title">Purchase Order</div>
-            </div>
-            
-            <div class="success-badge">
-                PDF Generation Working Successfully!
             </div>
             
             <div class="order-info">
@@ -402,76 +403,37 @@ app.get('/api/orders/:id/pdf', async (req, res) => {
                 </div>
             </div>
             
-            <div class="measurements">
-                <h3>Order Data Preview</h3>
-                <pre>${JSON.stringify(order.order_data || {}, null, 2)}</pre>
-            </div>
-            
             <div class="footer">
                 <p>Generated: ${new Date().toLocaleString('en-GB')}</p>
-                <p>System: Railway Deployment with html-pdf-node</p>
-                <p>Status: Ready for production use</p>
+                <p>System: Railway Deployment (PDF generation being implemented)</p>
             </div>
         </body>
         </html>
         `;
         
-        // Configure PDF options
-        const options = {
-            format: 'A4',
-            printBackground: true,
-            margin: {
-                top: '20mm',
-                right: '15mm',
-                bottom: '20mm',
-                left: '15mm'
-            }
-        };
-        
-        // Generate PDF
-        const file = { content: htmlContent };
-        const pdfBuffer = await htmlPdf.generatePdf(file, options);
-        
-        console.log('PDF generated successfully');
-        
-        // Send PDF as response
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="purchase-order-${order.order_number || orderId}.pdf"`);
-        res.setHeader('Content-Length', pdfBuffer.length);
-        res.send(pdfBuffer);
+        res.setHeader('Content-Type', 'text/html');
+        res.send(htmlContent);
         
     } catch (error) {
-        console.error('PDF generation failed:', error);
+        console.error('Order display failed:', error);
         res.status(500).json({ 
-            error: 'PDF generation failed', 
+            error: 'Failed to display order', 
             details: error.message,
             orderId: req.params.id
         });
     }
 });
 
+// Test PDF endpoint - TEMPORARILY DISABLED
 app.get('/api/test-pdf', async (req, res) => {
     try {
-        console.log('Testing PDF generation...');
+        console.log('PDF generation temporarily disabled...');
         
-        const testHtml = `
-        <!DOCTYPE html>
-        <html><body>
-        <h1>PDF Generation Test</h1>
-        <p>If you can see this PDF, the system is working!</p>
-        <p>Generated: ${new Date().toLocaleString('en-GB')}</p>
-        </body></html>
-        `;
-        
-        const options = { format: 'A4' };
-        const file = { content: testHtml };
-        const pdfBuffer = await htmlPdf.generatePdf(file, options);
-        
-        console.log('PDF test successful');
-        
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', 'attachment; filename="test.pdf"');
-        res.send(pdfBuffer);
+        res.json({
+            success: false,
+            message: 'PDF generation temporarily disabled during Railway deployment fix',
+            note: 'Will be re-enabled with Railway-compatible solution'
+        });
         
     } catch (error) {
         console.error('PDF test failed:', error);
@@ -506,6 +468,7 @@ app.get('/health', async (req, res) => {
             orderCount: orderCount.length,
             stores: Object.keys(storeConfigs),
             reactBuild: reactBuildExists ? 'available' : 'missing',
+            pdfGeneration: 'temporarily disabled',
             timestamp: new Date().toISOString()
         });
     } catch (error) {
@@ -515,6 +478,7 @@ app.get('/health', async (req, res) => {
             error: error.message,
             stores: Object.keys(storeConfigs),
             reactBuild: reactBuildExists ? 'available' : 'missing',
+            pdfGeneration: 'temporarily disabled',
             timestamp: new Date().toISOString()
         });
     }
@@ -565,6 +529,7 @@ async function startServer() {
             console.log(`API Orders: http://localhost:${PORT}/api/orders`);
             console.log(`Health Check: http://localhost:${PORT}/health`);
             console.log(`Webhook endpoint: http://localhost:${PORT}/webhook/orders/create`);
+            console.log(`PDF Generation: TEMPORARILY DISABLED`);
             console.log(`Configured stores: ${Object.keys(storeConfigs).length}`);
             Object.keys(storeConfigs).forEach((domain, index) => {
                 console.log(`   ${index + 1}. ${storeConfigs[domain].name} (${domain})`);
