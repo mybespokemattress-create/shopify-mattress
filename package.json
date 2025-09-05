@@ -3,11 +3,9 @@
   "version": "1.2.0",
   "main": "server.js",
   "scripts": {
-    "build": "cd client && npm install && npm run build",
-    "start": "npm run build && node server.js",
+    "start": "node server.js",
     "dev": "nodemon server.js",
-    "init-db": "node database/init.js",
-    "postinstall": "cd client && npm install"
+    "init-db": "node database/init.js"
   },
   "dependencies": {
     "csv-parser": "^3.2.0",
