@@ -267,13 +267,13 @@ app.get('/debug/count-orders', async (req, res) => {
     }
 });
 
-// PDF generation functions
+// Enhanced PDF generation with full order details
 function generatePurchaseOrderPDF(order) {
     return new Promise((resolve, reject) => {
         try {
             const doc = new PDFDocument({
                 size: 'A4',
-                margins: { top: 50, bottom: 50, left: 50, right: 50 }
+                margins: { top: 40, bottom: 40, left: 40, right: 40 }
             });
 
             const chunks = [];
@@ -284,81 +284,297 @@ function generatePurchaseOrderPDF(order) {
             // Company colours
             const primaryColor = '#2c3e50';
             const accentColor = '#3498db';
+            const successColor = '#27ae60';
+
+            let yPosition = 50;
 
             // Header
-            doc.font('Helvetica-Bold').fontSize(24).fillColor(primaryColor)
-               .text('Bespoke Mattress Company', 50, 60);
-            doc.font('Helvetica').fontSize(16).fillColor(accentColor)
-               .text('Purchase Order', 50, 90);
-            doc.font('Helvetica-Bold').fontSize(14).fillColor(primaryColor)
-               .text(`Order: ${order.order_number || 'N/A'}`, 50, 115);
-
-            // Order info section
-            doc.rect(50, 150, 240, 100).fillColor('#f8f9fa').fill();
-            doc.font('Helvetica-Bold').fontSize(12).fillColor(primaryColor)
-               .text('Order Information', 60, 165);
-            doc.font('Helvetica').fontSize(10).fillColor('#333333')
-               .text(`Order Number: ${order.order_number || 'N/A'}`, 60, 185)
-               .text(`Date: ${order.created_date ? new Date(order.created_date).toLocaleDateString('en-GB') : 'N/A'}`, 60, 200)
-               .text(`Store: ${order.store_domain || 'N/A'}`, 60, 215);
-
-            // Customer info section  
-            doc.rect(305, 150, 240, 100).fillColor('#f8f9fa').fill();
-            doc.font('Helvetica-Bold').fontSize(12).fillColor(primaryColor)
-               .text('Customer Information', 315, 165);
-            doc.font('Helvetica').fontSize(10).fillColor('#333333')
-               .text(`Name: ${order.customer_name || 'N/A'}`, 315, 185)
-               .text(`Email: ${order.customer_email || 'N/A'}`, 315, 200)
-               .text(`Total: £${order.total_price || '0.00'}`, 315, 215);
-
-            // Items table header
-            doc.font('Helvetica-Bold').fontSize(12).fillColor(primaryColor)
-               .text('Order Items', 50, 280);
-            doc.rect(50, 300, 495, 25).fillColor(accentColor).fill();
-            doc.font('Helvetica-Bold').fontSize(10).fillColor('white')
-               .text('Product', 55, 308)
-               .text('SKU', 255, 308)
-               .text('Qty', 335, 308)
-               .text('Price', 375, 308)
-               .text('Total', 435, 308);
-
-            // Items
-            const lineItems = order.order_data?.line_items || [];
-            let yPos = 325;
-            if (lineItems.length === 0) {
-                doc.font('Helvetica').fontSize(10).fillColor('#666666')
-                   .text('No items found', 60, yPos);
-            } else {
-                lineItems.forEach((item, index) => {
-                    if (index % 2 === 0) {
-                        doc.rect(50, yPos, 495, 20).fillColor('#f8f9fa').fill();
-                    }
-                    doc.font('Helvetica').fontSize(9).fillColor('#333333')
-                       .text(item.title || 'Product', 55, yPos + 5, { width: 190, ellipsis: true })
-                       .text(item.sku || 'N/A', 255, yPos + 5)
-                       .text(item.quantity || '1', 335, yPos + 5)
-                       .text(`£${item.price || '0.00'}`, 375, yPos + 5)
-                       .text(`£${((item.quantity || 1) * (parseFloat(item.price) || 0)).toFixed(2)}`, 435, yPos + 5);
-                    yPos += 20;
-                });
-            }
-
-            // Total
-            doc.rect(350, yPos + 20, 195, 40).fillColor('#e8f5e8').fill();
-            doc.font('Helvetica-Bold').fontSize(14).fillColor('#27ae60')
-               .text('Total Amount:', 360, yPos + 32)
-               .text(`£${order.total_price || '0.00'}`, 470, yPos + 32);
-
+            yPosition = addPDFHeader(doc, order, primaryColor, accentColor, yPosition);
+            
+            // Order & Customer Info (side by side)
+            yPosition = addOrderAndCustomerInfo(doc, order, primaryColor, yPosition);
+            
+            // Product Information Section
+            yPosition = addProductInformation(doc, order, primaryColor, accentColor, yPosition);
+            
+            // Measurements & Specifications
+            yPosition = addMeasurementsSection(doc, order, primaryColor, yPosition);
+            
+            // Line Items Table
+            yPosition = addDetailedLineItems(doc, order, primaryColor, accentColor, yPosition);
+            
+            // Total Section
+            yPosition = addTotalSection(doc, order, successColor, yPosition);
+            
             // Footer
-            doc.font('Helvetica').fontSize(8).fillColor('#999999')
-               .text(`Generated: ${new Date().toLocaleString('en-GB')}`, 50, 720)
-               .text('Bespoke Mattress Company | Professional Order Processing', 50, 732);
+            addPDFFooter(doc, primaryColor);
 
             doc.end();
         } catch (error) {
             reject(error);
         }
     });
+}
+
+function addPDFHeader(doc, order, primaryColor, accentColor, yPos) {
+    // Company Name
+    doc.font('Helvetica-Bold').fontSize(22).fillColor(primaryColor)
+       .text('Bespoke Mattress Company', 40, yPos);
+    
+    // Document Title
+    doc.font('Helvetica').fontSize(14).fillColor(accentColor)
+       .text('Purchase Order & Manufacturing Specification', 40, yPos + 25);
+    
+    // Order Number (prominent)
+    doc.font('Helvetica-Bold').fontSize(12).fillColor(primaryColor)
+       .text(`Order: ${order.order_number || 'N/A'}`, 40, yPos + 45);
+    
+    // Status Badge
+    doc.rect(450, yPos + 20, 80, 20).fill(successColor);
+    doc.font('Helvetica-Bold').fontSize(9).fillColor('white')
+       .text('CONFIRMED', 470, yPos + 27);
+    
+    // Divider line
+    doc.moveTo(40, yPos + 70).lineTo(555, yPos + 70)
+       .strokeColor(primaryColor).lineWidth(2).stroke();
+    
+    return yPos + 90;
+}
+
+function addOrderAndCustomerInfo(doc, order, primaryColor, yPos) {
+    // Order Information Box
+    doc.rect(40, yPos, 250, 80).fillColor('#f8f9fa').fill();
+    doc.font('Helvetica-Bold').fontSize(11).fillColor(primaryColor)
+       .text('Order Information', 50, yPos + 10);
+    
+    doc.font('Helvetica').fontSize(9).fillColor('#333333')
+       .text(`Order Number: ${order.order_number || 'N/A'}`, 50, yPos + 25)
+       .text(`Date: ${order.created_date ? new Date(order.created_date).toLocaleDateString('en-GB') : 'N/A'}`, 50, yPos + 38)
+       .text(`Store: ${order.store_domain || 'N/A'}`, 50, yPos + 51)
+       .text(`Status: ${order.processing_status || 'Received'}`, 50, yPos + 64);
+
+    // Customer Information Box
+    doc.rect(305, yPos, 250, 80).fillColor('#f8f9fa').fill();
+    doc.font('Helvetica-Bold').fontSize(11).fillColor(primaryColor)
+       .text('Customer Information', 315, yPos + 10);
+    
+    doc.font('Helvetica').fontSize(9).fillColor('#333333')
+       .text(`Name: ${order.customer_name || 'N/A'}`, 315, yPos + 25)
+       .text(`Email: ${order.customer_email || 'N/A'}`, 315, yPos + 38)
+       .text(`Phone: ${order.order_data?.order_data?.customer?.phone || 'N/A'}`, 315, yPos + 51)
+       .text(`Total: £${order.total_price || '0.00'}`, 315, yPos + 64);
+
+    return yPos + 100;
+}
+
+function addProductInformation(doc, order, primaryColor, accentColor, yPos) {
+    // Get line items with proper nesting
+    const lineItems = order.order_data?.order_data?.line_items || [];
+    
+    if (lineItems.length === 0) {
+        return yPos;
+    }
+
+    const item = lineItems[0]; // First item for detailed display
+    
+    doc.font('Helvetica-Bold').fontSize(12).fillColor(primaryColor)
+       .text('Product Specification', 40, yPos);
+    
+    // Product details box
+    doc.rect(40, yPos + 20, 515, 100).fillColor('#f0f8ff').fill();
+    
+    // Product name (main title)
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(primaryColor)
+       .text(`Product: ${item.title || 'N/A'}`, 50, yPos + 30, { width: 495 });
+    
+    // SKU and variant
+    doc.font('Helvetica').fontSize(9).fillColor('#333333')
+       .text(`SKU: ${item.sku || 'N/A'}`, 50, yPos + 50)
+       .text(`Variant: ${item.variant_title || 'N/A'}`, 50, yPos + 63)
+       .text(`Quantity: ${item.quantity || 1}`, 50, yPos + 76)
+       .text(`Unit Price: £${item.price || '0.00'}`, 200, yPos + 76);
+
+    // Properties (firmness, etc.)
+    if (item.properties && item.properties.length > 0) {
+        let propY = yPos + 89;
+        const relevantProps = item.properties.filter(prop => prop.value && prop.value !== '');
+        
+        if (relevantProps.length > 0) {
+            doc.font('Helvetica-Bold').fontSize(8).fillColor('#666666')
+               .text('Specifications: ', 50, propY);
+            
+            let propText = relevantProps.map(prop => `${prop.name}: ${prop.value}`).join(' | ');
+            doc.font('Helvetica').fontSize(8).fillColor('#333333')
+               .text(propText, 120, propY, { width: 425 });
+        }
+    }
+    
+    return yPos + 140;
+}
+
+function addMeasurementsSection(doc, order, primaryColor, yPos) {
+    // Extract measurements from the order data
+    const extractedMeasurements = order.order_data?.extracted_measurements || [];
+    
+    if (extractedMeasurements.length === 0) {
+        return yPos;
+    }
+    
+    const measurements = extractedMeasurements[0];
+    
+    doc.font('Helvetica-Bold').fontSize(12).fillColor(primaryColor)
+       .text('Measurements & Shape Diagram', 40, yPos);
+    
+    // Measurements table
+    doc.rect(40, yPos + 20, 250, 120).fillColor('#f8f9fa').fill();
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(primaryColor)
+       .text('Dimensions', 50, yPos + 30);
+    
+    // Table headers
+    doc.font('Helvetica-Bold').fontSize(8).fillColor('#666666')
+       .text('Dimension', 50, yPos + 45)
+       .text('Value (cm)', 150, yPos + 45)
+       .text('Status', 220, yPos + 45);
+    
+    // Draw measurement rows
+    const dimensions = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+    let rowY = yPos + 58;
+    
+    dimensions.forEach((dim, index) => {
+        const measurement = measurements.measurements?.[dim];
+        const value = measurement ? measurement.value : 'Not provided';
+        const status = measurements.provided?.includes(dim) ? '✓' : measurements.missing?.includes(dim) ? '✗' : '-';
+        
+        doc.font('Helvetica').fontSize(8).fillColor('#333333')
+           .text(dim, 50, rowY)
+           .text(value, 150, rowY)
+           .text(status, 230, rowY);
+        
+        rowY += 12;
+    });
+    
+    // Shape diagram placeholder (right side)
+    doc.rect(305, yPos + 20, 250, 120).fillColor('#ffffff').fill();
+    doc.rect(305, yPos + 20, 250, 120).strokeColor('#cccccc').stroke();
+    
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(primaryColor)
+       .text('Shape Diagram', 315, yPos + 30);
+    
+    // Get diagram number if available
+    const diagramNumber = measurements.property_Diagram_Number || measurements['property_Diagram Number'] || 'N/A';
+    doc.font('Helvetica').fontSize(9).fillColor('#666666')
+       .text(`Diagram: ${diagramNumber}`, 315, yPos + 45);
+    
+    // Simple diagram representation
+    if (diagramNumber === '3') {
+        // Draw a basic caravan shape for diagram 3
+        drawCaravanShape(doc, 350, yPos + 65, 160, 60);
+    } else {
+        doc.font('Helvetica').fontSize(9).fillColor('#999999')
+           .text('Diagram will be referenced\nduring manufacturing', 315, yPos + 80);
+    }
+    
+    return yPos + 160;
+}
+
+function drawCaravanShape(doc, x, y, width, height) {
+    // Simple caravan mattress shape representation
+    doc.strokeColor('#3498db').lineWidth(1);
+    
+    // Main rectangle
+    doc.rect(x, y, width, height).stroke();
+    
+    // Curved foot end (simple representation)
+    doc.moveTo(x, y + height * 0.7)
+       .quadraticCurveTo(x - 15, y + height, x, y + height)
+       .stroke();
+    
+    // Labels
+    doc.font('Helvetica').fontSize(7).fillColor('#666666')
+       .text('A', x + width/2, y - 10)
+       .text('B', x - 15, y + height/2)
+       .text('Foot-End Bolster', x + 10, y + height + 5);
+}
+
+function addDetailedLineItems(doc, order, primaryColor, accentColor, yPos) {
+    doc.font('Helvetica-Bold').fontSize(12).fillColor(primaryColor)
+       .text('Order Items Detail', 40, yPos);
+    
+    // Table header
+    const tableTop = yPos + 20;
+    doc.rect(40, tableTop, 515, 20).fillColor(accentColor).fill();
+    
+    doc.font('Helvetica-Bold').fontSize(9).fillColor('white')
+       .text('Product', 45, tableTop + 6)
+       .text('SKU', 300, tableTop + 6)
+       .text('Qty', 380, tableTop + 6)
+       .text('Price', 420, tableTop + 6)
+       .text('Total', 480, tableTop + 6);
+    
+    // Line items
+    const lineItems = order.order_data?.order_data?.line_items || [];
+    let rowY = tableTop + 20;
+    
+    if (lineItems.length === 0) {
+        doc.font('Helvetica').fontSize(9).fillColor('#666666')
+           .text('No items found in order data', 50, rowY + 5);
+        return yPos + 60;
+    }
+    
+    lineItems.forEach((item, index) => {
+        // Alternate row colours
+        if (index % 2 === 0) {
+            doc.rect(40, rowY, 515, 25).fillColor('#f8f9fa').fill();
+        }
+        
+        // Product name (truncated if too long)
+        const productName = item.title || item.name || 'Product';
+        doc.font('Helvetica').fontSize(8).fillColor('#333333')
+           .text(productName, 45, rowY + 5, { width: 245, ellipsis: true })
+           .text(item.sku || 'N/A', 300, rowY + 5)
+           .text((item.quantity || 1).toString(), 385, rowY + 5)
+           .text(`£${item.price || '0.00'}`, 420, rowY + 5)
+           .text(`£${((item.quantity || 1) * (parseFloat(item.price) || 0)).toFixed(2)}`, 480, rowY + 5);
+        
+        // Additional product details on second line
+        if (item.variant_title) {
+            doc.font('Helvetica').fontSize(7).fillColor('#666666')
+               .text(item.variant_title, 45, rowY + 15, { width: 245, ellipsis: true });
+        }
+        
+        rowY += 25;
+    });
+    
+    return rowY + 10;
+}
+
+function addTotalSection(doc, order, successColor, yPos) {
+    // Total background
+    doc.rect(400, yPos, 155, 35).fillColor('#e8f5e8').fill();
+    doc.rect(400, yPos, 155, 35).strokeColor(successColor).lineWidth(2).stroke();
+    
+    // Total label and value
+    doc.font('Helvetica-Bold').fontSize(12).fillColor(successColor)
+       .text('Total Amount:', 410, yPos + 10);
+    
+    doc.font('Helvetica-Bold').fontSize(14).fillColor(successColor)
+       .text(`£${order.total_price || '0.00'}`, 490, yPos + 10);
+    
+    return yPos + 55;
+}
+
+function addPDFFooter(doc, primaryColor) {
+    const footerY = 750;
+    
+    // Footer line
+    doc.moveTo(40, footerY).lineTo(555, footerY)
+       .strokeColor('#dddddd').lineWidth(1).stroke();
+    
+    // Footer text
+    doc.font('Helvetica').fontSize(7).fillColor('#999999')
+       .text(`Generated: ${new Date().toLocaleString('en-GB')}`, 40, footerY + 8)
+       .text('Bespoke Mattress Company | Professional Manufacturing Specification', 40, footerY + 18)
+       .text('This document contains all specifications required for manufacturing', 40, footerY + 28);
 }
 
 // PDF download endpoint
@@ -437,7 +653,7 @@ app.get('/health', async (req, res) => {
             orderCount: orderCount.length,
             stores: Object.keys(storeConfigs),
             reactBuild: reactBuildExists ? 'available' : 'missing',
-            pdfGeneration: 'printable HTML (Railway compatible)',
+            pdfGeneration: 'PDFKit (styled PDF files)',
             webhooks: 'enabled',
             timestamp: new Date().toISOString()
         });
@@ -448,7 +664,7 @@ app.get('/health', async (req, res) => {
             error: error.message,
             stores: Object.keys(storeConfigs),
             reactBuild: reactBuildExists ? 'available' : 'missing',
-            pdfGeneration: 'printable HTML (Railway compatible)',
+            pdfGeneration: 'PDFKit (styled PDF files)',
             webhooks: 'enabled',
             timestamp: new Date().toISOString()
         });
