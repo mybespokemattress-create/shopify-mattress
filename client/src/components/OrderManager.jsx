@@ -1,7 +1,9 @@
+// FORCE COMPLETE REBUILD - Manufacturing Options v2
+
 import React, { useState, useEffect } from 'react';
 import { Download, Mail, Edit3, Save, X } from 'lucide-react';
 
-const OrderManager = () => {
+const OrderManagerV2 = () => {
   const [orders, setOrders] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [editMode, setEditMode] = useState(false);
