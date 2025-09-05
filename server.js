@@ -289,7 +289,7 @@ function generatePurchaseOrderPDF(order) {
             let yPosition = 50;
 
             // Header
-            yPosition = addPDFHeader(doc, order, primaryColor, accentColor, yPosition);
+            yPosition = addPDFHeader(doc, order, primaryColor, accentColor, successColor, yPosition);
             
             // Order & Customer Info (side by side)
             yPosition = addOrderAndCustomerInfo(doc, order, primaryColor, yPosition);
@@ -316,7 +316,7 @@ function generatePurchaseOrderPDF(order) {
     });
 }
 
-function addPDFHeader(doc, order, primaryColor, accentColor, yPos) {
+function addPDFHeader(doc, order, primaryColor, accentColor, successColor, yPos) {
     // Company Name
     doc.font('Helvetica-Bold').fontSize(22).fillColor(primaryColor)
        .text('Bespoke Mattress Company', 40, yPos);
