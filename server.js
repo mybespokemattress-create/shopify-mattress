@@ -268,134 +268,6 @@ app.get('/debug/count-orders', async (req, res) => {
 });
 
 // PDF generation function with image embedding
-function generatePurchaseOrderPDF(order) {
-    return new Promise((resolve, reject) => {
-        try {
-            const doc = new PDFDocument({
-                size: 'A4',
-                margins: { top: 40, bottom: 40, left: 40, right: 40 }
-            });
-
-            const chunks = [];
-            doc.on('data', chunk => chunks.push(chunk));
-            doc.on('end', () => resolve(Buffer.concat(chunks)));
-            doc.on('error', reject);
-
-            let yPosition = 50;
-
-            // Header
-            yPosition = addPDFHeader(doc, order, yPosition);
-            
-            // Order & Customer Info (simplified)
-            yPosition = addSimplifiedOrderInfo(doc, order, yPosition);
-            
-            // Product Information
-            yPosition = addProductInformation(doc, order, yPosition);
-            
-            // Measurements & Specifications with images
-            yPosition = addEnhancedMeasurements(doc, order, yPosition);
-            
-            // Footer
-            addPDFFooter(doc);
-
-            doc.end();
-        } catch (error) {
-            reject(error);
-        }
-    });
-}
-
-function addPDFHeader(doc, order, yPos) {
-    // Company Name
-    doc.font('Helvetica-Bold').fontSize(22).fillColor('black')
-       .text('Bespoke Mattress Company', 40, yPos);
-    
-    // Document Title
-    doc.font('Helvetica').fontSize(14).fillColor('black')
-       .text('Purchase Order & Manufacturing Specification', 40, yPos + 25);
-    
-    // Order Number (prominent)
-    doc.font('Helvetica-Bold').fontSize(12).fillColor('black')
-       .text(`Order: ${order.order_number || 'N/A'}`, 40, yPos + 45);
-    
-    // Status Badge
-    doc.rect(450, yPos + 20, 80, 20).fillColor('white').fill();
-    doc.rect(450, yPos + 20, 80, 20).strokeColor('black').lineWidth(1).stroke();
-    doc.font('Helvetica-Bold').fontSize(9).fillColor('black')
-       .text('CONFIRMED', 470, yPos + 27);
-    
-    // Divider line
-    doc.moveTo(40, yPos + 70).lineTo(555, yPos + 70)
-       .strokeColor('black').lineWidth(2).stroke();
-    
-    return yPos + 90;
-}
-
-function addSimplifiedOrderInfo(doc, order, yPos) {
-    // Order Information Box (Left)
-    doc.rect(40, yPos, 250, 80).fillColor('white').fill();
-    doc.rect(40, yPos, 250, 80).strokeColor('black').lineWidth(1).stroke();
-    doc.font('Helvetica-Bold').fontSize(11).fillColor('black')
-       .text('Order Information', 50, yPos + 10);
-    
-    doc.font('Helvetica').fontSize(9).fillColor('black')
-       .text(`Order Number: ${order.order_number || 'N/A'}`, 50, yPos + 25)
-       .text(`Order ID: ${order.id || 'N/A'}`, 50, yPos + 38)
-       .text(`Date: ${order.created_date ? new Date(order.created_date).toLocaleDateString('en-GB') : 'N/A'}`, 50, yPos + 51);
-
-    // Customer Information Box (Right) - NO TOTAL PRICE
-    doc.rect(305, yPos, 250, 80).fillColor('white').fill();
-    doc.rect(305, yPos, 250, 80).strokeColor('black').lineWidth(1).stroke();
-    doc.font('Helvetica-Bold').fontSize(11).fillColor('black')
-       .text('Customer Information', 315, yPos + 10);
-    
-    doc.font('Helvetica').fontSize(9).fillColor('black')
-       .text(`Name: ${order.customer_name || 'N/A'}`, 315, yPos + 25)
-       .text(`Email: ${order.customer_email || 'N/A'}`, 315, yPos + 38);
-
-    return yPos + 100;
-}
-
-function addProductInformation(doc, order, yPos) {
-    const lineItems = order.order_data?.order_data?.line_items || [];
-    
-    if (lineItems.length === 0) {
-        return yPos;
-    }
-
-    const item = lineItems[0];
-    
-    doc.font('Helvetica-Bold').fontSize(12).fillColor('black')
-       .text('Product Specification', 40, yPos);
-    
-    // Product details box
-    doc.rect(40, yPos + 20, 515, 120).fillColor('white').fill();
-    doc.rect(40, yPos + 20, 515, 120).strokeColor('black').lineWidth(1).stroke();
-    
-    // Product title
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('black')
-       .text(`Product: ${item.title || 'N/A'}`, 50, yPos + 30, { width: 495 });
-    
-    // SKU, variant, quantity (NO PRICE)
-    doc.font('Helvetica').fontSize(9).fillColor('black')
-       .text(`SKU: ${item.sku || 'N/A'}`, 50, yPos + 50)
-       .text(`Variant: ${item.variant_title || 'N/A'}`, 50, yPos + 63)
-       .text(`Quantity: ${item.quantity || 1}`, 50, yPos + 76);
-
-    // FIRMNESS SPECIFICATION
-    const firmness = item.properties?.find(prop => prop.name === 'Firmness')?.value || 'Not specified';
-    doc.font('Helvetica-Bold').fontSize(9).fillColor('black')
-       .text(`Firmness: ${firmness}`, 50, yPos + 95);
-
-    // Full product name if different
-    if (item.name && item.name !== item.title) {
-        doc.font('Helvetica').fontSize(8).fillColor('black')
-           .text(`Full specification: ${item.name}`, 50, yPos + 110, { width: 495 });
-    }
-    
-    return yPos + 160;
-}
-
 function addEnhancedMeasurements(doc, order, yPos) {
     // Always show this section title - FULL WIDTH
     doc.font('Helvetica-Bold').fontSize(12).fillColor('black')
@@ -404,9 +276,9 @@ function addEnhancedMeasurements(doc, order, yPos) {
     const extractedMeasurements = order.order_data?.extracted_measurements || [];
     const measurements = extractedMeasurements.length > 0 ? extractedMeasurements[0] : null;
     
-    // Measurements table - MUCH TALLER to use available page space
-    doc.rect(40, yPos + 20, 140, 350).fillColor('white').fill();
-    doc.rect(40, yPos + 20, 140, 350).strokeColor('black').lineWidth(1).stroke();
+    // Measurements table - PROPER HEIGHT that fits page
+    doc.rect(40, yPos + 20, 140, 280).fillColor('white').fill();
+    doc.rect(40, yPos + 20, 140, 280).strokeColor('black').lineWidth(1).stroke();
     doc.font('Helvetica-Bold').fontSize(10).fillColor('black')
        .text('Dimensions', 45, yPos + 30);
     
@@ -438,18 +310,18 @@ function addEnhancedMeasurements(doc, order, yPos) {
         rowY += 12;
     });
     
-    // Status at bottom of much taller container
+    // Status at bottom 
     let verificationStatus = 'Not verified';
     if (measurements) {
         verificationStatus = measurements.property_Measurements_Verified || 
                            measurements['property_Measurements Verified'] || 'Not verified';
     }
     doc.font('Helvetica-Bold').fontSize(7).fillColor('black')
-       .text(`Status: ${verificationStatus}`, 45, yPos + 355);
+       .text(`Status: ${verificationStatus}`, 45, yPos + 285);
     
-    // Diagram container - SAME TALL HEIGHT as measurements
-    doc.rect(195, yPos + 20, 360, 350).fillColor('white').fill();
-    doc.rect(195, yPos + 20, 360, 350).strokeColor('black').lineWidth(1).stroke();
+    // Diagram container - SAME HEIGHT as measurements
+    doc.rect(195, yPos + 20, 360, 280).fillColor('white').fill();
+    doc.rect(195, yPos + 20, 360, 280).strokeColor('black').lineWidth(1).stroke();
     
     doc.font('Helvetica-Bold').fontSize(10).fillColor('black')
        .text('Shape Diagram', 200, yPos + 30);
@@ -474,11 +346,11 @@ function addEnhancedMeasurements(doc, order, yPos) {
         for (const imagePath of imagePaths) {
             try {
                 if (fs.existsSync(imagePath)) {
-                    // MASSIVE IMAGE using all available space
+                    // LARGE IMAGE that fits within container
                     doc.image(imagePath, 205, yPos + 60, {
                         width: 340,
-                        height: 300,
-                        fit: [340, 300],
+                        height: 230,
+                        fit: [340, 230],
                         align: 'center'
                     });
                     imageLoaded = true;
@@ -490,11 +362,11 @@ function addEnhancedMeasurements(doc, order, yPos) {
         }
         
         if (!imageLoaded) {
-            drawBasicCaravanShape(doc, 320, yPos + 200, 160, 60, diagramNumber);
+            drawBasicCaravanShape(doc, 320, yPos + 180, 160, 60, diagramNumber);
         }
     }
     
-    return yPos + 390;
+    return yPos + 320;
 }
 
 // Helper function to extract diagram number from various property formats
