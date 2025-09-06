@@ -1,7 +1,7 @@
 const express = require('express');
 const path = require('path');
 const PDFDocument = require('pdfkit');
-// const htmlPdf = require('html-pdf-node'); // COMMENTED OUT - will add Railway-compatible PDF solution
+const fs = require('fs');
 require('dotenv').config();
 
 const app = express();
@@ -267,9 +267,7 @@ app.get('/debug/count-orders', async (req, res) => {
     }
 });
 
-// Enhanced PDF generation with full order details
-
-// Updated PDF generation function based on your requirements
+// PDF generation function with image embedding
 function generatePurchaseOrderPDF(order) {
     return new Promise((resolve, reject) => {
         try {
@@ -294,7 +292,7 @@ function generatePurchaseOrderPDF(order) {
             // Product Information
             yPosition = addProductInformation(doc, order, yPosition);
             
-            // Measurements & Specifications (enhanced)
+            // Measurements & Specifications with images
             yPosition = addEnhancedMeasurements(doc, order, yPosition);
             
             // Footer
@@ -384,7 +382,7 @@ function addProductInformation(doc, order, yPos) {
        .text(`Variant: ${item.variant_title || 'N/A'}`, 50, yPos + 63)
        .text(`Quantity: ${item.quantity || 1}`, 50, yPos + 76);
 
-    // FIRMNESS SPECIFICATION (NEW)
+    // FIRMNESS SPECIFICATION
     const firmness = item.properties?.find(prop => prop.name === 'Firmness')?.value || 'Not specified';
     doc.font('Helvetica-Bold').fontSize(9).fillColor('black')
        .text(`Firmness: ${firmness}`, 50, yPos + 95);
@@ -408,11 +406,11 @@ function addEnhancedMeasurements(doc, order, yPos) {
     const measurements = extractedMeasurements[0];
     
     doc.font('Helvetica-Bold').fontSize(12).fillColor('black')
-       .text('Measurements & Specifications', 40, yPos);
+       .text('Measurements & Shape Diagram', 40, yPos);
     
-    // Main measurements table
-    doc.rect(40, yPos + 20, 350, 140).fillColor('white').fill();
-    doc.rect(40, yPos + 20, 350, 140).strokeColor('black').lineWidth(1).stroke();
+    // Main measurements table (left side)
+    doc.rect(40, yPos + 20, 250, 140).fillColor('white').fill();
+    doc.rect(40, yPos + 20, 250, 140).strokeColor('black').lineWidth(1).stroke();
     doc.font('Helvetica-Bold').fontSize(10).fillColor('black')
        .text('Dimensions', 50, yPos + 30);
     
@@ -420,11 +418,11 @@ function addEnhancedMeasurements(doc, order, yPos) {
     doc.font('Helvetica-Bold').fontSize(8).fillColor('black')
        .text('Dimension', 50, yPos + 45)
        .text('Value (mm)', 150, yPos + 45)
-       .text('Status', 280, yPos + 45);
+       .text('Status', 230, yPos + 45);
     
     // Header line
     doc.strokeColor('black').lineWidth(1)
-       .moveTo(50, yPos + 57).lineTo(380, yPos + 57).stroke();
+       .moveTo(50, yPos + 57).lineTo(280, yPos + 57).stroke();
     
     // All dimensions A-G
     const dimensions = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
@@ -433,39 +431,113 @@ function addEnhancedMeasurements(doc, order, yPos) {
     dimensions.forEach((dim) => {
         const measurement = measurements.measurements?.[dim];
         const value = measurement ? `${measurement.value}${measurement.unit || 'mm'}` : 'Not provided';
-        const status = measurements.provided?.includes(dim) ? '✓ Provided' : 
-                      measurements.missing?.includes(dim) ? '✗ Missing' : '-';
+        const status = measurements.provided?.includes(dim) ? '✓' : 
+                      measurements.missing?.includes(dim) ? '✗' : '-';
         
         doc.font('Helvetica').fontSize(8).fillColor('black')
            .text(dim, 50, rowY)
            .text(value, 150, rowY)
-           .text(status, 280, rowY);
+           .text(status, 240, rowY);
         
         rowY += 12;
     });
     
-    // Verification status box (right side)
-    doc.rect(410, yPos + 20, 145, 80).fillColor('white').fill();
-    doc.rect(410, yPos + 20, 145, 80).strokeColor('black').lineWidth(1).stroke();
-    
-    doc.font('Helvetica-Bold').fontSize(10).fillColor('black')
-       .text('Verification', 420, yPos + 30);
-    
-    // Verification status
+    // Verification status (bottom of measurements box)
     const verificationStatus = measurements.property_Measurements_Verified || 
                               measurements['property_Measurements Verified'] || 'Not verified';
-    doc.font('Helvetica').fontSize(9).fillColor('black')
-       .text(`Status: ${verificationStatus}`, 420, yPos + 45);
+    doc.font('Helvetica-Bold').fontSize(8).fillColor('black')
+       .text(`Status: ${verificationStatus}`, 50, yPos + 145);
     
-    // Missing dimensions summary
-    if (measurements.missing && measurements.missing.length > 0) {
-        doc.font('Helvetica-Bold').fontSize(8).fillColor('black')
-           .text('Missing:', 420, yPos + 60);
-        doc.font('Helvetica').fontSize(8).fillColor('black')
-           .text(measurements.missing.join(', '), 420, yPos + 72);
+    // Shape diagram (right side) - REAL IMAGE EMBEDDING
+    doc.rect(305, yPos + 20, 250, 140).fillColor('white').fill();
+    doc.rect(305, yPos + 20, 250, 140).strokeColor('black').lineWidth(1).stroke();
+    
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('black')
+       .text('Shape Diagram', 315, yPos + 30);
+    
+    // Get diagram number from order data
+    const diagramNumber = measurements.property_Diagram_Number || 
+                         measurements['property_Diagram Number'] || 
+                         extractDiagramFromProperties(order);
+    
+    if (diagramNumber) {
+        doc.font('Helvetica').fontSize(9).fillColor('black')
+           .text(`Diagram: ${diagramNumber}`, 315, yPos + 45);
+        
+        // Embed the actual diagram image
+        const imagePath = path.join(__dirname, 'public', 'images', 'diagrams', `Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`);
+        
+        try {
+            if (fs.existsSync(imagePath)) {
+                // Embed the real diagram image
+                doc.image(imagePath, 315, yPos + 60, {
+                    width: 220,
+                    height: 80,
+                    fit: [220, 80],
+                    align: 'center'
+                });
+                
+                console.log(`✅ Embedded diagram image: Shape_${diagramNumber}`);
+            } else {
+                // Fallback: draw basic shape if image not found
+                console.log(`⚠️ Image not found: ${imagePath}, using fallback drawing`);
+                drawBasicCaravanShape(doc, 350, yPos + 65, 160, 60, diagramNumber);
+            }
+        } catch (error) {
+            console.error(`❌ Error loading diagram image: ${error.message}`);
+            // Fallback: show text message
+            doc.font('Helvetica').fontSize(9).fillColor('black')
+               .text('Diagram image unavailable', 315, yPos + 80);
+        }
+    } else {
+        doc.font('Helvetica').fontSize(9).fillColor('black')
+           .text('No diagram number specified', 315, yPos + 60);
     }
     
     return yPos + 180;
+}
+
+// Helper function to extract diagram number from various property formats
+function extractDiagramFromProperties(order) {
+    const lineItems = order.order_data?.order_data?.line_items || [];
+    
+    if (lineItems.length > 0 && lineItems[0].properties) {
+        const properties = lineItems[0].properties;
+        
+        // Look for diagram number in different formats
+        for (const prop of properties) {
+            if (prop.name && prop.value) {
+                if (prop.name.toLowerCase().includes('diagram') && prop.value) {
+                    return prop.value;
+                }
+            }
+        }
+    }
+    
+    return null;
+}
+
+// Fallback function for basic shape drawing when image isn't available
+function drawBasicCaravanShape(doc, x, y, width, height, diagramNumber) {
+    doc.strokeColor('black').lineWidth(1);
+    
+    switch(diagramNumber) {
+        case '3':
+            // Curved foot end bolster shape
+            doc.rect(x, y, width, height).stroke();
+            doc.moveTo(x, y + height * 0.7)
+               .quadraticCurveTo(x - 15, y + height, x, y + height)
+               .stroke();
+            doc.font('Helvetica').fontSize(7).fillColor('black')
+               .text('Curved Foot End', x + 10, y + height + 5);
+            break;
+        default:
+            // Generic rectangle with measurements labels
+            doc.rect(x, y, width, height).stroke();
+            doc.font('Helvetica').fontSize(7).fillColor('black')
+               .text('A', x + width/2, y - 10)
+               .text('B', x - 15, y + height/2);
+    }
 }
 
 function addPDFFooter(doc) {
