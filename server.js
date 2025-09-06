@@ -463,25 +463,37 @@ function addEnhancedMeasurements(doc, order, yPos) {
                          measurements?.['property_Diagram Number'] || 
                          extractDiagramFromProperties(order);
     
-    console.log(`Looking for diagram number: ${diagramNumber}`);
+    console.log(`\n=== IMAGE DEBUGGING FOR DIAGRAM ${diagramNumber} ===`);
     
     if (diagramNumber) {
         doc.font('Helvetica').fontSize(9).fillColor('black')
            .text(`Diagram: ${diagramNumber}`, 315, yPos + 45);
         
-        // Try multiple image path formats
+        // Updated image paths to match your exact filename format
         const imagePaths = [
             path.join(__dirname, 'public', 'images', 'diagrams', `Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`),
             path.join(__dirname, 'public', 'images', 'diagrams', `Shape_${diagramNumber}.jpg`),
             path.join(__dirname, 'public', 'images', 'diagrams', `shape_${diagramNumber}.jpg`)
         ];
         
+        console.log(`Base directory: ${__dirname}`);
+        console.log(`Checking ${imagePaths.length} possible paths:`);
+        
         let imageLoaded = false;
         
-        for (const imagePath of imagePaths) {
+        for (let i = 0; i < imagePaths.length; i++) {
+            const imagePath = imagePaths[i];
+            console.log(`${i + 1}. Checking: ${imagePath}`);
+            
             try {
-                if (fs.existsSync(imagePath)) {
-                    console.log(`Found diagram image: ${imagePath}`);
+                const exists = fs.existsSync(imagePath);
+                console.log(`   Exists: ${exists}`);
+                
+                if (exists) {
+                    const stats = fs.statSync(imagePath);
+                    console.log(`   File size: ${stats.size} bytes`);
+                    console.log(`   ✅ FOUND! Embedding image...`);
+                    
                     // Embed the real diagram image
                     doc.image(imagePath, 315, yPos + 60, {
                         width: 220,
@@ -490,15 +502,26 @@ function addEnhancedMeasurements(doc, order, yPos) {
                         align: 'center'
                     });
                     imageLoaded = true;
+                    console.log(`   ✅ Image embedded successfully`);
                     break;
                 }
             } catch (error) {
-                console.error(`Error loading ${imagePath}: ${error.message}`);
+                console.log(`   ❌ Error loading ${imagePath}: ${error.message}`);
             }
         }
         
         if (!imageLoaded) {
-            console.log(`No image found for diagram ${diagramNumber}, using fallback`);
+            console.log(`\n❌ NO IMAGES FOUND for diagram ${diagramNumber}`);
+            console.log(`📁 Files in diagrams directory:`);
+            try {
+                const diagramsDir = path.join(__dirname, 'public', 'images', 'diagrams');
+                const files = fs.readdirSync(diagramsDir);
+                files.forEach(file => console.log(`   - ${file}`));
+            } catch (dirError) {
+                console.log(`   Directory read error: ${dirError.message}`);
+            }
+            console.log(`🎨 Using fallback drawing instead...`);
+            
             drawBasicCaravanShape(doc, 350, yPos + 65, 160, 60, diagramNumber);
         }
     } else {
@@ -506,6 +529,8 @@ function addEnhancedMeasurements(doc, order, yPos) {
            .text('No diagram number specified', 315, yPos + 60);
         console.log(`No diagram number found in order data`);
     }
+    
+    console.log(`=== END IMAGE DEBUGGING ===\n`);
     
     return yPos + 180;
 }
