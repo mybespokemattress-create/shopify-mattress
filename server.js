@@ -404,9 +404,9 @@ function addEnhancedMeasurements(doc, order, yPos) {
     const extractedMeasurements = order.order_data?.extracted_measurements || [];
     const measurements = extractedMeasurements.length > 0 ? extractedMeasurements[0] : null;
     
-    // Measurements table - MAKE IT MUCH TALLER TO MATCH DIAGRAM
-    doc.rect(40, yPos + 20, 140, 240).fillColor('white').fill();
-    doc.rect(40, yPos + 20, 140, 240).strokeColor('black').lineWidth(1).stroke();
+    // Measurements table - MUCH TALLER to use available page space
+    doc.rect(40, yPos + 20, 140, 350).fillColor('white').fill();
+    doc.rect(40, yPos + 20, 140, 350).strokeColor('black').lineWidth(1).stroke();
     doc.font('Helvetica-Bold').fontSize(10).fillColor('black')
        .text('Dimensions', 45, yPos + 30);
     
@@ -438,18 +438,18 @@ function addEnhancedMeasurements(doc, order, yPos) {
         rowY += 12;
     });
     
-    // Status at bottom of taller container
+    // Status at bottom of much taller container
     let verificationStatus = 'Not verified';
     if (measurements) {
         verificationStatus = measurements.property_Measurements_Verified || 
                            measurements['property_Measurements Verified'] || 'Not verified';
     }
     doc.font('Helvetica-Bold').fontSize(7).fillColor('black')
-       .text(`Status: ${verificationStatus}`, 45, yPos + 245);
+       .text(`Status: ${verificationStatus}`, 45, yPos + 355);
     
-    // Diagram container - SAME HEIGHT as measurements
-    doc.rect(195, yPos + 20, 360, 240).fillColor('white').fill();
-    doc.rect(195, yPos + 20, 360, 240).strokeColor('black').lineWidth(1).stroke();
+    // Diagram container - SAME TALL HEIGHT as measurements
+    doc.rect(195, yPos + 20, 360, 350).fillColor('white').fill();
+    doc.rect(195, yPos + 20, 360, 350).strokeColor('black').lineWidth(1).stroke();
     
     doc.font('Helvetica-Bold').fontSize(10).fillColor('black')
        .text('Shape Diagram', 200, yPos + 30);
@@ -474,11 +474,11 @@ function addEnhancedMeasurements(doc, order, yPos) {
         for (const imagePath of imagePaths) {
             try {
                 if (fs.existsSync(imagePath)) {
-                    // LARGE IMAGE FILLING THE TALLER CONTAINER
+                    // MASSIVE IMAGE using all available space
                     doc.image(imagePath, 205, yPos + 60, {
                         width: 340,
-                        height: 190,
-                        fit: [340, 190],
+                        height: 300,
+                        fit: [340, 300],
                         align: 'center'
                     });
                     imageLoaded = true;
@@ -490,11 +490,11 @@ function addEnhancedMeasurements(doc, order, yPos) {
         }
         
         if (!imageLoaded) {
-            drawBasicCaravanShape(doc, 320, yPos + 150, 160, 60, diagramNumber);
+            drawBasicCaravanShape(doc, 320, yPos + 200, 160, 60, diagramNumber);
         }
     }
     
-    return yPos + 280;
+    return yPos + 390;
 }
 
 // Helper function to extract diagram number from various property formats
