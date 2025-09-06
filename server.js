@@ -404,22 +404,22 @@ function addEnhancedMeasurements(doc, order, yPos) {
     const extractedMeasurements = order.order_data?.extracted_measurements || [];
     const measurements = extractedMeasurements.length > 0 ? extractedMeasurements[0] : null;
     
-    // READABLE measurements table (left side) - 140px width, 200px height
-    doc.rect(40, yPos + 20, 140, 200).fillColor('white').fill();
-    doc.rect(40, yPos + 20, 140, 200).strokeColor('black').lineWidth(1).stroke();
+    // Measurements table (left side) - SAME HEIGHT AS DIAGRAM
+    doc.rect(40, yPos + 20, 140, 180).fillColor('white').fill();
+    doc.rect(40, yPos + 20, 140, 180).strokeColor('black').lineWidth(1).stroke();
     doc.font('Helvetica-Bold').fontSize(10).fillColor('black')
        .text('Dimensions', 45, yPos + 30);
     
-    // Simple table headers - NO STATUS COLUMN
+    // Simple table headers
     doc.font('Helvetica-Bold').fontSize(8).fillColor('black')
        .text('Dim', 45, yPos + 45)
-       .text('Value', 130, yPos + 45);
+       .text('Value', 120, yPos + 45);
     
     // Header line
     doc.strokeColor('black').lineWidth(1)
        .moveTo(45, yPos + 57).lineTo(175, yPos + 57).stroke();
     
-    // All dimensions A-G - READABLE SIZE
+    // All dimensions A-G
     const dimensions = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
     let rowY = yPos + 65;
     
@@ -438,97 +438,63 @@ function addEnhancedMeasurements(doc, order, yPos) {
         rowY += 12;
     });
     
-    // Verification status
+    // Status at bottom
     let verificationStatus = 'Not verified';
     if (measurements) {
         verificationStatus = measurements.property_Measurements_Verified || 
                            measurements['property_Measurements Verified'] || 'Not verified';
     }
     doc.font('Helvetica-Bold').fontSize(7).fillColor('black')
-       .text(`Status: ${verificationStatus}`, 45, yPos + 200);
+       .text(`Status: ${verificationStatus}`, 45, yPos + 185);
     
-    // DIAGRAM container - SAME HEIGHT as measurements table for alignment
-    doc.rect(195, yPos + 20, 370, 200).fillColor('white').fill();
-    doc.rect(195, yPos + 20, 370, 200).strokeColor('black').lineWidth(1).stroke();
+    // Diagram container - SAME HEIGHT and position as measurements
+    doc.rect(195, yPos + 20, 360, 180).fillColor('white').fill();
+    doc.rect(195, yPos + 20, 360, 180).strokeColor('black').lineWidth(1).stroke();
     
     doc.font('Helvetica-Bold').fontSize(10).fillColor('black')
        .text('Shape Diagram', 200, yPos + 30);
     
-    // Get diagram number from multiple sources
+    // Get diagram number
     const diagramNumber = measurements?.property_Diagram_Number || 
                          measurements?.['property_Diagram Number'] || 
                          extractDiagramFromProperties(order);
-    
-    console.log(`\n=== IMAGE DEBUGGING FOR DIAGRAM ${diagramNumber} ===`);
     
     if (diagramNumber) {
         doc.font('Helvetica').fontSize(9).fillColor('black')
            .text(`Diagram: ${diagramNumber}`, 200, yPos + 45);
         
-        // Updated image paths to match your exact filename format
         const imagePaths = [
             path.join(__dirname, 'public', 'images', 'diagrams', `Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`),
             path.join(__dirname, 'public', 'images', 'diagrams', `Shape_${diagramNumber}.jpg`),
             path.join(__dirname, 'public', 'images', 'diagrams', `shape_${diagramNumber}.jpg`)
         ];
         
-        console.log(`Base directory: ${__dirname}`);
-        console.log(`Checking ${imagePaths.length} possible paths:`);
-        
         let imageLoaded = false;
         
-        for (let i = 0; i < imagePaths.length; i++) {
-            const imagePath = imagePaths[i];
-            console.log(`${i + 1}. Checking: ${imagePath}`);
-            
+        for (const imagePath of imagePaths) {
             try {
-                const exists = fs.existsSync(imagePath);
-                console.log(`   Exists: ${exists}`);
-                
-                if (exists) {
-                    const stats = fs.statSync(imagePath);
-                    console.log(`   File size: ${stats.size} bytes`);
-                    console.log(`   ✅ FOUND! Embedding image...`);
-                    
-                    // LARGE DIAGRAM - FILLS ENTIRE CONTAINER
+                if (fs.existsSync(imagePath)) {
+                    // FILL THE ENTIRE DIAGRAM CONTAINER
                     doc.image(imagePath, 205, yPos + 60, {
-                        width: 350,
-                        height: 150,
-                        fit: [350, 150],
+                        width: 340,
+                        height: 130,
+                        fit: [340, 130],
                         align: 'center'
                     });
                     imageLoaded = true;
-                    console.log(`   ✅ Image embedded successfully`);
                     break;
                 }
             } catch (error) {
-                console.log(`   ❌ Error loading ${imagePath}: ${error.message}`);
+                console.error(`Error loading ${imagePath}: ${error.message}`);
             }
         }
         
         if (!imageLoaded) {
-            console.log(`\n❌ NO IMAGES FOUND for diagram ${diagramNumber}`);
-            console.log(`📁 Files in diagrams directory:`);
-            try {
-                const diagramsDir = path.join(__dirname, 'public', 'images', 'diagrams');
-                const files = fs.readdirSync(diagramsDir);
-                files.forEach(file => console.log(`   - ${file}`));
-            } catch (dirError) {
-                console.log(`   Directory read error: ${dirError.message}`);
-            }
-            console.log(`🎨 Using fallback drawing instead...`);
-            
             drawBasicCaravanShape(doc, 320, yPos + 120, 160, 60, diagramNumber);
         }
-    } else {
-        doc.font('Helvetica').fontSize(9).fillColor('black')
-           .text('No diagram number specified', 200, yPos + 60);
-        console.log(`No diagram number found in order data`);
     }
     
-    console.log(`=== END IMAGE DEBUGGING ===\n`);
-    
-    return yPos + 240;
+    return yPos + 220;
 }
 
 // Helper function to extract diagram number from various property formats
