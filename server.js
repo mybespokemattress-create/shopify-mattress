@@ -496,11 +496,11 @@ function addEnhancedMeasurements(doc, order, yPos) {
                     
                     // Embed the real diagram image
                     doc.image(imagePath, 315, yPos + 60, {
-                    width: 240,
-                    height: 140,
-                    fit: [240, 140],
-                    align: 'center'
-                });
+                        width: 240,
+                        height: 140,
+                        fit: [240, 140],
+                        align: 'center'
+                    });
                     imageLoaded = true;
                     console.log(`   ✅ Image embedded successfully`);
                     break;
@@ -532,7 +532,7 @@ function addEnhancedMeasurements(doc, order, yPos) {
     
     console.log(`=== END IMAGE DEBUGGING ===\n`);
     
-    return yPos + 180;
+    return yPos + 340;
 }
 
 // Helper function to extract diagram number from various property formats
