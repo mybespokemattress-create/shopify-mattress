@@ -399,8 +399,24 @@ function addProductInformation(doc, order, yPos) {
 function addEnhancedMeasurements(doc, order, yPos) {
     const extractedMeasurements = order.order_data?.extracted_measurements || [];
     
+    // Always show the section even if no measurements data
+    doc.font('Helvetica-Bold').fontSize(12).fillColor('black')
+       .text('Measurements & Shape Diagram', 40, yPos);
+    
     if (extractedMeasurements.length === 0) {
-        return yPos;
+        // Show empty section but still try to get diagram from properties
+        doc.rect(40, yPos + 20, 250, 140).fillColor('white').fill();
+        doc.rect(40, yPos + 20, 250, 140).strokeColor('black').lineWidth(1).stroke();
+        doc.font('Helvetica').fontSize(10).fillColor('black')
+           .text('No measurements data available', 50, yPos + 80);
+        
+        // Still try to show diagram even without measurements
+        const diagramNumber = extractDiagramFromProperties(order);
+        if (diagramNumber) {
+            addDiagramSection(doc, order, diagramNumber, yPos);
+        }
+        
+        return yPos + 180;
     }
     
     const measurements = extractedMeasurements[0];
