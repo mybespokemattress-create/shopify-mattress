@@ -397,47 +397,43 @@ function addProductInformation(doc, order, yPos) {
 }
 
 function addEnhancedMeasurements(doc, order, yPos) {
-    // Always show this section title
+    // Always show this section title - FULL WIDTH
     doc.font('Helvetica-Bold').fontSize(12).fillColor('black')
        .text('Measurements & Shape Diagram', 40, yPos);
     
     const extractedMeasurements = order.order_data?.extracted_measurements || [];
     const measurements = extractedMeasurements.length > 0 ? extractedMeasurements[0] : null;
     
-    // Main measurements table (left side) - ALWAYS SHOW
-    doc.rect(40, yPos + 20, 250, 140).fillColor('white').fill();
-    doc.rect(40, yPos + 20, 250, 140).strokeColor('black').lineWidth(1).stroke();
+    // READABLE measurements table (left side) - 120px width
+    doc.rect(40, yPos + 20, 120, 140).fillColor('white').fill();
+    doc.rect(40, yPos + 20, 120, 140).strokeColor('black').lineWidth(1).stroke();
     doc.font('Helvetica-Bold').fontSize(10).fillColor('black')
-       .text('Dimensions', 50, yPos + 30);
+       .text('Dimensions', 45, yPos + 30);
     
-    // Table headers - ALWAYS SHOW
+    // Simple table headers - NO STATUS COLUMN
     doc.font('Helvetica-Bold').fontSize(8).fillColor('black')
-       .text('Dimension', 50, yPos + 45)
-       .text('Value (mm)', 150, yPos + 45)
-       .text('Status', 230, yPos + 45);
+       .text('Dim', 45, yPos + 45)
+       .text('Value', 120, yPos + 45);
     
     // Header line
     doc.strokeColor('black').lineWidth(1)
-       .moveTo(50, yPos + 57).lineTo(280, yPos + 57).stroke();
+       .moveTo(45, yPos + 57).lineTo(155, yPos + 57).stroke();
     
-    // All dimensions A-G - ALWAYS SHOW
+    // All dimensions A-G - READABLE SIZE
     const dimensions = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
     let rowY = yPos + 65;
     
     dimensions.forEach((dim) => {
-        let value = 'Not provided';
-        let status = '✗';
+        let value = '-';
         
         if (measurements && measurements.measurements && measurements.measurements[dim]) {
             const measurement = measurements.measurements[dim];
             value = `${measurement.value}${measurement.unit || 'mm'}`;
-            status = '✓';
         }
         
-        doc.font('Helvetica').fontSize(8).fillColor('black')
-           .text(dim, 50, rowY)
-           .text(value, 150, rowY)
-           .text(status, 240, rowY);
+        doc.font('Helvetica').fontSize(9).fillColor('black')
+           .text(dim, 48, rowY)
+           .text(value, 90, rowY);
         
         rowY += 12;
     });
@@ -448,15 +444,15 @@ function addEnhancedMeasurements(doc, order, yPos) {
         verificationStatus = measurements.property_Measurements_Verified || 
                            measurements['property_Measurements Verified'] || 'Not verified';
     }
-    doc.font('Helvetica-Bold').fontSize(8).fillColor('black')
-       .text(`Status: ${verificationStatus}`, 50, yPos + 145);
+    doc.font('Helvetica-Bold').fontSize(7).fillColor('black')
+       .text(`Status: ${verificationStatus}`, 45, yPos + 145);
     
-    // Shape diagram (right side) - ALWAYS TRY TO SHOW
-    doc.rect(305, yPos + 20, 250, 140).fillColor('white').fill();
-    doc.rect(305, yPos + 20, 250, 140).strokeColor('black').lineWidth(1).stroke();
+    // LARGE diagram container - OPTIMISED SIZE (306x306)
+    doc.rect(175, yPos + 20, 336, 360).fillColor('white').fill();
+    doc.rect(175, yPos + 20, 336, 360).strokeColor('black').lineWidth(1).stroke();
     
     doc.font('Helvetica-Bold').fontSize(10).fillColor('black')
-       .text('Shape Diagram', 315, yPos + 30);
+       .text('Shape Diagram', 185, yPos + 30);
     
     // Get diagram number from multiple sources
     const diagramNumber = measurements?.property_Diagram_Number || 
@@ -467,7 +463,7 @@ function addEnhancedMeasurements(doc, order, yPos) {
     
     if (diagramNumber) {
         doc.font('Helvetica').fontSize(9).fillColor('black')
-           .text(`Diagram: ${diagramNumber}`, 315, yPos + 45);
+           .text(`Diagram: ${diagramNumber}`, 185, yPos + 45);
         
         // Updated image paths to match your exact filename format
         const imagePaths = [
@@ -494,11 +490,11 @@ function addEnhancedMeasurements(doc, order, yPos) {
                     console.log(`   File size: ${stats.size} bytes`);
                     console.log(`   ✅ FOUND! Embedding image...`);
                     
-                    // Embed the real diagram image
-                    doc.image(imagePath, 315, yPos + 60, {
-                        width: 240,
-                        height: 140,
-                        fit: [240, 140],
+                    // LARGE SQUARE DIAGRAM - 306x306 pixels
+                    doc.image(imagePath, 190, yPos + 70, {
+                        width: 306,
+                        height: 306,
+                        fit: [306, 306],
                         align: 'center'
                     });
                     imageLoaded = true;
@@ -522,17 +518,17 @@ function addEnhancedMeasurements(doc, order, yPos) {
             }
             console.log(`🎨 Using fallback drawing instead...`);
             
-            drawBasicCaravanShape(doc, 350, yPos + 65, 160, 60, diagramNumber);
+            drawBasicCaravanShape(doc, 320, yPos + 200, 160, 60, diagramNumber);
         }
     } else {
         doc.font('Helvetica').fontSize(9).fillColor('black')
-           .text('No diagram number specified', 315, yPos + 60);
+           .text('No diagram number specified', 185, yPos + 60);
         console.log(`No diagram number found in order data`);
     }
     
     console.log(`=== END IMAGE DEBUGGING ===\n`);
     
-    return yPos + 340;
+    return yPos + 400;
 }
 
 // Helper function to extract diagram number from various property formats
