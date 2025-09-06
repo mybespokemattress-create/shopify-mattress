@@ -7,10 +7,10 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Import database functions - RESTORED
+// Import database functions
 const db = require('./database/db');
 
-// Import webhook routes - RESTORED
+// Import webhook routes
 const webhookRoutes = require('./routes/webhooks');
 
 // Store configuration
@@ -35,7 +35,7 @@ const storeConfigs = {
 // Make store configs available to routes
 app.locals.storeConfigs = storeConfigs;
 
-// Webhook routes (before JSON middleware) - RESTORED
+// Webhook routes (before JSON middleware)
 app.use('/webhook', webhookRoutes);
 
 // Middleware for other routes
@@ -45,7 +45,7 @@ app.use(express.urlencoded({ extended: true }));
 // Serve React static files
 app.use(express.static(path.join(__dirname, 'client/build')));
 
-// Serve legacy public folder
+// Serve public folder (for diagram images)
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Logging middleware
@@ -55,7 +55,7 @@ app.use((req, res, next) => {
     next();
 });
 
-// API Routes for React frontend - RESTORED WITH REAL DATABASE
+// API Routes for React frontend
 app.get('/api/orders', async (req, res) => {
     try {
         console.log('API: Fetching orders...');
@@ -69,14 +69,6 @@ app.get('/api/orders', async (req, res) => {
         }
 
         console.log(`API: Found ${orders.length} orders`);
-        if (orders.length > 0) {
-            console.log('First order sample:', {
-                id: orders[0].id,
-                order_number: orders[0].order_number,
-                customer_name: orders[0].customer_name
-            });
-        }
-        
         res.json(orders);
     } catch (error) {
         console.error('Error fetching orders:', error);
@@ -110,7 +102,7 @@ app.put('/api/orders/:id', async (req, res) => {
     }
 });
 
-// Order statistics endpoint - RESTORED
+// Order statistics endpoint
 app.get('/api/stats', async (req, res) => {
     try {
         const stats = await db.orders.getOrderStats();
@@ -121,7 +113,7 @@ app.get('/api/stats', async (req, res) => {
     }
 });
 
-// Debug endpoint to check database contents - RESTORED
+// Debug endpoints
 app.get('/api/debug/check', async (req, res) => {
     try {
         const { Pool } = require('pg');
@@ -130,24 +122,9 @@ app.get('/api/debug/check', async (req, res) => {
             ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
         });
         
-        // Check what tables exist
-        const tables = await pool.query(`
-            SELECT tablename FROM pg_tables 
-            WHERE schemaname = 'public'
-        `);
-        
-        // Check processed_orders count
-        const orderCount = await pool.query(`
-            SELECT COUNT(*) as count FROM processed_orders
-        `);
-        
-        // Get first 5 orders
-        const orders = await pool.query(`
-            SELECT id, order_number, customer_name, created_date 
-            FROM processed_orders 
-            ORDER BY created_date DESC 
-            LIMIT 5
-        `);
+        const tables = await pool.query(`SELECT tablename FROM pg_tables WHERE schemaname = 'public'`);
+        const orderCount = await pool.query(`SELECT COUNT(*) as count FROM processed_orders`);
+        const orders = await pool.query(`SELECT id, order_number, customer_name, created_date FROM processed_orders ORDER BY created_date DESC LIMIT 5`);
         
         res.json({
             tables: tables.rows.map(t => t.tablename),
@@ -159,7 +136,6 @@ app.get('/api/debug/check', async (req, res) => {
     }
 });
 
-// Test endpoint to manually create an order - RESTORED
 app.post('/api/test/create-order', async (req, res) => {
     try {
         const timestamp = Date.now().toString();
@@ -187,9 +163,7 @@ app.post('/api/test/create-order', async (req, res) => {
             }
         };
         
-        console.log('Creating test order with data:', testOrderData);
         const testOrder = await db.orders.create(testOrderData);
-        
         res.json({ 
             success: true, 
             order: testOrder,
@@ -205,21 +179,15 @@ app.post('/api/test/create-order', async (req, res) => {
     }
 });
 
-// Debug endpoint to clear all orders - RESTORED
 app.get('/debug/clear-orders', async (req, res) => {
     try {
-        console.log('🗑️ Clearing all orders from database...');
-        
         const { Pool } = require('pg');
         const pool = new Pool({
             connectionString: process.env.DATABASE_URL,
             ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
         });
         
-        // Direct SQL query to delete all orders
         const result = await pool.query('DELETE FROM processed_orders');
-        
-        console.log(`✅ Deleted ${result.rowCount || 0} orders from database`);
         
         res.json({ 
             success: true,
@@ -227,9 +195,8 @@ app.get('/debug/clear-orders', async (req, res) => {
             deletedCount: result.rowCount || 0,
             timestamp: new Date().toISOString()
         });
-        
     } catch (error) {
-        console.error('❌ Error clearing orders:', error);
+        console.error('Error clearing orders:', error);
         res.status(500).json({ 
             success: false,
             error: error.message,
@@ -238,7 +205,6 @@ app.get('/debug/clear-orders', async (req, res) => {
     }
 });
 
-// Debug endpoint to count orders - RESTORED
 app.get('/debug/count-orders', async (req, res) => {
     try {
         const { Pool } = require('pg');
@@ -256,9 +222,8 @@ app.get('/debug/count-orders', async (req, res) => {
             message: `Database contains ${count} orders`,
             timestamp: new Date().toISOString()
         });
-        
     } catch (error) {
-        console.error('❌ Error counting orders:', error);
+        console.error('Error counting orders:', error);
         res.status(500).json({ 
             success: false,
             error: error.message,
@@ -267,22 +232,143 @@ app.get('/debug/count-orders', async (req, res) => {
     }
 });
 
-// PDF generation function with image embedding
-function addEnhancedMeasurements(doc, order, yPos) {
-    // Always show this section title - FULL WIDTH
+// ===== PDF GENERATION FUNCTIONS =====
+
+function generatePurchaseOrderPDF(order) {
+    return new Promise((resolve, reject) => {
+        try {
+            const doc = new PDFDocument({
+                size: 'A4',
+                margins: { top: 40, bottom: 40, left: 40, right: 40 }
+            });
+
+            const chunks = [];
+            doc.on('data', chunk => chunks.push(chunk));
+            doc.on('end', () => resolve(Buffer.concat(chunks)));
+            doc.on('error', reject);
+
+            let yPosition = 50;
+
+            // Generate PDF sections
+            yPosition = addPDFHeader(doc, order, yPosition);
+            yPosition = addOrderInfo(doc, order, yPosition);
+            yPosition = addProductInfo(doc, order, yPosition);
+            yPosition = addMeasurementsAndDiagram(doc, order, yPosition);
+            
+            addPDFFooter(doc);
+            doc.end();
+        } catch (error) {
+            reject(error);
+        }
+    });
+}
+
+function addPDFHeader(doc, order, yPos) {
+    // Company Name
+    doc.font('Helvetica-Bold').fontSize(22).fillColor('black')
+       .text('Bespoke Mattress Company', 40, yPos);
+    
+    // Document Title
+    doc.font('Helvetica').fontSize(14).fillColor('black')
+       .text('Purchase Order & Manufacturing Specification', 40, yPos + 25);
+    
+    // Order Number
+    doc.font('Helvetica-Bold').fontSize(12).fillColor('black')
+       .text(`Order: ${order.order_number || 'N/A'}`, 40, yPos + 45);
+    
+    // Status Badge
+    doc.rect(450, yPos + 20, 80, 20).fillColor('white').fill();
+    doc.rect(450, yPos + 20, 80, 20).strokeColor('black').lineWidth(1).stroke();
+    doc.font('Helvetica-Bold').fontSize(9).fillColor('black')
+       .text('CONFIRMED', 470, yPos + 27);
+    
+    // Divider line
+    doc.moveTo(40, yPos + 70).lineTo(555, yPos + 70)
+       .strokeColor('black').lineWidth(2).stroke();
+    
+    return yPos + 90;
+}
+
+function addOrderInfo(doc, order, yPos) {
+    // Order Information Box (Left)
+    doc.rect(40, yPos, 250, 80).fillColor('white').fill();
+    doc.rect(40, yPos, 250, 80).strokeColor('black').lineWidth(1).stroke();
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('black')
+       .text('Order Information', 50, yPos + 10);
+    
+    doc.font('Helvetica').fontSize(9).fillColor('black')
+       .text(`Order Number: ${order.order_number || 'N/A'}`, 50, yPos + 25)
+       .text(`Order ID: ${order.id || 'N/A'}`, 50, yPos + 38)
+       .text(`Date: ${order.created_date ? new Date(order.created_date).toLocaleDateString('en-GB') : 'N/A'}`, 50, yPos + 51);
+
+    // Customer Information Box (Right)
+    doc.rect(305, yPos, 250, 80).fillColor('white').fill();
+    doc.rect(305, yPos, 250, 80).strokeColor('black').lineWidth(1).stroke();
+    doc.font('Helvetica-Bold').fontSize(11).fillColor('black')
+       .text('Customer Information', 315, yPos + 10);
+    
+    doc.font('Helvetica').fontSize(9).fillColor('black')
+       .text(`Name: ${order.customer_name || 'N/A'}`, 315, yPos + 25)
+       .text(`Email: ${order.customer_email || 'N/A'}`, 315, yPos + 38);
+
+    return yPos + 100;
+}
+
+function addProductInfo(doc, order, yPos) {
+    const lineItems = order.order_data?.order_data?.line_items || [];
+    
+    if (lineItems.length === 0) {
+        return yPos;
+    }
+
+    const item = lineItems[0];
+    
+    doc.font('Helvetica-Bold').fontSize(12).fillColor('black')
+       .text('Product Specification', 40, yPos);
+    
+    // Product details box
+    doc.rect(40, yPos + 20, 515, 120).fillColor('white').fill();
+    doc.rect(40, yPos + 20, 515, 120).strokeColor('black').lineWidth(1).stroke();
+    
+    // Product title
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('black')
+       .text(`Product: ${item.title || 'N/A'}`, 50, yPos + 30, { width: 495 });
+    
+    // SKU, variant, quantity (NO PRICE)
+    doc.font('Helvetica').fontSize(9).fillColor('black')
+       .text(`SKU: ${item.sku || 'N/A'}`, 50, yPos + 50)
+       .text(`Variant: ${item.variant_title || 'N/A'}`, 50, yPos + 63)
+       .text(`Quantity: ${item.quantity || 1}`, 50, yPos + 76);
+
+    // Firmness specification
+    const firmness = item.properties?.find(prop => prop.name === 'Firmness')?.value || 'Not specified';
+    doc.font('Helvetica-Bold').fontSize(9).fillColor('black')
+       .text(`Firmness: ${firmness}`, 50, yPos + 95);
+
+    // Full product specification if different
+    if (item.name && item.name !== item.title) {
+        doc.font('Helvetica').fontSize(8).fillColor('black')
+           .text(`Full specification: ${item.name}`, 50, yPos + 110, { width: 495 });
+    }
+    
+    return yPos + 160;
+}
+
+function addMeasurementsAndDiagram(doc, order, yPos) {
+    // Section title
     doc.font('Helvetica-Bold').fontSize(12).fillColor('black')
        .text('Measurements & Shape Diagram', 40, yPos);
     
     const extractedMeasurements = order.order_data?.extracted_measurements || [];
     const measurements = extractedMeasurements.length > 0 ? extractedMeasurements[0] : null;
     
-    // Measurements table - PROPER HEIGHT that fits page
+    // MEASUREMENTS TABLE - 140px wide × 280px tall
     doc.rect(40, yPos + 20, 140, 280).fillColor('white').fill();
     doc.rect(40, yPos + 20, 140, 280).strokeColor('black').lineWidth(1).stroke();
     doc.font('Helvetica-Bold').fontSize(10).fillColor('black')
        .text('Dimensions', 45, yPos + 30);
     
-    // Simple table headers
+    // Table headers (NO STATUS COLUMN)
     doc.font('Helvetica-Bold').fontSize(8).fillColor('black')
        .text('Dim', 45, yPos + 45)
        .text('Value', 120, yPos + 45);
@@ -310,7 +396,7 @@ function addEnhancedMeasurements(doc, order, yPos) {
         rowY += 12;
     });
     
-    // Status at bottom 
+    // Verification status at bottom
     let verificationStatus = 'Not verified';
     if (measurements) {
         verificationStatus = measurements.property_Measurements_Verified || 
@@ -319,64 +405,41 @@ function addEnhancedMeasurements(doc, order, yPos) {
     doc.font('Helvetica-Bold').fontSize(7).fillColor('black')
        .text(`Status: ${verificationStatus}`, 45, yPos + 285);
     
-    // Diagram container - SAME HEIGHT as measurements
+    // DIAGRAM CONTAINER - 360px wide × 280px tall (SAME HEIGHT AS MEASUREMENTS)
     doc.rect(195, yPos + 20, 360, 280).fillColor('white').fill();
     doc.rect(195, yPos + 20, 360, 280).strokeColor('black').lineWidth(1).stroke();
     
     doc.font('Helvetica-Bold').fontSize(10).fillColor('black')
        .text('Shape Diagram', 200, yPos + 30);
     
-    // Get diagram number
-    const diagramNumber = measurements?.property_Diagram_Number || 
-                         measurements?.['property_Diagram Number'] || 
-                         extractDiagramFromProperties(order);
+    // Get diagram number from order properties
+    const diagramNumber = getDiagramNumber(measurements, order);
     
     if (diagramNumber) {
         doc.font('Helvetica').fontSize(9).fillColor('black')
            .text(`Diagram: ${diagramNumber}`, 200, yPos + 45);
         
-        const imagePaths = [
-            path.join(__dirname, 'public', 'images', 'diagrams', `Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`),
-            path.join(__dirname, 'public', 'images', 'diagrams', `Shape_${diagramNumber}.jpg`),
-            path.join(__dirname, 'public', 'images', 'diagrams', `shape_${diagramNumber}.jpg`)
-        ];
-        
-        let imageLoaded = false;
-        
-        for (const imagePath of imagePaths) {
-            try {
-                if (fs.existsSync(imagePath)) {
-                    // LARGE IMAGE that fits within container
-                    doc.image(imagePath, 205, yPos + 60, {
-                        width: 340,
-                        height: 230,
-                        fit: [340, 230],
-                        align: 'center'
-                    });
-                    imageLoaded = true;
-                    break;
-                }
-            } catch (error) {
-                console.error(`Error loading ${imagePath}: ${error.message}`);
-            }
-        }
-        
-        if (!imageLoaded) {
-            drawBasicCaravanShape(doc, 320, yPos + 180, 160, 60, diagramNumber);
-        }
+        // Try to load and embed the diagram image
+        embedDiagramImage(doc, diagramNumber, 205, yPos + 60, 340, 230);
+    } else {
+        doc.font('Helvetica').fontSize(9).fillColor('black')
+           .text('No diagram number specified', 200, yPos + 60);
     }
     
-    return yPos + 320;
+    return yPos + 320; // CORRECT RETURN POSITION
 }
 
-// Helper function to extract diagram number from various property formats
-function extractDiagramFromProperties(order) {
-    const lineItems = order.order_data?.order_data?.line_items || [];
+function getDiagramNumber(measurements, order) {
+    // Try measurements first
+    if (measurements) {
+        if (measurements.property_Diagram_Number) return measurements.property_Diagram_Number;
+        if (measurements['property_Diagram Number']) return measurements['property_Diagram Number'];
+    }
     
+    // Try order properties
+    const lineItems = order.order_data?.order_data?.line_items || [];
     if (lineItems.length > 0 && lineItems[0].properties) {
         const properties = lineItems[0].properties;
-        
-        // Look for diagram number in different formats
         for (const prop of properties) {
             if (prop.name && prop.value) {
                 if (prop.name.toLowerCase().includes('diagram') && prop.value) {
@@ -389,8 +452,40 @@ function extractDiagramFromProperties(order) {
     return null;
 }
 
-// Fallback function for basic shape drawing when image isn't available
-function drawBasicCaravanShape(doc, x, y, width, height, diagramNumber) {
+function embedDiagramImage(doc, diagramNumber, x, y, width, height) {
+    const imagePaths = [
+        path.join(__dirname, 'public', 'images', 'diagrams', `Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`),
+        path.join(__dirname, 'public', 'images', 'diagrams', `Shape_${diagramNumber}.jpg`),
+        path.join(__dirname, 'public', 'images', 'diagrams', `shape_${diagramNumber}.jpg`)
+    ];
+    
+    let imageLoaded = false;
+    
+    for (const imagePath of imagePaths) {
+        try {
+            if (fs.existsSync(imagePath)) {
+                console.log(`Found and embedding diagram: ${imagePath}`);
+                doc.image(imagePath, x, y, {
+                    width: width,
+                    height: height,
+                    fit: [width, height],
+                    align: 'center'
+                });
+                imageLoaded = true;
+                break;
+            }
+        } catch (error) {
+            console.error(`Error loading diagram ${imagePath}: ${error.message}`);
+        }
+    }
+    
+    if (!imageLoaded) {
+        console.log(`No image found for diagram ${diagramNumber}, using fallback`);
+        drawFallbackDiagram(doc, x + 50, y + 50, width - 100, height - 100, diagramNumber);
+    }
+}
+
+function drawFallbackDiagram(doc, x, y, width, height, diagramNumber) {
     doc.strokeColor('black').lineWidth(1);
     
     switch(diagramNumber) {
@@ -404,7 +499,7 @@ function drawBasicCaravanShape(doc, x, y, width, height, diagramNumber) {
                .text('Curved Foot End', x + 10, y + height + 5);
             break;
         default:
-            // Generic rectangle with measurements labels
+            // Generic rectangle with measurement labels
             doc.rect(x, y, width, height).stroke();
             doc.font('Helvetica').fontSize(7).fillColor('black')
                .text('A', x + width/2, y - 10)
@@ -426,7 +521,8 @@ function addPDFFooter(doc) {
        .text('This document contains all specifications required for manufacturing', 40, footerY + 28);
 }
 
-// PDF download endpoint
+// ===== PDF ENDPOINTS =====
+
 app.get('/api/orders/:id/pdf', async (req, res) => {
     try {
         const orderId = req.params.id;
@@ -437,7 +533,7 @@ app.get('/api/orders/:id/pdf', async (req, res) => {
             return res.status(404).json({ error: 'Order not found' });
         }
         
-        console.log('Generating styled PDF with PDFKit...');
+        console.log('Generating PDF with PDFKit...');
         const pdfBuffer = await generatePurchaseOrderPDF(order);
         
         res.setHeader('Content-Type', 'application/pdf');
@@ -445,7 +541,7 @@ app.get('/api/orders/:id/pdf', async (req, res) => {
         res.setHeader('Content-Length', pdfBuffer.length);
         res.send(pdfBuffer);
         
-        console.log(`PDF generated and sent for order ${orderId}`);
+        console.log(`PDF generated successfully for order ${orderId}`);
         
     } catch (error) {
         console.error('PDF generation failed:', error);
@@ -457,20 +553,15 @@ app.get('/api/orders/:id/pdf', async (req, res) => {
     }
 });
 
-// Test PDF endpoint (returns status instead of generating PDF)
 app.get('/api/test-pdf', async (req, res) => {
     try {
-        console.log('PDF test endpoint called...');
-        
         res.json({
             success: true,
-            message: 'PDF generation working via print function',
-            note: 'Use /api/orders/:id/pdf for printable order documents',
+            message: 'PDF generation system operational',
+            note: 'Use /api/orders/:id/pdf for actual PDF generation',
             timestamp: new Date().toLocaleString('en-GB')
         });
-        
     } catch (error) {
-        console.error('PDF test failed:', error);
         res.status(500).json({
             success: false,
             error: error.message
@@ -488,9 +579,9 @@ app.post('/api/orders/:id/email', async (req, res) => {
     }
 });
 
-// Health check endpoint - RESTORED WITH DATABASE
+// Health check endpoint
 app.get('/health', async (req, res) => {
-    const reactBuildExists = require('fs').existsSync(path.join(__dirname, 'client/build/index.html'));
+    const reactBuildExists = fs.existsSync(path.join(__dirname, 'client/build/index.html'));
     
     try {
         const dbHealthy = await db.isHealthy();
@@ -500,9 +591,9 @@ app.get('/health', async (req, res) => {
             status: 'healthy',
             database: dbHealthy,
             orderCount: orderCount.length,
-            stores: Object.keys(storeConfigs),
+            stores: Object.keys(storeConfigs).filter(key => key && key !== 'undefined'),
             reactBuild: reactBuildExists ? 'available' : 'missing',
-            pdfGeneration: 'PDFKit (styled PDF files)',
+            pdfGeneration: 'PDFKit with diagram embedding',
             webhooks: 'enabled',
             timestamp: new Date().toISOString()
         });
@@ -511,9 +602,9 @@ app.get('/health', async (req, res) => {
             status: 'partial',
             database: false,
             error: error.message,
-            stores: Object.keys(storeConfigs),
+            stores: Object.keys(storeConfigs).filter(key => key && key !== 'undefined'),
             reactBuild: reactBuildExists ? 'available' : 'missing',
-            pdfGeneration: 'PDFKit (styled PDF files)',
+            pdfGeneration: 'PDFKit with diagram embedding',
             webhooks: 'enabled',
             timestamp: new Date().toISOString()
         });
@@ -522,14 +613,13 @@ app.get('/health', async (req, res) => {
 
 // Catch-all route for React app
 app.use((req, res, next) => {
-    // Skip if this is an API route or already handled
     if (req.path.startsWith('/api/') || req.path.startsWith('/webhook/') || req.path === '/health') {
         return next();
     }
     
     const reactBuildPath = path.join(__dirname, 'client/build/index.html');
     
-    if (require('fs').existsSync(reactBuildPath)) {
+    if (fs.existsSync(reactBuildPath)) {
         res.sendFile(reactBuildPath);
     } else {
         res.status(503).json({
@@ -553,25 +643,19 @@ app.use((err, req, res, next) => {
     });
 });
 
-// Initialise database and start server - RESTORED
+// Initialize database and start server
 async function startServer() {
     try {
         await db.initialize();
-        console.log('Database initialised successfully');
+        console.log('Database initialized successfully');
 
         app.listen(PORT, () => {
             console.log(`Server running on port ${PORT}`);
             console.log(`React App: http://localhost:${PORT}/`);
             console.log(`API Orders: http://localhost:${PORT}/api/orders`);
             console.log(`Health Check: http://localhost:${PORT}/health`);
-            console.log(`Webhook endpoint: http://localhost:${PORT}/webhook/orders/create`);
-            console.log(`PDF Generation: PDFKit (styled PDF files)`);
-            console.log(`Configured stores: ${Object.keys(storeConfigs).length}`);
-            Object.keys(storeConfigs).forEach((domain, index) => {
-                if (domain && domain !== 'undefined') {
-                    console.log(`   ${index + 1}. ${storeConfigs[domain].name} (${domain})`);
-                }
-            });
+            console.log(`PDF Generation: PDFKit with diagram embedding`);
+            console.log(`Configured stores: ${Object.keys(storeConfigs).filter(key => key && key !== 'undefined').length}`);
         });
     } catch (error) {
         console.error('Failed to start server:', error.message);
