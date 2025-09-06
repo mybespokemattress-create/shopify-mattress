@@ -397,40 +397,20 @@ function addProductInformation(doc, order, yPos) {
 }
 
 function addEnhancedMeasurements(doc, order, yPos) {
+    // Always show this section title
+    doc.font('Helvetica-Bold').fontSize(12).fillColor('black')
+       .text('Measurements & Shape Diagram', 40, yPos);
+    
     const extractedMeasurements = order.order_data?.extracted_measurements || [];
+    const measurements = extractedMeasurements.length > 0 ? extractedMeasurements[0] : null;
     
-    // Always show the section even if no measurements data
-    doc.font('Helvetica-Bold').fontSize(12).fillColor('black')
-       .text('Measurements & Shape Diagram', 40, yPos);
-    
-    if (extractedMeasurements.length === 0) {
-        // Show empty section but still try to get diagram from properties
-        doc.rect(40, yPos + 20, 250, 140).fillColor('white').fill();
-        doc.rect(40, yPos + 20, 250, 140).strokeColor('black').lineWidth(1).stroke();
-        doc.font('Helvetica').fontSize(10).fillColor('black')
-           .text('No measurements data available', 50, yPos + 80);
-        
-        // Still try to show diagram even without measurements
-        const diagramNumber = extractDiagramFromProperties(order);
-        if (diagramNumber) {
-            addDiagramSection(doc, order, diagramNumber, yPos);
-        }
-        
-        return yPos + 180;
-    }
-    
-    const measurements = extractedMeasurements[0];
-    
-    doc.font('Helvetica-Bold').fontSize(12).fillColor('black')
-       .text('Measurements & Shape Diagram', 40, yPos);
-    
-    // Main measurements table (left side)
+    // Main measurements table (left side) - ALWAYS SHOW
     doc.rect(40, yPos + 20, 250, 140).fillColor('white').fill();
     doc.rect(40, yPos + 20, 250, 140).strokeColor('black').lineWidth(1).stroke();
     doc.font('Helvetica-Bold').fontSize(10).fillColor('black')
        .text('Dimensions', 50, yPos + 30);
     
-    // Table headers
+    // Table headers - ALWAYS SHOW
     doc.font('Helvetica-Bold').fontSize(8).fillColor('black')
        .text('Dimension', 50, yPos + 45)
        .text('Value (mm)', 150, yPos + 45)
@@ -440,15 +420,19 @@ function addEnhancedMeasurements(doc, order, yPos) {
     doc.strokeColor('black').lineWidth(1)
        .moveTo(50, yPos + 57).lineTo(280, yPos + 57).stroke();
     
-    // All dimensions A-G
+    // All dimensions A-G - ALWAYS SHOW
     const dimensions = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
     let rowY = yPos + 65;
     
     dimensions.forEach((dim) => {
-        const measurement = measurements.measurements?.[dim];
-        const value = measurement ? `${measurement.value}${measurement.unit || 'mm'}` : 'Not provided';
-        const status = measurements.provided?.includes(dim) ? '✓' : 
-                      measurements.missing?.includes(dim) ? '✗' : '-';
+        let value = 'Not provided';
+        let status = '✗';
+        
+        if (measurements && measurements.measurements && measurements.measurements[dim]) {
+            const measurement = measurements.measurements[dim];
+            value = `${measurement.value}${measurement.unit || 'mm'}`;
+            status = '✓';
+        }
         
         doc.font('Helvetica').fontSize(8).fillColor('black')
            .text(dim, 50, rowY)
@@ -458,56 +442,69 @@ function addEnhancedMeasurements(doc, order, yPos) {
         rowY += 12;
     });
     
-    // Verification status (bottom of measurements box)
-    const verificationStatus = measurements.property_Measurements_Verified || 
-                              measurements['property_Measurements Verified'] || 'Not verified';
+    // Verification status
+    let verificationStatus = 'Not verified';
+    if (measurements) {
+        verificationStatus = measurements.property_Measurements_Verified || 
+                           measurements['property_Measurements Verified'] || 'Not verified';
+    }
     doc.font('Helvetica-Bold').fontSize(8).fillColor('black')
        .text(`Status: ${verificationStatus}`, 50, yPos + 145);
     
-    // Shape diagram (right side) - REAL IMAGE EMBEDDING
+    // Shape diagram (right side) - ALWAYS TRY TO SHOW
     doc.rect(305, yPos + 20, 250, 140).fillColor('white').fill();
     doc.rect(305, yPos + 20, 250, 140).strokeColor('black').lineWidth(1).stroke();
     
     doc.font('Helvetica-Bold').fontSize(10).fillColor('black')
        .text('Shape Diagram', 315, yPos + 30);
     
-    // Get diagram number from order data
-    const diagramNumber = measurements.property_Diagram_Number || 
-                         measurements['property_Diagram Number'] || 
+    // Get diagram number from multiple sources
+    const diagramNumber = measurements?.property_Diagram_Number || 
+                         measurements?.['property_Diagram Number'] || 
                          extractDiagramFromProperties(order);
+    
+    console.log(`Looking for diagram number: ${diagramNumber}`);
     
     if (diagramNumber) {
         doc.font('Helvetica').fontSize(9).fillColor('black')
            .text(`Diagram: ${diagramNumber}`, 315, yPos + 45);
         
-        // Embed the actual diagram image
-        const imagePath = path.join(__dirname, 'public', 'images', 'diagrams', `Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`);
+        // Try multiple image path formats
+        const imagePaths = [
+            path.join(__dirname, 'public', 'images', 'diagrams', `Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`),
+            path.join(__dirname, 'public', 'images', 'diagrams', `Shape_${diagramNumber}.jpg`),
+            path.join(__dirname, 'public', 'images', 'diagrams', `shape_${diagramNumber}.jpg`)
+        ];
         
-        try {
-            if (fs.existsSync(imagePath)) {
-                // Embed the real diagram image
-                doc.image(imagePath, 315, yPos + 60, {
-                    width: 220,
-                    height: 80,
-                    fit: [220, 80],
-                    align: 'center'
-                });
-                
-                console.log(`✅ Embedded diagram image: Shape_${diagramNumber}`);
-            } else {
-                // Fallback: draw basic shape if image not found
-                console.log(`⚠️ Image not found: ${imagePath}, using fallback drawing`);
-                drawBasicCaravanShape(doc, 350, yPos + 65, 160, 60, diagramNumber);
+        let imageLoaded = false;
+        
+        for (const imagePath of imagePaths) {
+            try {
+                if (fs.existsSync(imagePath)) {
+                    console.log(`Found diagram image: ${imagePath}`);
+                    // Embed the real diagram image
+                    doc.image(imagePath, 315, yPos + 60, {
+                        width: 220,
+                        height: 80,
+                        fit: [220, 80],
+                        align: 'center'
+                    });
+                    imageLoaded = true;
+                    break;
+                }
+            } catch (error) {
+                console.error(`Error loading ${imagePath}: ${error.message}`);
             }
-        } catch (error) {
-            console.error(`❌ Error loading diagram image: ${error.message}`);
-            // Fallback: show text message
-            doc.font('Helvetica').fontSize(9).fillColor('black')
-               .text('Diagram image unavailable', 315, yPos + 80);
+        }
+        
+        if (!imageLoaded) {
+            console.log(`No image found for diagram ${diagramNumber}, using fallback`);
+            drawBasicCaravanShape(doc, 350, yPos + 65, 160, 60, diagramNumber);
         }
     } else {
         doc.font('Helvetica').fontSize(9).fillColor('black')
            .text('No diagram number specified', 315, yPos + 60);
+        console.log(`No diagram number found in order data`);
     }
     
     return yPos + 180;
