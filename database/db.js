@@ -74,7 +74,10 @@ async function initialize() {
                 sync_error_message TEXT,
                 processed_at TIMESTAMP,
                 created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                updated_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		notes TEXT,
+		mattress_label TEXT,
+		extracted_measurements JSONB,
             )
         `);
         console.log('✅ Created processed_orders table with correct schema');
