@@ -29,6 +29,7 @@ const pool = new Pool(dbConfig);
 
 // Make database available to routes
 app.locals.db = pool;
+app.use('/webhook', require('./routes/webhooks'));
 
 // Middleware
 app.use(express.json({ limit: '10mb' }));
