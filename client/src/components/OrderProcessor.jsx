@@ -89,10 +89,12 @@ const OrderProcessor = () => {
         else if (apiOrder.order_number?.includes('MYBE')) store = 'MYBE'; 
         else if (apiOrder.order_number?.includes('CARA')) store = 'CARA';
         else if (apiOrder.order_number?.includes('BESP')) store = 'MYBE';
-        
-    // Extract measurements
-    const measurements = orderData.order_data?.extracted_measurements?.[0]?.measurements || 
-                        orderData.extracted_measurements?.[0]?.measurements || {};
+
+    // Extract measurements - FIXED PATH
+    const measurements = apiOrder.order_data?.order_data?.extracted_measurements?.[0]?.measurements || {};
+
+    console.log("Extracting measurements for:", apiOrder.order_number);
+    console.log("Found measurements:", measurements);
     
     // Build properties object with measurements
     const properties = {};
