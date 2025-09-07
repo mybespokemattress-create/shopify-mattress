@@ -29,6 +29,23 @@ const pool = new Pool(dbConfig);
 
 // Make database available to routes
 app.locals.db = pool;
+
+// Configure store settings for webhook handler
+app.locals.storeConfigs = {
+  'd587eb.myshopify.com': {
+    name: 'Caravan Mattresses',
+    webhookSecret: process.env.SHOPIFY_WEBHOOK_SECRET || 'default-secret'
+  },
+  'uxyxaq-pu.myshopify.com': {
+    name: 'Motorhome Mattresses', 
+    webhookSecret: process.env.SHOPIFY_WEBHOOK_SECRET || 'default-secret'
+  },
+  'mattressmade.myshopify.com': {
+    name: 'My Bespoke Mattresses',
+    webhookSecret: process.env.SHOPIFY_WEBHOOK_SECRET || 'default-secret'
+  }
+};
+
 app.use('/webhook', require('./routes/webhooks'));
 
 // Middleware
@@ -114,7 +131,7 @@ function getMattressLabelFromStore(order) {
 }
 
 // Shopify webhook endpoint
-app.post('/webhook/shopify', async (req, res) => {
+// app.post('/webhook/shopify', async (req, res) => {
   try {
     console.log('Received Shopify webhook');
     
