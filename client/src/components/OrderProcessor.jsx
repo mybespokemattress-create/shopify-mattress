@@ -74,11 +74,16 @@ const OrderProcessor = () => {
     console.log('Final link attachment:', linkAttachment);
     console.log('MANUFACTURING EXTRACTION COMPLETE');
 
-    // Extract store information
+    // Extract store information using mattress_label from webhook
     let store = 'UNKNOWN';
-    if (apiOrder.order_number?.includes('MOTO')) store = 'MOTO';
+    if (apiOrder.mattress_label === 'Motorhome Mattresses') store = 'MOTO';
+    else if (apiOrder.mattress_label === 'My Bespoke Mattresses') store = 'MYBE';
+    else if (apiOrder.mattress_label === 'Caravan Mattresses') store = 'CARA';
+    // Fallback to order number detection
+    else if (apiOrder.order_number?.includes('MOTO')) store = 'MOTO';
     else if (apiOrder.order_number?.includes('MYBE')) store = 'MYBE'; 
     else if (apiOrder.order_number?.includes('CARA')) store = 'CARA';
+    // Fallback to domain detection
     else if (apiOrder.store_domain?.includes('uxyxaq-pu')) store = 'MOTO';
     else if (apiOrder.store_domain?.includes('mattressmade')) store = 'MYBE';
     else if (apiOrder.store_domain?.includes('d587eb')) store = 'CARA';
