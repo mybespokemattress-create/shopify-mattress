@@ -77,7 +77,7 @@ async function initialize() {
                 updated_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 		notes TEXT,
 		mattress_label TEXT,
-		extracted_measurements JSONB,
+		extracted_measurements JSONB
             )
         `);
         console.log('✅ Created processed_orders table with correct schema');
