@@ -1,0 +1,364 @@
+/* Professional Monochrome Purchase Order Styles */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Arial', sans-serif;
+    line-height: 1.6;
+    color: #333333;
+    background: #ffffff;
+}
+
+.container {
+    max-width: 210mm;
+    margin: 0 auto;
+    padding: 20mm;
+    background: #ffffff;
+}
+
+/* Header Styles */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 3px solid #000000;
+    padding-bottom: 20px;
+    margin-bottom: 30px;
+}
+
+.company-info h1 {
+    font-size: 24px;
+    font-weight: bold;
+    color: #000000;
+    margin-bottom: 5px;
+}
+
+.company-info p {
+    font-size: 14px;
+    color: #666666;
+}
+
+.order-info {
+    text-align: right;
+}
+
+.order-info h2 {
+    font-size: 20px;
+    font-weight: bold;
+    color: #000000;
+    margin-bottom: 10px;
+}
+
+.order-info p {
+    font-size: 12px;
+    color: #333333;
+    margin-bottom: 5px;
+}
+
+/* Customer & Supplier Section */
+.customer-supplier-section {
+    display: flex;
+    justify-content: space-between;
+    gap: 40px;
+    margin-bottom: 30px;
+}
+
+.customer-details,
+.supplier-details {
+    flex: 1;
+    padding: 15px;
+    background: #f5f5f5;
+    border: 1px solid #e0e0e0;
+}
+
+.customer-details h3,
+.supplier-details h3 {
+    font-size: 14px;
+    font-weight: bold;
+    color: #000000;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #666666;
+    padding-bottom: 5px;
+}
+
+.customer-details p,
+.supplier-details p {
+    font-size: 12px;
+    color: #333333;
+    margin-bottom: 3px;
+}
+
+.address {
+    margin-top: 8px;
+    font-size: 11px;
+    color: #666666;
+}
+
+/* Order Summary Table */
+.order-summary {
+    margin-bottom: 30px;
+}
+
+.order-summary h3 {
+    font-size: 16px;
+    font-weight: bold;
+    color: #000000;
+    margin-bottom: 15px;
+    border-bottom: 2px solid #333333;
+    padding-bottom: 5px;
+}
+
+.summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid #666666;
+}
+
+.summary-table th {
+    background: #e0e0e0;
+    color: #000000;
+    padding: 12px 8px;
+    text-align: left;
+    font-weight: bold;
+    font-size: 12px;
+    border: 1px solid #666666;
+}
+
+.summary-table td {
+    padding: 10px 8px;
+    font-size: 11px;
+    color: #333333;
+    border: 1px solid #e0e0e0;
+}
+
+.total-row {
+    background: #f5f5f5;
+    font-weight: bold;
+}
+
+.total-row td {
+    color: #000000;
+    font-size: 12px;
+}
+
+/* Specifications Section */
+.specifications {
+    margin-bottom: 30px;
+}
+
+.specifications h3 {
+    font-size: 16px;
+    font-weight: bold;
+    color: #000000;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #333333;
+    padding-bottom: 5px;
+}
+
+.shape-section {
+    margin-bottom: 25px;
+}
+
+.shape-section h4 {
+    font-size: 14px;
+    font-weight: bold;
+    color: #000000;
+    margin-bottom: 10px;
+}
+
+.shape-diagram {
+    background: #f5f5f5;
+    border: 1px solid #e0e0e0;
+    padding: 20px;
+    text-align: center;
+    min-height: 150px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Measurements Table */
+.measurements-section {
+    margin-bottom: 25px;
+}
+
+.measurements-section h4 {
+    font-size: 14px;
+    font-weight: bold;
+    color: #000000;
+    margin-bottom: 10px;
+}
+
+.measurements-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid #666666;
+}
+
+.measurements-table th {
+    background: #e0e0e0;
+    color: #000000;
+    padding: 10px 8px;
+    text-align: left;
+    font-weight: bold;
+    font-size: 11px;
+    border: 1px solid #666666;
+}
+
+.measurements-table td {
+    padding: 8px;
+    font-size: 11px;
+    color: #333333;
+    border: 1px solid #e0e0e0;
+}
+
+/* Additional Specifications */
+.additional-specs h4 {
+    font-size: 14px;
+    font-weight: bold;
+    color: #000000;
+    margin-bottom: 10px;
+}
+
+.specs-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.spec-item {
+    padding: 10px;
+    background: #f5f5f5;
+    border: 1px solid #e0e0e0;
+    font-size: 11px;
+}
+
+.spec-item strong {
+    color: #000000;
+    display: block;
+    margin-bottom: 3px;
+}
+
+/* Delivery Section */
+.delivery-section {
+    margin-bottom: 30px;
+}
+
+.delivery-section h3 {
+    font-size: 16px;
+    font-weight: bold;
+    color: #000000;
+    margin-bottom: 15px;
+    border-bottom: 2px solid #333333;
+    padding-bottom: 5px;
+}
+
+.delivery-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 20px;
+}
+
+.delivery-item {
+    padding: 12px;
+    background: #f5f5f5;
+    border: 1px solid #e0e0e0;
+    font-size: 11px;
+}
+
+.delivery-item strong {
+    color: #000000;
+    display: block;
+    margin-bottom: 5px;
+    font-size: 12px;
+}
+
+/* Notes Section */
+.notes-section {
+    margin-bottom: 30px;
+}
+
+.notes-section h3 {
+    font-size: 16px;
+    font-weight: bold;
+    color: #000000;
+    margin-bottom: 15px;
+    border-bottom: 2px solid #333333;
+    padding-bottom: 5px;
+}
+
+.notes-content {
+    padding: 15px;
+    background: #f5f5f5;
+    border: 1px solid #e0e0e0;
+    font-size: 11px;
+    color: #333333;
+    min-height: 80px;
+}
+
+/* Footer */
+.footer {
+    border-top: 1px solid #666666;
+    padding-top: 15px;
+    text-align: center;
+}
+
+.contact-info p {
+    font-size: 10px;
+    color: #666666;
+    margin-bottom: 5px;
+}
+
+/* Print Optimisation */
+@media print {
+    .container {
+        padding: 15mm;
+    }
+    
+    body {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    
+    .header {
+        break-inside: avoid;
+    }
+    
+    .summary-table,
+    .measurements-table {
+        break-inside: avoid;
+    }
+    
+    .shape-section,
+    .measurements-section {
+        break-inside: avoid;
+    }
+}
+
+/* Shape Diagram Specific Styles */
+.shape-diagram svg {
+    max-width: 100%;
+    height: auto;
+}
+
+.shape-measurement-label {
+    font-size: 10px;
+    font-weight: bold;
+    fill: #000000;
+}
+
+.shape-outline {
+    stroke: #000000;
+    stroke-width: 2;
+    fill: none;
+}
+
+.measurement-line {
+    stroke: #666666;
+    stroke-width: 1;
+    stroke-dasharray: 2,2;
+}

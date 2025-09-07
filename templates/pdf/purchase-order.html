@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Purchase Order - {{ORDER_NUMBER}}</title>
+    <link rel="stylesheet" href="purchase-order.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header Section -->
+        <header class="header">
+            <div class="company-info">
+                <h1>BESPOKE MATTRESS COMPANY</h1>
+                <p>Custom Caravan & Motorhome Mattresses</p>
+            </div>
+            <div class="order-info">
+                <h2>PURCHASE ORDER</h2>
+                <p><strong>Order #:</strong> {{ORDER_NUMBER}}</p>
+                <p><strong>Date:</strong> {{ORDER_DATE}}</p>
+            </div>
+        </header>
+
+        <!-- Customer & Supplier Section -->
+        <section class="customer-supplier-section">
+            <div class="customer-details">
+                <h3>CUSTOMER DETAILS</h3>
+                <p><strong>{{CUSTOMER_NAME}}</strong></p>
+                <p>{{CUSTOMER_EMAIL}}</p>
+                <p>{{CUSTOMER_PHONE}}</p>
+                <div class="address">
+                    {{CUSTOMER_ADDRESS}}
+                </div>
+            </div>
+            <div class="supplier-details">
+                <h3>SUPPLIER</h3>
+                <p><strong>{{SUPPLIER_NAME}}</strong></p>
+                <p>{{SUPPLIER_EMAIL}}</p>
+                <p>{{SUPPLIER_PHONE}}</p>
+                <div class="address">
+                    {{SUPPLIER_ADDRESS}}
+                </div>
+            </div>
+        </section>
+
+        <!-- Order Summary -->
+        <section class="order-summary">
+            <h3>ORDER SUMMARY</h3>
+            <table class="summary-table">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Quantity</th>
+                        <th>Unit Price</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ORDER_ITEMS}}
+                </tbody>
+                <tfoot>
+                    <tr class="total-row">
+                        <td colspan="3"><strong>TOTAL</strong></td>
+                        <td><strong>£{{TOTAL_PRICE}}</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </section>
+
+        <!-- Product Specifications -->
+        <section class="specifications">
+            <h3>PRODUCT SPECIFICATIONS</h3>
+            
+            <!-- Shape Diagram -->
+            <div class="shape-section">
+                <h4>Caravan Shape: {{CARAVAN_SHAPE}}</h4>
+                <div class="shape-diagram">
+                    {{SHAPE_DIAGRAM}}
+                </div>
+            </div>
+
+            <!-- Measurements Table -->
+            <div class="measurements-section">
+                <h4>MEASUREMENTS</h4>
+                <table class="measurements-table">
+                    <thead>
+                        <tr>
+                            <th>Dimension</th>
+                            <th>Measurement</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{MEASUREMENTS_ROWS}}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Additional Specifications -->
+            <div class="additional-specs">
+                <h4>ADDITIONAL SPECIFICATIONS</h4>
+                <div class="specs-grid">
+                    <div class="spec-item">
+                        <strong>Mattress Type:</strong> {{MATTRESS_TYPE}}
+                    </div>
+                    <div class="spec-item">
+                        <strong>Thickness:</strong> {{THICKNESS}}
+                    </div>
+                    <div class="spec-item">
+                        <strong>Fabric:</strong> {{FABRIC_TYPE}}
+                    </div>
+                    <div class="spec-item">
+                        <strong>Special Requirements:</strong> {{SPECIAL_REQUIREMENTS}}
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Delivery Information -->
+        <section class="delivery-section">
+            <h3>DELIVERY INFORMATION</h3>
+            <div class="delivery-grid">
+                <div class="delivery-item">
+                    <strong>Required Date:</strong> {{DELIVERY_DATE}}
+                </div>
+                <div class="delivery-item">
+                    <strong>Delivery Address:</strong><br>
+                    {{DELIVERY_ADDRESS}}
+                </div>
+                <div class="delivery-item">
+                    <strong>Special Instructions:</strong><br>
+                    {{DELIVERY_INSTRUCTIONS}}
+                </div>
+            </div>
+        </section>
+
+        <!-- Notes Section -->
+        <section class="notes-section">
+            <h3>NOTES & INSTRUCTIONS</h3>
+            <div class="notes-content">
+                {{NOTES_CONTENT}}
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="contact-info">
+                <p><strong>Questions?</strong> Contact us at info@bespokemattress.co.uk</p>
+                <p>This is an automated purchase order generated on {{GENERATED_DATE}}</p>
+            </div>
+        </footer>
+    </div>
+</body>
+</html>
