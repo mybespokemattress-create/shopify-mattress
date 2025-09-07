@@ -84,9 +84,9 @@ function getMattressLabelFromStore(storeDomain) {
     if (!storeDomain) return null;
     
     const domain = storeDomain.toLowerCase();
-    if (domain.includes('caravanmattresses') || domain.includes('d587eb')) return 'CaravanMattresses';
-    if (domain.includes('motorhomemattresses') || domain.includes('uxyxaq-pu')) return 'MotorhomeMattresses';
-    if (domain.includes('mybespoke') || domain.includes('mattressmade')) return 'MyBespokeMattresses';
+    if (domain.includes('caravanmattresses') || domain.includes('d587eb')) return 'Caravan Mattresses';
+    if (domain.includes('motorhomemattresses') || domain.includes('uxyxaq-pu')) return 'Motorhome Mattresses';
+    if (domain.includes('mybespoke') || domain.includes('mattressmade')) return 'My Bespoke Mattresses';
     
     return null;
 }
