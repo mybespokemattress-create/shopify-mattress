@@ -75,19 +75,21 @@ const OrderProcessor = () => {
     console.log('MANUFACTURING EXTRACTION COMPLETE');
 
     // Extract store information using mattress_label from webhook
-    let store = 'UNKNOWN';
-    if (apiOrder.mattress_label === 'Motorhome Mattresses') store = 'MOTO';
-    else if (apiOrder.mattress_label === 'My Bespoke Mattresses') store = 'MYBE';
-    else if (apiOrder.mattress_label === 'Caravan Mattresses') store = 'CARA';
-    // Fallback to order number detection
-    else if (apiOrder.order_number?.includes('MOTO')) store = 'MOTO';
-    else if (apiOrder.order_number?.includes('MYBE')) store = 'MYBE'; 
-    else if (apiOrder.order_number?.includes('CARA')) store = 'CARA';
-    // Fallback to domain detection
-    else if (apiOrder.store_domain?.includes('uxyxaq-pu')) store = 'MOTO';
-    else if (apiOrder.store_domain?.includes('mattressmade')) store = 'MYBE';
-    else if (apiOrder.store_domain?.includes('d587eb')) store = 'CARA';
-
+        let store = 'UNKNOWN';
+        // First check mattress_label (new format with spaces)
+        if (apiOrder.mattress_label === 'Motorhome Mattresses') store = 'MOTO';
+        else if (apiOrder.mattress_label === 'My Bespoke Mattresses') store = 'MYBE';
+        else if (apiOrder.mattress_label === 'Caravan Mattresses') store = 'CARA';
+        // Fallback to old camelCase format for existing orders
+        else if (apiOrder.mattress_label === 'MotorhomeMattresses') store = 'MOTO';
+        else if (apiOrder.mattress_label === 'MyBespokeMattresses') store = 'MYBE';
+        else if (apiOrder.mattress_label === 'CaravanMattresses') store = 'CARA';
+        // Final fallback to order number detection
+        else if (apiOrder.order_number?.includes('MOTO')) store = 'MOTO';
+        else if (apiOrder.order_number?.includes('MYBE')) store = 'MYBE'; 
+        else if (apiOrder.order_number?.includes('CARA')) store = 'CARA';
+        else if (apiOrder.order_number?.includes('BESP')) store = 'MYBE';
+        
     // Extract measurements
     const measurements = orderData.order_data?.extracted_measurements?.[0]?.measurements || 
                         orderData.extracted_measurements?.[0]?.measurements || {};
