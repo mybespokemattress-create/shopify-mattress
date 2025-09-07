@@ -130,35 +130,6 @@ function getMattressLabelFromStore(order) {
   }
 }
 
-// Shopify webhook endpoint
-// app.post('/webhook/shopify', async (req, res) => {
-  try {
-    console.log('Received Shopify webhook');
-    
-    const order = req.body;
-    
-    // Verify webhook (optional but recommended)
-    const hmac = req.get('X-Shopify-Hmac-Sha256');
-    const body = JSON.stringify(req.body);
-    const hash = crypto.createHmac('sha256', process.env.SHOPIFY_WEBHOOK_SECRET || 'default-secret')
-                       .update(body, 'utf8')
-                       .digest('base64');
-    
-    if (process.env.SHOPIFY_WEBHOOK_SECRET && hmac !== hash) {
-      console.log('Webhook verification failed');
-      return res.status(401).send('Unauthorised');
-    }
-
-    // Process the order
-    await processShopifyOrder(order);
-    
-    res.status(200).json({ message: 'Order processed successfully' });
-  } catch (error) {
-    console.error('Webhook processing error:', error);
-    res.status(500).json({ error: 'Webhook processing failed' });
-  }
-});
-
 // Process Shopify order function
 async function processShopifyOrder(order) {
   try {
