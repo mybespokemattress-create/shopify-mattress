@@ -79,7 +79,57 @@ function getStoreFromHeaders(req) {
     return null;
 }
 
-// Extract customer data from Shopify order
+// Auto-detect mattress label from store domain
+function getMattressLabelFromStore(storeDomain) {
+    if (!storeDomain) return null;
+    
+    const domain = storeDomain.toLowerCase();
+    if (domain.includes('caravanmattresses') || domain.includes('d587eb')) return 'CaravanMattresses';
+    if (domain.includes('motorhomemattresses') || domain.includes('uxyxaq-pu')) return 'MotorhomeMattresses';
+    if (domain.includes('mybespoke') || domain.includes('mattressmade')) return 'MyBespokeMattresses';
+    
+    return null;
+}
+
+// Extract customer notes from various Shopify locations
+function extractCustomerNotes(order) {
+    // Check multiple possible locations for customer notes
+    if (order.note && order.note.trim()) {
+        console.log('Found customer notes in order.note:', order.note);
+        return order.note.trim();
+    }
+    
+    if (order.notes && order.notes.trim()) {
+        console.log('Found customer notes in order.notes:', order.notes);
+        return order.notes.trim();
+    }
+    
+    if (order.customer_note && order.customer_note.trim()) {
+        console.log('Found customer notes in order.customer_note:', order.customer_note);
+        return order.customer_note.trim();
+    }
+    
+    if (order.order_note && order.order_note.trim()) {
+        console.log('Found customer notes in order.order_note:', order.order_note);
+        return order.order_note.trim();
+    }
+    
+    // Check attributes array (some Shopify setups use this)
+    if (order.attributes && Array.isArray(order.attributes)) {
+        const notesAttribute = order.attributes.find(attr => 
+            attr.name && attr.name.toLowerCase().includes('note')
+        );
+        if (notesAttribute && notesAttribute.value && notesAttribute.value.trim()) {
+            console.log('Found customer notes in order.attributes:', notesAttribute.value);
+            return notesAttribute.value.trim();
+        }
+    }
+    
+    console.log('No customer notes found in order');
+    return null;
+}
+
+// Extract customer data from Shopify order (enhanced with notes and mattress label)
 function extractCustomerData(order, storeDomain) {
     const customer = order.customer;
     const billing = order.billing_address;
@@ -91,6 +141,15 @@ function extractCustomerData(order, storeDomain) {
     const fullOrderNumber = orderNumber.toString().startsWith('#') 
         ? orderNumber 
         : `${orderPrefix}${orderNumber}`;
+    
+    // Extract customer notes
+    const customerNotes = extractCustomerNotes(order);
+    
+    // Auto-detect mattress label from store domain
+    const mattressLabel = getMattressLabelFromStore(storeDomain);
+    
+    console.log(`Customer notes extracted: ${customerNotes ? 'Yes' : 'No'}`);
+    console.log(`Mattress label detected: ${mattressLabel || 'None'} (from ${storeDomain})`);
     
     return {
         orderId: order.id.toString(),
@@ -117,7 +176,10 @@ function extractCustomerData(order, storeDomain) {
         } : null,
         orderDate: order.created_at,
         totalPrice: order.total_price,
-        currency: order.currency
+        currency: order.currency,
+        // NEW: Customer notes and mattress label
+        customerNotes: customerNotes,
+        mattressLabel: mattressLabel
     };
 }
 
@@ -332,12 +394,20 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
             return res.status(401).json({ error: 'Invalid signature' });
         }
         
-        // Extract data
+        // Extract data (now includes customer notes and mattress label)
         const customerData = extractCustomerData(order, store.domain);
         const productData = extractProductData(order.line_items || []);
         
         console.log(`Processing order ${customerData.shopifyOrderNumber} from ${customerData.customerName}`);
         console.log(`Products: ${productData.length} items`);
+        
+        // Log customer notes and mattress label if present
+        if (customerData.customerNotes) {
+            console.log(`Customer Notes: "${customerData.customerNotes}"`);
+        }
+        if (customerData.mattressLabel) {
+            console.log(`Mattress Label: ${customerData.mattressLabel}`);
+        }
         
         // Debug: Log raw line item properties
         if (order.line_items && order.line_items.length > 0) {
@@ -427,7 +497,7 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
             }
         }
         
-        // Store order in database with measurements
+        // Store order in database with measurements, notes, and mattress label
         let dbOrder;
         try {
             console.log('Attempting to store order in database...');
@@ -471,14 +541,19 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
                 totalPrice: customerData.totalPrice,
                 order_data: orderWithMeasurements,
                 supplier_assigned: supplierAssignment,
-                supplier_name: supplierName
+                supplier_name: supplierName,
+                // NEW: Customer notes and mattress label
+                notes: customerData.customerNotes,
+                mattress_label: customerData.mattressLabel
             };
             
             console.log('Creating order with data:', {
                 orderId: orderDataForDb.orderId,
                 order_number: orderDataForDb.order_number,
                 store_domain: orderDataForDb.store_domain,
-                customerName: orderDataForDb.customerName
+                customerName: orderDataForDb.customerName,
+                notes: orderDataForDb.notes ? 'Yes' : 'No',
+                mattress_label: orderDataForDb.mattress_label || 'None'
             });
             
             dbOrder = await db.orders.create(orderDataForDb);
@@ -486,6 +561,13 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
             console.log('Order stored in database successfully');
             console.log('Database returned order ID:', dbOrder.id);
             console.log('Measurements stored:', JSON.stringify(extractedMeasurements, null, 2));
+            
+            if (customerData.customerNotes) {
+                console.log('Customer notes stored successfully');
+            }
+            if (customerData.mattressLabel) {
+                console.log(`Mattress label stored: ${customerData.mattressLabel}`);
+            }
             
         } catch (error) {
             console.error('ERROR storing order in database:', error);
@@ -535,6 +617,8 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
             sheetsUpdated: sheetsResult?.success || false,
             unmappedProducts: unmappedProducts.length > 0 ? unmappedProducts : undefined,
             measurementsExtracted: productData.some(p => p.measurementStatus?.providedDimensions?.length > 0),
+            customerNotesFound: !!customerData.customerNotes,
+            mattressLabelDetected: customerData.mattressLabel,
             timestamp
         });
         
@@ -550,7 +634,7 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
     }
 });
 
-// Test endpoint to manually create an order with measurements
+// Test endpoint to manually create an order with measurements, notes, and mattress label
 router.post('/test/create-order', async (req, res) => {
     try {
         const timestamp = Date.now().toString();
@@ -561,9 +645,12 @@ router.post('/test/create-order', async (req, res) => {
             customerName: 'Test Customer',
             customerEmail: 'test@example.com',
             totalPrice: 99.99,
+            notes: 'Please deliver by 25th December. We are going on holiday. Thank you!',
+            mattress_label: 'CaravanMattresses',
             order_data: { 
                 id: timestamp,
                 test: true,
+                note: 'Please deliver by 25th December. We are going on holiday. Thank you!',
                 line_items: [{
                     sku: 'TEST-SKU',
                     title: 'Test Product',
@@ -590,13 +677,13 @@ router.post('/test/create-order', async (req, res) => {
             }
         };
         
-        console.log('Creating test order:', testOrderData);
+        console.log('Creating test order with notes and mattress label:', testOrderData);
         const testOrder = await db.orders.create(testOrderData);
         
         res.json({ 
             success: true, 
             order: testOrder,
-            message: 'Test order created successfully with measurements'
+            message: 'Test order created successfully with measurements, notes, and mattress label'
         });
     } catch (error) {
         console.error('Test order creation failed:', error);
