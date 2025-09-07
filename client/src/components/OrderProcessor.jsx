@@ -23,12 +23,13 @@ const OrderProcessor = () => {
     
     const orderData = apiOrder.order_data || {};
     
-    // Extract diagram number
+    // Extract diagram number - FIXED PATH
     let diagramNumber = null;
-    const lineItems = orderData.order_data?.line_items;
+    const lineItems = apiOrder.order_data?.order_data?.line_items;
     if (lineItems && lineItems[0] && lineItems[0].properties) {
-      const diagramProperty = lineItems[0].properties.find(prop => prop.name === 'Diagram Number');
-      diagramNumber = diagramProperty ? diagramProperty.value : null;
+    const diagramProperty = lineItems[0].properties.find(prop => prop.name === 'Diagram Number');
+    diagramNumber = diagramProperty ? diagramProperty.value : null;
+    console.log("Found diagram number:", diagramNumber);
     }
 
     // Extract manufacturing options
