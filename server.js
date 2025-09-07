@@ -229,7 +229,7 @@ app.get('/api/orders', async (req, res) => {
     const offset = (page - 1) * limit;
     
     const query = `
-      SELECT 
+    SELECT 
         id,
         order_number,
         customer_name,
@@ -238,6 +238,8 @@ app.get('/api/orders', async (req, res) => {
         processing_status,
         notes,
         mattress_label,
+        order_data,
+        extracted_measurements,
         created_date,
         updated_date
       FROM processed_orders 
