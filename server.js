@@ -30,25 +30,26 @@ const pool = new Pool(dbConfig);
 // Make database available to routes
 app.locals.db = pool;
 
-// Configure store settings for webhook handler
+// FIXED: Configure store settings with correct webhook secrets for each store
 app.locals.storeConfigs = {
   'd587eb.myshopify.com': {
     name: 'Caravan Mattresses',
-    webhookSecret: process.env.SHOPIFY_WEBHOOK_SECRET || 'default-secret'
+    webhookSecret: process.env.CARAVAN_SHOPIFY_SECRET || process.env.SHOPIFY_WEBHOOK_SECRET || 'default-secret'
   },
   'uxyxaq-pu.myshopify.com': {
     name: 'Motorhome Mattresses', 
-    webhookSecret: process.env.SHOPIFY_WEBHOOK_SECRET || 'default-secret'
+    webhookSecret: process.env.MOTORHOME_SHOPIFY_SECRET || process.env.SHOPIFY_WEBHOOK_SECRET || 'default-secret'
   },
   'mattressmade.myshopify.com': {
     name: 'My Bespoke Mattresses',
-    webhookSecret: process.env.SHOPIFY_WEBHOOK_SECRET || 'default-secret'
+    webhookSecret: process.env.BESPOKE_SHOPIFY_SECRET || process.env.MYBESPOKE_SHOPIFY_SECRET || process.env.SHOPIFY_WEBHOOK_SECRET || 'default-secret'
   }
 };
 
+// IMPORTANT: Webhook routes BEFORE JSON middleware
 app.use('/webhook', require('./routes/webhooks'));
 
-// Middleware
+// Middleware (after webhook routes)
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -457,6 +458,13 @@ async function startServer() {
         await pool.query('SELECT NOW()');
         console.log('Database connection established successfully');
 
+        // Log configured webhook secrets for debugging
+        console.log('Webhook secrets configured:');
+        Object.entries(app.locals.storeConfigs).forEach(([domain, config]) => {
+            const secretType = config.webhookSecret === 'default-secret' ? 'DEFAULT' : 'CONFIGURED';
+            console.log(`  ${config.name} (${domain}): ${secretType}`);
+        });
+
         console.log('Starting Express server...');
         app.listen(port, () => {
             console.log(`Server running on port ${port}`);
@@ -467,6 +475,7 @@ async function startServer() {
             console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
             console.log('✓ Customer notes and mattress label functionality enabled');
             console.log('✓ All database column names fixed');
+            console.log('✓ Per-store webhook secrets configured');
         });
     } catch (error) {
         console.error('Failed to start server:', error);
