@@ -30,19 +30,19 @@ const pool = new Pool(dbConfig);
 // Make database available to routes
 app.locals.db = pool;
 
-// FIXED: Configure store settings with correct webhook secrets for each store
+// FIXED: Configure store settings to match actual Railway variable assignments
 app.locals.storeConfigs = {
-  'd587eb.myshopify.com': {
-    name: 'Caravan Mattresses',
-    webhookSecret: process.env.CARAVAN_SHOPIFY_SECRET || process.env.SHOPIFY_WEBHOOK_SECRET || 'default-secret'
-  },
   'uxyxaq-pu.myshopify.com': {
     name: 'Motorhome Mattresses', 
-    webhookSecret: process.env.MOTORHOME_SHOPIFY_SECRET || process.env.SHOPIFY_WEBHOOK_SECRET || 'default-secret'
+    webhookSecret: process.env.STORE1_WEBHOOK_SECRET || 'default-secret'
   },
   'mattressmade.myshopify.com': {
     name: 'My Bespoke Mattresses',
-    webhookSecret: process.env.BESPOKE_SHOPIFY_SECRET || process.env.MYBESPOKE_SHOPIFY_SECRET || process.env.SHOPIFY_WEBHOOK_SECRET || 'default-secret'
+    webhookSecret: process.env.STORE2_WEBHOOK_SECRET || 'default-secret'
+  },
+  'd587eb.myshopify.com': {
+    name: 'Caravan Mattresses',
+    webhookSecret: process.env.STORE3_WEBHOOK_SECRET || 'default-secret'
   }
 };
 
