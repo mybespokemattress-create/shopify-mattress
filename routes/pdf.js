@@ -319,6 +319,8 @@ router.get('/orders/:id/pdf', async (req, res) => {
 
 // Alternative route for React component - SAME CLEAN LAYOUT
 router.post('/generate', async (req, res) => {
+  console.log('🔍 PDF ROUTE 2: POST /generate - REACT ENDPOINT');
+  console.log('🔍 Order data from React:', req.body.order?.orderNumber);
   try {
     const { order } = req.body;
     
