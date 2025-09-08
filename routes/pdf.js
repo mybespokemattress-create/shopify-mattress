@@ -355,72 +355,61 @@ router.post('/generate', async (req, res) => {
        .font('Helvetica')
        .text(`Order: ${order.orderNumber}`, 40, 78);
     
-    // CONFIRMED badge
-    doc.rect(500, 40, 70, 20).stroke();
-    doc.fontSize(9)
-       .font('Helvetica-Bold')
-       .text('CONFIRMED', 505, 48);
-    
     // Header line
     doc.moveTo(40, 105)
        .lineTo(555, 105)
        .stroke();
     
-    // === ORDER & CUSTOMER INFO ===
+    // === ORDER INFORMATION (SINGLE BOX) ===
     let yPos = 120;
     
-    // Order Information Box
-    const orderBoxY = drawCleanBox(doc, 40, yPos, 250, 70, 'Order Information');
+    // Order Information Box (full width)
+    const orderBoxY = drawCleanBox(doc, 40, yPos, 515, 50, 'Order Information');
     doc.fontSize(9)
        .font('Helvetica')
        .text(`Order Number: ${order.orderNumber}`, 45, orderBoxY)
        .text(`Order ID: ${order.id}`, 45, orderBoxY + 12)
-       .text(`Date: ${order.orderDate}`, 45, orderBoxY + 24);
+       .text(`Date: ${order.orderDate}`, 300, orderBoxY);
     
-    // Customer Information Box
-    const customerBoxY = drawCleanBox(doc, 305, yPos, 250, 70, 'Customer Information');
-    doc.fontSize(9)
-       .font('Helvetica')
-       .text(`Name: ${order.customer.name}`, 310, customerBoxY)
-       .text(`Email: ${order.customer.email}`, 310, customerBoxY + 12);
+    yPos += 65;
     
-    yPos += 85;
-    
-    // === PRODUCT SPECIFICATION ===
+    // === SUPPLIER SPECIFICATION ===
     doc.fontSize(12)
        .font('Helvetica-Bold')
-       .text('Product Specification', 40, yPos);
+       .text('Supplier Specification', 40, yPos);
     
     yPos += 20;
     
-    const productBoxY = drawCleanBox(doc, 40, yPos, 515, 90);
+    const supplierBoxY = drawCleanBox(doc, 40, yPos, 515, 70);
     
-    if (order.lineItems && order.lineItems[0]) {
-      const product = order.lineItems[0];
-      
-      doc.fontSize(10)
-         .font('Helvetica-Bold')
-         .text(`Product: ${product.productTitle}`, 45, productBoxY);
-      
-      doc.fontSize(9)
-         .font('Helvetica')
-         .text(`SKU: ${product.sku}`, 45, productBoxY + 15)
-         .text(`Quantity: ${product.quantity}`, 45, productBoxY + 27);
-      
-      if (order.linkAttachment) {
-        doc.text(`Link Attachment: ${order.linkAttachment}`, 45, productBoxY + 39);
-      }
-      
-      if (order.deliveryOption) {
-        doc.text(`Delivery: ${order.deliveryOption}`, 45, productBoxY + 51);
-      }
-      
-      const specification = `Full specification: ${product.productTitle}`;
-      doc.fontSize(8)
-         .text(specification, 45, productBoxY + 65, { width: 500 });
-    }
+    // Extract supplier code from React data
+    let supplierCode = order.supplierCode || 'Not mapped';
     
-    yPos += 105;
+    doc.fontSize(10)
+       .font('Helvetica-Bold')
+       .text('Supplier Code:', 45, supplierBoxY);
+    
+    doc.fontSize(9)
+       .font('Helvetica')
+       .text(supplierCode, 45, supplierBoxY + 15);
+    
+    doc.fontSize(10)
+       .font('Helvetica-Bold')
+       .text('Link Attachment:', 45, supplierBoxY + 35);
+    
+    doc.fontSize(9)
+       .font('Helvetica')
+       .text(order.linkAttachment || 'One Piece Mattress No Link Required', 45, supplierBoxY + 50);
+    
+    doc.fontSize(10)
+       .font('Helvetica-Bold')
+       .text('Delivery:', 300, supplierBoxY + 35);
+    
+    doc.fontSize(9)
+       .font('Helvetica')
+       .text(order.deliveryOption || 'Rolled and Boxed', 300, supplierBoxY + 50);
+    
+    yPos += 85;
     
     // === MEASUREMENTS & SHAPE DIAGRAM ===
     doc.fontSize(12)
