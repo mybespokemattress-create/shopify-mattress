@@ -15,14 +15,14 @@ function drawCleanBox(doc, x, y, width, height, title = null) {
   
   // Add title if provided
   if (title) {
-    doc.fontSize(10)
+    doc.fontSize(12)
        .font('Helvetica-Bold')
        .fillColor('black')
-       .text(title, x + 5, y + 5);
-    return y + 20; // Return content start position
+       .text(title, x + 8, y + 8);
+    return y + 30; // Return content start position
   }
   
-  return y + 5;
+  return y + 8;
 }
 
 // Helper function to check if image exists
@@ -34,9 +34,9 @@ function imageExists(imagePath) {
   }
 }
 
-// Professional PDF route for React component - SINGLE ROUTE SOLUTION
+// Professional PDF route for React component - LARGER DESIGN
 router.post('/generate', async (req, res) => {
-  console.log('🔍 PDF ROUTE: POST /generate - PROFESSIONAL PDF GENERATION');
+  console.log('🔍 PDF ROUTE: POST /generate - LARGER PROFESSIONAL PDF');
   console.log('🔍 Order data from React:', req.body.order?.orderNumber);
   
   try {
@@ -46,7 +46,7 @@ router.post('/generate', async (req, res) => {
       return res.status(400).json({ error: 'Order data required' });
     }
     
-    console.log('🔍 Generating PROFESSIONAL PDF for:', order.orderNumber);
+    console.log('🔍 Generating LARGER PDF for:', order.orderNumber);
     
     // Create PDF with A4 dimensions
     const doc = new PDFDocument({
@@ -59,52 +59,53 @@ router.post('/generate', async (req, res) => {
     
     doc.pipe(res);
     
-    // === HEADER SECTION ===
-    doc.fontSize(18)
+    // === HEADER SECTION - LARGER ===
+    doc.fontSize(24)
        .font('Helvetica-Bold')
        .fillColor('black')
        .text('Bespoke Mattress Company', 40, 40);
     
-    doc.fontSize(11)
+    doc.fontSize(14)
        .font('Helvetica')
        .fillColor('black')
-       .text('Purchase Order & Manufacturing Specification', 40, 62);
+       .text('Purchase Order & Manufacturing Specification', 40, 70);
     
-    doc.fontSize(11)
-       .font('Helvetica')
+    doc.fontSize(14)
+       .font('Helvetica-Bold')
        .fillColor('black')
-       .text(`Order: ${order.orderNumber}`, 40, 78);
+       .text(`Order: ${order.orderNumber}`, 40, 95);
     
-    // Horizontal line under header
+    // Horizontal line under header - thicker
     doc.strokeColor('black')
-       .moveTo(40, 105)
-       .lineTo(555, 105)
+       .lineWidth(2)
+       .moveTo(40, 125)
+       .lineTo(555, 125)
        .stroke();
     
-    // === ORDER INFORMATION BOX ===
-    let yPos = 120;
+    // === ORDER INFORMATION BOX - LARGER ===
+    let yPos = 145;
     
-    // Order Information Box (full width)
-    const orderBoxY = drawCleanBox(doc, 40, yPos, 515, 50, 'Order Information');
-    doc.fontSize(9)
+    // Order Information Box (full width, taller)
+    const orderBoxY = drawCleanBox(doc, 40, yPos, 515, 80, 'Order Information');
+    doc.fontSize(12)
        .font('Helvetica')
        .fillColor('black')
-       .text(`Order Number: ${order.orderNumber}`, 45, orderBoxY)
-       .text(`Order ID: ${order.id}`, 45, orderBoxY + 12)
-       .text(`Date: ${order.orderDate}`, 300, orderBoxY);
+       .text(`Order Number: ${order.orderNumber}`, 50, orderBoxY)
+       .text(`Order ID: ${order.id}`, 50, orderBoxY + 20)
+       .text(`Date: ${order.orderDate}`, 350, orderBoxY);
     
-    yPos += 65;
+    yPos += 100;
     
-    // === SUPPLIER SPECIFICATION SECTION ===
-    doc.fontSize(12)
+    // === SUPPLIER SPECIFICATION SECTION - LARGER ===
+    doc.fontSize(16)
        .font('Helvetica-Bold')
        .fillColor('black')
        .text('Supplier Specification', 40, yPos);
     
-    yPos += 20;
+    yPos += 30;
     
-    // Supplier Code Box
-    const supplierBoxY = drawCleanBox(doc, 40, yPos, 515, 70);
+    // Supplier Code Box - larger
+    const supplierBoxY = drawCleanBox(doc, 40, yPos, 515, 100);
     
     // Extract supplier code from React data
     let supplierCode = order.supplierCode || 'Not mapped';
@@ -119,60 +120,61 @@ router.post('/generate', async (req, res) => {
     
     console.log('🔍 Final link attachment:', linkAttachment);
     
-    doc.fontSize(10)
-       .font('Helvetica-Bold')
-       .fillColor('black')
-       .text('Supplier Code:', 45, supplierBoxY);
-    
-    doc.fontSize(9)
-       .font('Helvetica')
-       .fillColor('black')
-       .text(supplierCode, 45, supplierBoxY + 15);
-    
-    doc.fontSize(10)
-       .font('Helvetica-Bold')
-       .fillColor('black')
-       .text('Link Attachment:', 45, supplierBoxY + 35);
-    
-    doc.fontSize(9)
-       .font('Helvetica')
-       .fillColor('black')
-       .text(linkAttachment, 45, supplierBoxY + 50);
-    
-    doc.fontSize(10)
-       .font('Helvetica-Bold')
-       .fillColor('black')
-       .text('Delivery:', 300, supplierBoxY + 35);
-    
-    doc.fontSize(9)
-       .font('Helvetica')
-       .fillColor('black')
-       .text(order.deliveryOption || 'Rolled and Boxed', 300, supplierBoxY + 50);
-    
-    yPos += 85;
-    
-    // === MEASUREMENTS & SHAPE DIAGRAM SECTION ===
     doc.fontSize(12)
+       .font('Helvetica-Bold')
+       .fillColor('black')
+       .text('Supplier Code:', 50, supplierBoxY);
+    
+    doc.fontSize(11)
+       .font('Helvetica')
+       .fillColor('black')
+       .text(supplierCode, 50, supplierBoxY + 20);
+    
+    doc.fontSize(12)
+       .font('Helvetica-Bold')
+       .fillColor('black')
+       .text('Link Attachment:', 50, supplierBoxY + 50);
+    
+    doc.fontSize(11)
+       .font('Helvetica')
+       .fillColor('black')
+       .text(linkAttachment, 50, supplierBoxY + 70);
+    
+    doc.fontSize(12)
+       .font('Helvetica-Bold')
+       .fillColor('black')
+       .text('Delivery:', 350, supplierBoxY + 50);
+    
+    doc.fontSize(11)
+       .font('Helvetica')
+       .fillColor('black')
+       .text(order.deliveryOption || 'Rolled and Boxed', 350, supplierBoxY + 70);
+    
+    yPos += 120;
+    
+    // === MEASUREMENTS & SHAPE DIAGRAM SECTION - LARGER ===
+    doc.fontSize(16)
        .font('Helvetica-Bold')
        .fillColor('black')
        .text('Measurements & Shape Diagram', 40, yPos);
     
-    yPos += 20;
+    yPos += 30;
     
-    // Left side - Dimensions Table
-    const dimBoxY = drawCleanBox(doc, 40, yPos, 180, 250, 'Dimensions');
+    // Left side - Dimensions Table - larger
+    const dimBoxY = drawCleanBox(doc, 40, yPos, 200, 300, 'Dimensions');
     
-    // Table headers
-    doc.fontSize(9)
+    // Table headers - larger
+    doc.fontSize(12)
        .font('Helvetica-Bold')
        .fillColor('black')
-       .text('Dim', 45, dimBoxY)
-       .text('Value', 100, dimBoxY);
+       .text('Dim', 50, dimBoxY)
+       .text('Value', 120, dimBoxY);
     
-    // Header underline
+    // Header underline - thicker
     doc.strokeColor('black')
-       .moveTo(45, dimBoxY + 12)
-       .lineTo(215, dimBoxY + 12)
+       .lineWidth(1)
+       .moveTo(50, dimBoxY + 18)
+       .lineTo(230, dimBoxY + 18)
        .stroke();
     
     // Extract measurements from React data
@@ -194,9 +196,9 @@ router.post('/generate', async (req, res) => {
     
     console.log('🔍 Final measurements object:', measurements);
     
-    // Dimension rows A-G
+    // Dimension rows A-G - larger spacing
     const dimensions = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
-    let rowY = dimBoxY + 20;
+    let rowY = dimBoxY + 30;
     let hasValidMeasurements = false;
     
     dimensions.forEach(dim => {
@@ -215,23 +217,23 @@ router.post('/generate', async (req, res) => {
         }
       }
       
-      doc.fontSize(9)
+      doc.fontSize(11)
          .font('Helvetica')
          .fillColor('black')
-         .text(dim, 45, rowY)
-         .text(valueText, 100, rowY);
+         .text(dim, 50, rowY)
+         .text(valueText, 120, rowY);
       
-      rowY += 14;
+      rowY += 20; // More spacing between rows
     });
     
-    // Status at bottom
-    doc.fontSize(8)
+    // Status at bottom - larger
+    doc.fontSize(10)
        .font('Helvetica-Oblique')
        .fillColor('black')
-       .text(`Status: ${hasValidMeasurements ? 'Verified' : 'Not verified'}`, 45, dimBoxY + 220);
+       .text(`Status: ${hasValidMeasurements ? 'Verified' : 'Not verified'}`, 50, dimBoxY + 260);
     
-    // Right side - Shape Diagram with Shopify image loading
-    const diagramBoxY = drawCleanBox(doc, 235, yPos, 320, 250, 'Shape Diagram');
+    // Right side - Shape Diagram - MUCH LARGER
+    const diagramBoxY = drawCleanBox(doc, 260, yPos, 295, 300, 'Shape Diagram');
     
     // Extract diagram number from React data
     let diagramNumber = order.diagramNumber || order.shapeNumber;
@@ -240,10 +242,10 @@ router.post('/generate', async (req, res) => {
     console.log('🔍 Diagram number from React:', diagramNumber);
     
     if (diagramNumber) {
-      doc.fontSize(9)
+      doc.fontSize(12)
          .font('Helvetica')
          .fillColor('black')
-         .text(`Diagram: ${diagramNumber}`, 240, diagramBoxY);
+         .text(`Diagram: ${diagramNumber}`, 270, diagramBoxY);
       
       // Try multiple possible image paths for Shopify diagrams
       const imagePaths = [
@@ -260,11 +262,11 @@ router.post('/generate', async (req, res) => {
         if (imageExists(imagePath)) {
           try {
             console.log('🔍 Image found! Loading:', imagePath);
-            // Add image with proper sizing and positioning
-            const imageWidth = 300;
-            const imageHeight = 200;
-            const imageX = 245;
-            const imageY = diagramBoxY + 20;
+            // Add MUCH LARGER image
+            const imageWidth = 280;
+            const imageHeight = 240;
+            const imageX = 265;
+            const imageY = diagramBoxY + 25;
             
             doc.image(imagePath, imageX, imageY, {
               width: imageWidth,
@@ -273,7 +275,7 @@ router.post('/generate', async (req, res) => {
               align: 'center'
             });
             imageLoaded = true;
-            console.log('🔍 Image loaded successfully');
+            console.log('🔍 Large image loaded successfully');
             break;
           } catch (imageError) {
             console.log('🔍 Image load error for path:', imagePath, imageError.message);
@@ -286,61 +288,62 @@ router.post('/generate', async (req, res) => {
       
       if (!imageLoaded) {
         console.log('🔍 No image found in any path, showing placeholder');
-        // Fallback text if no image found
-        doc.fontSize(9)
+        // Fallback text if no image found - larger
+        doc.fontSize(12)
            .fillColor('black')
-           .text(`[Diagram ${diagramNumber} - Image not available]`, 245, diagramBoxY + 60)
-           .text('Please refer to technical specifications', 245, diagramBoxY + 80);
+           .text(`[Diagram ${diagramNumber} - Image not available]`, 270, diagramBoxY + 80)
+           .text('Please refer to technical specifications', 270, diagramBoxY + 120);
       }
     } else {
       console.log('🔍 No diagram number found in React data');
-      doc.fontSize(9)
+      doc.fontSize(12)
          .fillColor('black')
-         .text('No diagram specified', 245, diagramBoxY + 60);
+         .text('No diagram specified', 270, diagramBoxY + 80);
     }
     
-    yPos += 265;
+    yPos += 320;
     
-    // === CUSTOMER NOTES SECTION (if present) ===
+    // === CUSTOMER NOTES SECTION - LARGER ===
     if (order.notes && order.notes.trim()) {
-      doc.fontSize(12)
+      doc.fontSize(16)
          .font('Helvetica-Bold')
          .fillColor('black')
          .text('Customer Notes', 40, yPos);
       
-      yPos += 20;
+      yPos += 30;
       
-      const notesBoxY = drawCleanBox(doc, 40, yPos, 515, 50);
+      const notesBoxY = drawCleanBox(doc, 40, yPos, 515, 80);
       
-      doc.fontSize(9)
+      doc.fontSize(11)
          .font('Helvetica')
          .fillColor('black')
-         .text(order.notes, 45, notesBoxY, { width: 505, height: 40 });
+         .text(order.notes, 50, notesBoxY, { width: 495, height: 60 });
       
-      yPos += 65;
+      yPos += 100;
     }
     
-    // === FOOTER SECTION ===
-    // Ensure footer is at bottom of page
+    // === FOOTER SECTION - LARGER ===
+    // Ensure footer is at bottom of page but with proper spacing
     if (yPos < 750) {
       yPos = 750;
     }
     
-    // Horizontal line above footer
+    // Horizontal line above footer - thicker
     doc.strokeColor('black')
+       .lineWidth(2)
        .moveTo(40, yPos)
        .lineTo(555, yPos)
        .stroke();
     
-    yPos += 10;
+    yPos += 15;
     
-    // Footer information - BLACK AND WHITE FOR PRINTING
-    doc.fontSize(8)
+    // Footer information - LARGER TEXT
+    doc.fontSize(10)
        .font('Helvetica')
        .fillColor('black')
        .text(`Generated: ${new Date().toLocaleDateString('en-GB')}, ${new Date().toLocaleTimeString('en-GB')}`, 40, yPos)
-       .text('Bespoke Mattress Company | Professional Manufacturing Specification', 40, yPos + 10)
-       .text('This document contains all specifications required for manufacturing.', 40, yPos + 20);
+       .text('Bespoke Mattress Company | Professional Manufacturing Specification', 40, yPos + 15)
+       .text('This document contains all specifications required for manufacturing.', 40, yPos + 30);
     
     // Finalize PDF
     doc.end();
@@ -356,14 +359,14 @@ router.get('/test', (req, res) => {
   console.log('📄 PDF test endpoint called');
   res.json({
     success: true,
-    message: 'Professional PDF layout ready - single route solution',
+    message: 'Larger professional PDF layout ready',
     endpoints: [
-      'POST /api/pdf/generate - Generate PDF from React component data'
+      'POST /api/pdf/generate - Generate larger PDF from React component data'
     ],
     timestamp: new Date().toISOString()
   });
 });
 
-console.log('📄 PDF routes registered: POST /generate only');
+console.log('📄 PDF routes registered: POST /generate with larger design');
 
 module.exports = router;
