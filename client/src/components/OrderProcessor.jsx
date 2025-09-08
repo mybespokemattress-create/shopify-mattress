@@ -1,5 +1,3 @@
-// OrderProcessor.jsx - Fixed Layout Structure
-
 import React, { useState, useEffect } from 'react';
 import { Download, Mail, Edit3, Save, X } from 'lucide-react';
 
@@ -11,93 +9,61 @@ const OrderProcessor = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Diagram URL generation function
   const getDiagramImageUrl = (diagramNumber) => {
     if (!diagramNumber) return null;
     return `/images/diagrams/Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`;
   };
 
-  // Transform API data to component format
   const transformApiOrder = (apiOrder) => {
-    console.log('Processing order:', apiOrder.order_number);
-    
     const orderData = apiOrder.order_data || {};
     
-    // Extract diagram number
     let diagramNumber = null;
     const lineItems = apiOrder.order_data?.order_data?.line_items;
     if (lineItems && lineItems[0] && lineItems[0].properties) {
       const diagramProperty = lineItems[0].properties.find(prop => prop.name === 'Diagram Number');
       diagramNumber = diagramProperty ? diagramProperty.value : null;
-      console.log("Found diagram number:", diagramNumber);
     }
 
-    // Extract manufacturing options
     let linkAttachment = 'One Piece Mattress No Link Required';
     let deliveryOption = 'Rolled and Boxed';
-    
-    console.log('EXTRACTING MANUFACTURING OPTIONS');
     
     if (lineItems && lineItems[0] && lineItems[0].variant_title) {
       const variantTitle = lineItems[0].variant_title;
       const productTitle = lineItems[0].title || lineItems[0].name || '';
-      console.log('Variant title:', variantTitle);
-      console.log('Product title:', productTitle);
       
-      // Check for specific selections first
       if (variantTitle.includes('Leave Bolster Loose')) {
         linkAttachment = 'Leave Bolster Loose';
-        console.log('FOUND: Leave Bolster Loose');
       } else if (variantTitle.includes('Leave Sections Loose')) {
         linkAttachment = 'Leave Sections Loose';
-        console.log('FOUND: Leave Sections Loose');
       } else if (variantTitle.includes('Fabric Link')) {
         linkAttachment = 'Fabric Link (+£40)';
-        console.log('FOUND: Fabric Link');
       } else if (variantTitle.includes('Zip-Link')) {
         linkAttachment = 'Zip-Link (+£40)';
-        console.log('FOUND: Zip-Link');
       } else {
-        // Determine default based on mattress type
         if (productTitle.toLowerCase().includes('bolster')) {
           linkAttachment = 'Leave Bolster Loose';
-          console.log('DEFAULT: Bolster mattress - Leave Bolster Loose');
         } else if (productTitle.toLowerCase().includes('section')) {
           linkAttachment = 'Leave Sections Loose';
-          console.log('DEFAULT: Sectional mattress - Leave Sections Loose');
         } else {
           linkAttachment = 'One Piece Mattress No Link Required';
-          console.log('DEFAULT: One-piece mattress - One Piece Construction');
         }
       }
     }
-    
-    console.log('Final link attachment:', linkAttachment);
-    console.log('MANUFACTURING EXTRACTION COMPLETE');
 
-    // Extract store information using mattress_label from webhook
     let store = 'UNKNOWN';
-    // First check mattress_label (new format with spaces)
     if (apiOrder.mattress_label === 'Motorhome Mattresses') store = 'MOTO';
     else if (apiOrder.mattress_label === 'My Bespoke Mattresses') store = 'MYBE';
     else if (apiOrder.mattress_label === 'Caravan Mattresses') store = 'CARA';
-    // Fallback to old camelCase format for existing orders
     else if (apiOrder.mattress_label === 'MotorhomeMattresses') store = 'MOTO';
     else if (apiOrder.mattress_label === 'MyBespokeMattresses') store = 'MYBE';
     else if (apiOrder.mattress_label === 'CaravanMattresses') store = 'CARA';
-    // Final fallback to order number detection
     else if (apiOrder.order_number?.includes('MOTO')) store = 'MOTO';
     else if (apiOrder.order_number?.includes('MYBE')) store = 'MYBE'; 
     else if (apiOrder.order_number?.includes('CARA')) store = 'CARA';
     else if (apiOrder.order_number?.includes('BESP')) store = 'MYBE';
 
-    // Extract measurements
     const measurements = apiOrder.order_data?.order_data?.extracted_measurements?.[0]?.measurements || {};
-
-    console.log("Extracting measurements for:", apiOrder.order_number);
-    console.log("Found measurements:", measurements);
     
-    // Build properties object with measurements
     const properties = {};
     const dimensions = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
     
@@ -147,7 +113,6 @@ const OrderProcessor = () => {
     };
   };
 
-  // Fetch orders from API
   const fetchOrders = async () => {
     try {
       setLoading(true);
@@ -159,8 +124,6 @@ const OrderProcessor = () => {
       }
       
       const apiResponse = await response.json();
-      
-      // Extract the orders array from the response object
       const ordersArray = apiResponse.orders || [];
       const transformedOrders = ordersArray.map(transformApiOrder);
       setOrders(transformedOrders);
@@ -191,7 +154,6 @@ const OrderProcessor = () => {
 
   const handleEdit = () => setEditMode(true);
   
-  // Save function - includes API call to update backend
   const handleSave = async () => {
     try {
       const response = await fetch(`/api/orders/${selectedOrder.id}`, {
@@ -210,7 +172,6 @@ const OrderProcessor = () => {
         throw new Error('Failed to update order');
       }
 
-      // Update local state
       setOrders(orders.map(order => 
         order.id === selectedOrder.id ? selectedOrder : order
       ));
@@ -249,7 +210,6 @@ const OrderProcessor = () => {
     }));
   };
 
-  // Generate PDF - makes actual API call
   const generatePDF = async () => {
     try {
       console.log('Generating PDF for order:', selectedOrder.orderNumber);
@@ -268,7 +228,6 @@ const OrderProcessor = () => {
         throw new Error('Failed to generate PDF');
       }
 
-      // Create download link
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -326,7 +285,6 @@ const OrderProcessor = () => {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Header */}
       <div className="bg-white border-b shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex justify-between items-center">
@@ -354,7 +312,6 @@ const OrderProcessor = () => {
       <div className="max-w-7xl mx-auto p-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
-          {/* Orders List */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow border">
               <div className="p-4 border-b bg-slate-50">
@@ -431,7 +388,6 @@ const OrderProcessor = () => {
             </div>
           </div>
 
-          {/* Order Details */}
           <div className="lg:col-span-2">
             {selectedOrder ? (
               <div className="bg-white rounded-lg shadow border">
@@ -492,7 +448,6 @@ const OrderProcessor = () => {
 
                 <div className="p-6 space-y-6">
                   
-                  {/* Customer Notes */}
                   <div className="border rounded-lg p-4">
                     <h3 className="font-semibold mb-3">Customer Notes</h3>
                     <textarea
@@ -505,7 +460,6 @@ const OrderProcessor = () => {
                     />
                   </div>
               
-                  {/* Order Information */}
                   <div className="border rounded-lg p-4">
                     <h3 className="font-semibold mb-3">Order Information</h3>
                     <div className="grid grid-cols-2 gap-4">
@@ -532,7 +486,6 @@ const OrderProcessor = () => {
                     </div>
                   </div>
 
-                  {/* Customer Information */}
                   <div className="border rounded-lg p-4">
                     <h3 className="font-semibold mb-3">Customer Information</h3>
                     <div className="grid grid-cols-2 gap-4">
@@ -559,7 +512,6 @@ const OrderProcessor = () => {
                     </div>
                   </div>
 
-                  {/* Product Information */}
                   <div className="border rounded-lg p-4">
                     <h3 className="font-semibold mb-3">Product Information</h3>
                     <div className="grid grid-cols-2 gap-4">
@@ -591,12 +543,10 @@ const OrderProcessor = () => {
                     )}
                   </div>
 
-                  {/* Measurements and Shape Diagram */}
                   <div className="border rounded-lg p-4">
                     <h3 className="font-semibold mb-3">Measurements & Shape Diagram</h3>
                     
                     <div className="grid grid-cols-2 gap-6">
-                      {/* LEFT: Measurements */}
                       <div>
                         <h4 className="text-sm text-slate-600 mb-3">Dimensions</h4>
                         <div className="space-y-2">
@@ -627,7 +577,6 @@ const OrderProcessor = () => {
                           })}
                         </div>
 
-                        {/* Additional Specifications */}
                         <div className="mt-4 pt-4 border-t">
                           <h4 className="text-sm text-slate-600 mb-3">Additional Specifications</h4>
                           <div className="space-y-2">
@@ -662,7 +611,6 @@ const OrderProcessor = () => {
                         </div>
                       </div>
 
-                      {/* RIGHT: Shape Diagram */}
                       <div>
                         <h4 className="text-sm text-slate-600 mb-3">
                           Shape Diagram
@@ -724,7 +672,6 @@ const OrderProcessor = () => {
                     </div>
                   </div>
 
-                  {/* Manufacturing Options */}
                   <div className="border rounded-lg p-4">
                     <h3 className="font-semibold mb-3">Manufacturing Options</h3>
                     <div className="grid grid-cols-2 gap-4">
@@ -758,7 +705,6 @@ const OrderProcessor = () => {
                     </div>
                   </div>
 
-                  {/* Mattress Label - CORRECTLY POSITIONED AS SEPARATE SECTION */}
                   <div className="border rounded-lg p-4">
                     <h3 className="font-semibold mb-3">Mattress Label</h3>
                     <select

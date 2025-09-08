@@ -1,8 +1,12 @@
+console.log('📄 PDF ROUTES FILE LOADED - routes/pdf.js');
+
 const express = require('express');
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
 const router = express.Router();
+
+console.log('📄 PDF dependencies loaded successfully');
 
 // Helper function to draw clean bordered boxes
 function drawCleanBox(doc, x, y, width, height, title = null) {
@@ -30,8 +34,11 @@ function imageExists(imagePath) {
   }
 }
 
-// Generate PDF for specific order - FIXED LAYOUT
+// Generate PDF for specific order
 router.get('/orders/:id/pdf', async (req, res) => {
+  console.log('🔍 PDF ROUTE 1: GET /orders/:id/pdf - DATABASE ENDPOINT');
+  console.log('🔍 Order ID requested:', req.params.id);
+  
   try {
     const orderId = req.params.id;
     
@@ -45,7 +52,7 @@ router.get('/orders/:id/pdf', async (req, res) => {
     }
     
     const order = result.rows[0];
-    console.log('Generating PDF for order:', order.order_number);
+    console.log('🔍 Generating PDF for order:', order.order_number);
     
     // Create PDF with A4 dimensions
     const doc = new PDFDocument({
@@ -74,79 +81,89 @@ router.get('/orders/:id/pdf', async (req, res) => {
        .font('Helvetica')
        .text(`Order: ${order.order_number}`, 40, 78);
     
-    // CONFIRMED badge (top right)
-    doc.rect(500, 40, 70, 20).stroke();
-    doc.fontSize(9)
-       .font('Helvetica-Bold')
-       .text('CONFIRMED', 505, 48);
-    
     // Horizontal line under header
     doc.moveTo(40, 105)
        .lineTo(555, 105)
        .stroke();
     
-    // === ORDER & CUSTOMER INFORMATION BOXES ===
+    // === ORDER INFORMATION BOX (SINGLE BOX) ===
     let yPos = 120;
     
-    // Order Information Box (left)
-    const orderBoxY = drawCleanBox(doc, 40, yPos, 250, 70, 'Order Information');
+    // Order Information Box (full width)
+    const orderBoxY = drawCleanBox(doc, 40, yPos, 515, 50, 'Order Information');
     doc.fontSize(9)
        .font('Helvetica')
        .text(`Order Number: ${order.order_number}`, 45, orderBoxY)
        .text(`Order ID: ${order.id}`, 45, orderBoxY + 12)
-       .text(`Date: ${new Date(order.created_date).toLocaleDateString('en-GB')}`, 45, orderBoxY + 24);
+       .text(`Date: ${new Date(order.created_date).toLocaleDateString('en-GB')}`, 300, orderBoxY);
     
-    // Customer Information Box (right)
-    const customerBoxY = drawCleanBox(doc, 305, yPos, 250, 70, 'Customer Information');
-    doc.fontSize(9)
-       .font('Helvetica')
-       .text(`Name: ${order.customer_name}`, 310, customerBoxY)
-       .text(`Email: ${order.customer_email}`, 310, customerBoxY + 12);
+    yPos += 65;
     
-    yPos += 85;
-    
-    // === PRODUCT SPECIFICATION SECTION ===
+    // === SUPPLIER SPECIFICATION SECTION ===
     doc.fontSize(12)
        .font('Helvetica-Bold')
-       .text('Product Specification', 40, yPos);
+       .text('Supplier Specification', 40, yPos);
     
     yPos += 20;
     
-    // Product Box
-    const productBoxY = drawCleanBox(doc, 40, yPos, 515, 90);
+    // Supplier Code Box
+    const supplierBoxY = drawCleanBox(doc, 40, yPos, 515, 70);
     
-    // Extract product data from order
+    // Extract supplier specification
+    let supplierCode = 'Not mapped';
     const orderData = order.order_data;
     const lineItems = orderData?.order_data?.line_items || orderData?.line_items;
     
-    if (lineItems && lineItems[0]) {
-      const product = lineItems[0];
-      
-      doc.fontSize(10)
-         .font('Helvetica-Bold')
-         .text(`Product: ${product.title}`, 45, productBoxY);
-      
-      doc.fontSize(9)
-         .font('Helvetica')
-         .text(`SKU: ${product.sku}`, 45, productBoxY + 15)
-         .text(`Variant: ${product.variant_title || 'Standard'}`, 45, productBoxY + 27)
-         .text(`Quantity: ${product.quantity}`, 45, productBoxY + 39);
-      
-      // Extract firmness and manufacturing details
-      if (product.properties) {
-        const firmnessProp = product.properties.find(p => p.name === 'Firmness');
-        if (firmnessProp) {
-          doc.text(`Firmness: ${firmnessProp.value}`, 45, productBoxY + 51);
-        }
-      }
-      
-      // Full specification line
-      const specification = `Full specification: ${product.title} - ${product.variant_title || 'Standard'}`;
-      doc.fontSize(8)
-         .text(specification, 45, productBoxY + 65, { width: 500 });
+    if (lineItems && lineItems[0] && lineItems[0].sku) {
+      // This would need to be looked up from your product_mappings table
+      // For now, showing the SKU until mapping is implemented
+      supplierCode = `SKU: ${lineItems[0].sku} (Mapping required)`;
     }
     
-    yPos += 105;
+    // Extract link attachment from variant title
+    let linkAttachment = 'One Piece Mattress No Link Required';
+    if (lineItems && lineItems[0] && lineItems[0].variant_title) {
+      const variantTitle = lineItems[0].variant_title;
+      console.log('🔍 Extracting link attachment from variant:', variantTitle);
+      
+      if (variantTitle.includes('Leave Bolster Loose')) {
+        linkAttachment = 'Leave Bolster Loose';
+      } else if (variantTitle.includes('Leave Sections Loose')) {
+        linkAttachment = 'Leave Sections Loose';
+      } else if (variantTitle.includes('Fabric Link')) {
+        linkAttachment = 'Fabric Link (+£40)';
+      } else if (variantTitle.includes('Zip-Link')) {
+        linkAttachment = 'Zip-Link (+£40)';
+      }
+    }
+    
+    console.log('🔍 Final link attachment:', linkAttachment);
+    
+    doc.fontSize(10)
+       .font('Helvetica-Bold')
+       .text('Supplier Code:', 45, supplierBoxY);
+    
+    doc.fontSize(9)
+       .font('Helvetica')
+       .text(supplierCode, 45, supplierBoxY + 15);
+    
+    doc.fontSize(10)
+       .font('Helvetica-Bold')
+       .text('Link Attachment:', 45, supplierBoxY + 35);
+    
+    doc.fontSize(9)
+       .font('Helvetica')
+       .text(linkAttachment, 45, supplierBoxY + 50);
+    
+    doc.fontSize(10)
+       .font('Helvetica-Bold')
+       .text('Delivery:', 300, supplierBoxY + 35);
+    
+    doc.fontSize(9)
+       .font('Helvetica')
+       .text('Rolled and Boxed', 300, supplierBoxY + 50);
+    
+    yPos += 85;
     
     // === MEASUREMENTS & SHAPE DIAGRAM SECTION ===
     doc.fontSize(12)
@@ -169,21 +186,45 @@ router.get('/orders/:id/pdf', async (req, res) => {
        .lineTo(215, dimBoxY + 12)
        .stroke();
     
-    // Extract measurements from the correct path
+    // Extract measurements from the correct path - MULTIPLE FALLBACK PATHS
     let measurements = {};
     
+    console.log('🔍 Attempting to extract measurements...');
+    console.log('🔍 Full order object keys:', Object.keys(order));
+    console.log('🔍 Order data structure:', JSON.stringify(order, null, 2));
+    
     // Try multiple possible paths for measurements
-    if (order.order_data?.order_data?.extracted_measurements?.[0]?.measurements) {
-      measurements = order.order_data.order_data.extracted_measurements[0].measurements;
-    } else if (order.extracted_measurements) {
+    if (order.extracted_measurements) {
+      console.log('🔍 Found extracted_measurements field');
       // Handle JSONB field
       const extractedMeasurements = typeof order.extracted_measurements === 'string' 
         ? JSON.parse(order.extracted_measurements) 
         : order.extracted_measurements;
       measurements = extractedMeasurements?.measurements || extractedMeasurements || {};
+      console.log('🔍 Parsed measurements from extracted_measurements:', measurements);
+    } else if (order.order_data?.order_data?.extracted_measurements?.[0]?.measurements) {
+      measurements = order.order_data.order_data.extracted_measurements[0].measurements;
+      console.log('🔍 Found measurements in nested order_data:', measurements);
+    } else if (order.order_data?.extracted_measurements?.[0]?.measurements) {
+      measurements = order.order_data.extracted_measurements[0].measurements;
+      console.log('🔍 Found measurements in order_data level:', measurements);
+    } else {
+      console.log('🔍 No measurements found in any expected location');
+      // Try to extract from line item properties as fallback
+      if (lineItems && lineItems[0] && lineItems[0].properties) {
+        console.log('🔍 Attempting to extract from line item properties');
+        const props = lineItems[0].properties;
+        ['A', 'B', 'C', 'D', 'E', 'F', 'G'].forEach(dim => {
+          const prop = props.find(p => p.name === `Dimension ${dim}` || p.name.includes(`Dimension ${dim}`));
+          if (prop && prop.value) {
+            measurements[dim] = { value: prop.value, unit: 'cm' };
+            console.log(`🔍 Found ${dim}: ${prop.value}`);
+          }
+        });
+      }
     }
     
-    console.log('Extracted measurements:', measurements);
+    console.log('🔍 Final measurements object:', measurements);
     
     // Dimension rows A-G
     const dimensions = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
@@ -222,11 +263,20 @@ router.get('/orders/:id/pdf', async (req, res) => {
     // Right side - Shape Diagram
     const diagramBoxY = drawCleanBox(doc, 235, yPos, 320, 250, 'Shape Diagram');
     
-    // Extract diagram number
+    // Extract diagram number - MULTIPLE FALLBACK PATHS
     let diagramNumber = null;
+    
+    console.log('🔍 Attempting to extract diagram number...');
+    console.log('🔍 Line items found:', lineItems ? lineItems.length : 0);
+    
     if (lineItems && lineItems[0] && lineItems[0].properties) {
-      const diagramProp = lineItems[0].properties.find(prop => prop.name === 'Diagram Number');
+      console.log('🔍 Line item properties:', lineItems[0].properties);
+      const diagramProp = lineItems[0].properties.find(prop => 
+        prop.name === 'Diagram Number' || 
+        prop.name.toLowerCase().includes('diagram')
+      );
       diagramNumber = diagramProp ? diagramProp.value : null;
+      console.log('🔍 Found diagram number:', diagramNumber);
     }
     
     if (diagramNumber) {
@@ -234,37 +284,54 @@ router.get('/orders/:id/pdf', async (req, res) => {
          .font('Helvetica')
          .text(`Diagram: ${diagramNumber}`, 240, diagramBoxY);
       
-      // Try to add diagram image
-      const imagePath = path.join(__dirname, '..', 'public', 'images', 'diagrams', `Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`);
+      // Try multiple possible image paths
+      const imagePaths = [
+        path.join(__dirname, '..', 'public', 'images', 'diagrams', `Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`),
+        path.join(__dirname, '..', 'client', 'public', 'images', 'diagrams', `Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`),
+        path.join(__dirname, '..', 'images', 'diagrams', `Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`),
+        `/images/diagrams/Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`
+      ];
       
-      if (imageExists(imagePath)) {
-        try {
-          // Add image with proper sizing and positioning
-          const imageWidth = 300;
-          const imageHeight = 200;
-          const imageX = 245;
-          const imageY = diagramBoxY + 20;
-          
-          doc.image(imagePath, imageX, imageY, {
-            width: imageWidth,
-            height: imageHeight,
-            fit: [imageWidth, imageHeight],
-            align: 'center'
-          });
-        } catch (imageError) {
-          console.log('Image load error:', imageError);
-          // Fallback text
-          doc.fontSize(9)
-             .text(`[Diagram ${diagramNumber} - Technical drawing]`, 245, diagramBoxY + 60)
-             .text('Image file not accessible', 245, diagramBoxY + 80);
+      let imageLoaded = false;
+      
+      for (const imagePath of imagePaths) {
+        console.log('🔍 Trying image path:', imagePath);
+        if (imageExists(imagePath)) {
+          try {
+            console.log('🔍 Image found! Loading:', imagePath);
+            // Add image with proper sizing and positioning
+            const imageWidth = 300;
+            const imageHeight = 200;
+            const imageX = 245;
+            const imageY = diagramBoxY + 20;
+            
+            doc.image(imagePath, imageX, imageY, {
+              width: imageWidth,
+              height: imageHeight,
+              fit: [imageWidth, imageHeight],
+              align: 'center'
+            });
+            imageLoaded = true;
+            console.log('🔍 Image loaded successfully');
+            break;
+          } catch (imageError) {
+            console.log('🔍 Image load error for path:', imagePath, imageError.message);
+            continue;
+          }
+        } else {
+          console.log('🔍 Image not found at path:', imagePath);
         }
-      } else {
-        // No image available - show placeholder
+      }
+      
+      if (!imageLoaded) {
+        console.log('🔍 No image found in any path, showing placeholder');
+        // Fallback text if no image found
         doc.fontSize(9)
            .text(`[Diagram ${diagramNumber} - Image not available]`, 245, diagramBoxY + 60)
            .text('Please refer to technical specifications', 245, diagramBoxY + 80);
       }
     } else {
+      console.log('🔍 No diagram number found');
       doc.fontSize(9)
          .text('No diagram specified', 245, diagramBoxY + 60);
     }
@@ -317,10 +384,11 @@ router.get('/orders/:id/pdf', async (req, res) => {
   }
 });
 
-// Alternative route for React component - SAME CLEAN LAYOUT
+// Alternative route for React component
 router.post('/generate', async (req, res) => {
   console.log('🔍 PDF ROUTE 2: POST /generate - REACT ENDPOINT');
   console.log('🔍 Order data from React:', req.body.order?.orderNumber);
+  
   try {
     const { order } = req.body;
     
@@ -328,7 +396,7 @@ router.post('/generate', async (req, res) => {
       return res.status(400).json({ error: 'Order data required' });
     }
     
-    console.log('Generating PDF from React for:', order.orderNumber);
+    console.log('🔍 Generating PDF from React for:', order.orderNumber);
     
     // Create PDF using the order data from React
     const doc = new PDFDocument({
