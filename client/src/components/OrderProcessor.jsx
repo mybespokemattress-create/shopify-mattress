@@ -1,4 +1,4 @@
-// OrderProcessor.jsx - Fixed API response handling
+// OrderProcessor.jsx - Cleaned and Fixed Syntax
 
 import React, { useState, useEffect } from 'react';
 import { Download, Mail, Edit3, Save, X } from 'lucide-react';
@@ -23,13 +23,13 @@ const OrderProcessor = () => {
     
     const orderData = apiOrder.order_data || {};
     
-    // Extract diagram number - FIXED PATH
+    // Extract diagram number
     let diagramNumber = null;
     const lineItems = apiOrder.order_data?.order_data?.line_items;
     if (lineItems && lineItems[0] && lineItems[0].properties) {
-    const diagramProperty = lineItems[0].properties.find(prop => prop.name === 'Diagram Number');
-    diagramNumber = diagramProperty ? diagramProperty.value : null;
-    console.log("Found diagram number:", diagramNumber);
+      const diagramProperty = lineItems[0].properties.find(prop => prop.name === 'Diagram Number');
+      diagramNumber = diagramProperty ? diagramProperty.value : null;
+      console.log("Found diagram number:", diagramNumber);
     }
 
     // Extract manufacturing options
@@ -76,22 +76,22 @@ const OrderProcessor = () => {
     console.log('MANUFACTURING EXTRACTION COMPLETE');
 
     // Extract store information using mattress_label from webhook
-        let store = 'UNKNOWN';
-        // First check mattress_label (new format with spaces)
-        if (apiOrder.mattress_label === 'Motorhome Mattresses') store = 'MOTO';
-        else if (apiOrder.mattress_label === 'My Bespoke Mattresses') store = 'MYBE';
-        else if (apiOrder.mattress_label === 'Caravan Mattresses') store = 'CARA';
-        // Fallback to old camelCase format for existing orders
-        else if (apiOrder.mattress_label === 'MotorhomeMattresses') store = 'MOTO';
-        else if (apiOrder.mattress_label === 'MyBespokeMattresses') store = 'MYBE';
-        else if (apiOrder.mattress_label === 'CaravanMattresses') store = 'CARA';
-        // Final fallback to order number detection
-        else if (apiOrder.order_number?.includes('MOTO')) store = 'MOTO';
-        else if (apiOrder.order_number?.includes('MYBE')) store = 'MYBE'; 
-        else if (apiOrder.order_number?.includes('CARA')) store = 'CARA';
-        else if (apiOrder.order_number?.includes('BESP')) store = 'MYBE';
+    let store = 'UNKNOWN';
+    // First check mattress_label (new format with spaces)
+    if (apiOrder.mattress_label === 'Motorhome Mattresses') store = 'MOTO';
+    else if (apiOrder.mattress_label === 'My Bespoke Mattresses') store = 'MYBE';
+    else if (apiOrder.mattress_label === 'Caravan Mattresses') store = 'CARA';
+    // Fallback to old camelCase format for existing orders
+    else if (apiOrder.mattress_label === 'MotorhomeMattresses') store = 'MOTO';
+    else if (apiOrder.mattress_label === 'MyBespokeMattresses') store = 'MYBE';
+    else if (apiOrder.mattress_label === 'CaravanMattresses') store = 'CARA';
+    // Final fallback to order number detection
+    else if (apiOrder.order_number?.includes('MOTO')) store = 'MOTO';
+    else if (apiOrder.order_number?.includes('MYBE')) store = 'MYBE'; 
+    else if (apiOrder.order_number?.includes('CARA')) store = 'CARA';
+    else if (apiOrder.order_number?.includes('BESP')) store = 'MYBE';
 
-    // Extract measurements - FIXED PATH
+    // Extract measurements
     const measurements = apiOrder.order_data?.order_data?.extracted_measurements?.[0]?.measurements || {};
 
     console.log("Extracting measurements for:", apiOrder.order_number);
@@ -147,7 +147,7 @@ const OrderProcessor = () => {
     };
   };
 
-  // Fetch orders from API - FIXED: Extract orders array from response
+  // Fetch orders from API
   const fetchOrders = async () => {
     try {
       setLoading(true);
@@ -160,7 +160,7 @@ const OrderProcessor = () => {
       
       const apiResponse = await response.json();
       
-      // FIXED: Extract the orders array from the response object
+      // Extract the orders array from the response object
       const ordersArray = apiResponse.orders || [];
       const transformedOrders = ordersArray.map(transformApiOrder);
       setOrders(transformedOrders);
@@ -191,7 +191,7 @@ const OrderProcessor = () => {
 
   const handleEdit = () => setEditMode(true);
   
-  // Save function - now includes API call to update backend
+  // Save function - includes API call to update backend
   const handleSave = async () => {
     try {
       const response = await fetch(`/api/orders/${selectedOrder.id}`, {
@@ -249,7 +249,7 @@ const OrderProcessor = () => {
     }));
   };
 
-  // Generate PDF - now makes actual API call
+  // Generate PDF - makes actual API call
   const generatePDF = async () => {
     try {
       console.log('Generating PDF for order:', selectedOrder.orderNumber);
@@ -758,20 +758,20 @@ const OrderProcessor = () => {
                     </div>
                   </div>
 
-                                       {/* Mattress Label */}
-                     <div className="border rounded-lg p-4">
-                         <h3 className="font-semibold mb-3">Mattress Label</h3>
-                         <select
-                         value={selectedOrder.mattressLabel}
-                         onChange={(e) => updateOrderField('mattressLabel', e.target.value)}
-                         disabled={!editMode}
-                         className="w-full px-3 py-2 border rounded disabled:bg-slate-100"
-                        >
-                         <option value="CaravanMattresses">Caravan Mattresses</option>
-                         <option value="MotorhomeMattresses">Motorhome Mattresses</option>
-                         <option value="MyBespokeMattresses">My Bespoke Mattresses</option>
-                         </select>
-                     </div>
+                  {/* Mattress Label */}
+                  <div className="border rounded-lg p-4">
+                    <h3 className="font-semibold mb-3">Mattress Label</h3>
+                    <select
+                      value={selectedOrder.mattressLabel}
+                      onChange={(e) => updateOrderField('mattressLabel', e.target.value)}
+                      disabled={!editMode}
+                      className="w-full px-3 py-2 border rounded disabled:bg-slate-100"
+                    >
+                      <option value="CaravanMattresses">Caravan Mattresses</option>
+                      <option value="MotorhomeMattresses">Motorhome Mattresses</option>
+                      <option value="MyBespokeMattresses">My Bespoke Mattresses</option>
+                    </select>
+                  </div>
 
                 </div>
               </div>
