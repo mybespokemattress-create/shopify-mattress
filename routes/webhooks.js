@@ -2,7 +2,6 @@
 const crypto = require('crypto');
 const db = require('../database/db');
 const googleSheets = require('../google-sheets');
-const { Op } = require('sequelize'); // Add this import for the new API endpoint
 
 const router = express.Router();
 
