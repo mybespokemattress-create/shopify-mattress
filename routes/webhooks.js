@@ -93,7 +93,6 @@ function getMattressLabelFromStore(storeDomain) {
 
 // Extract customer notes from various Shopify locations
 function extractCustomerNotes(order) {
-    // Check multiple possible locations for customer notes
     if (order.note && order.note.trim()) {
         console.log('Found customer notes in order.note:', order.note);
         return order.note.trim();
@@ -114,7 +113,6 @@ function extractCustomerNotes(order) {
         return order.order_note.trim();
     }
     
-    // Check attributes array (some Shopify setups use this)
     if (order.attributes && Array.isArray(order.attributes)) {
         const notesAttribute = order.attributes.find(attr => 
             attr.name && attr.name.toLowerCase().includes('note')
@@ -129,7 +127,7 @@ function extractCustomerNotes(order) {
     return null;
 }
 
-// Extract customer data from Shopify order (enhanced with notes and mattress label)
+// Extract customer data from Shopify order
 function extractCustomerData(order, storeDomain) {
     const customer = order.customer;
     const billing = order.billing_address;
@@ -142,10 +140,7 @@ function extractCustomerData(order, storeDomain) {
         ? orderNumber 
         : `${orderPrefix}${orderNumber}`;
     
-    // Extract customer notes
     const customerNotes = extractCustomerNotes(order);
-    
-    // Auto-detect mattress label from store domain
     const mattressLabel = getMattressLabelFromStore(storeDomain);
     
     console.log(`Customer notes extracted: ${customerNotes ? 'Yes' : 'No'}`);
@@ -177,34 +172,33 @@ function extractCustomerData(order, storeDomain) {
         orderDate: order.created_at,
         totalPrice: order.total_price,
         currency: order.currency,
-        // NEW: Customer notes and mattress label
         customerNotes: customerNotes,
         mattressLabel: mattressLabel
     };
 }
 
-// Enhanced debugging for empty measurements
+// Debug empty measurements
 function debugEmptyMeasurements(order) {
-    console.log('\n🔍 DEBUGGING EMPTY MEASUREMENTS:');
+    console.log('\nDEBUGGING EMPTY MEASUREMENTS:');
     
     if (order.line_items && order.line_items.length > 0) {
         order.line_items.forEach((item, index) => {
-            console.log(`\n📦 Item ${index + 1}: ${item.title} (SKU: ${item.sku})`);
+            console.log(`\nItem ${index + 1}: ${item.title} (SKU: ${item.sku})`);
             
             if (item.properties && item.properties.length > 0) {
                 console.log('   Properties found:');
                 item.properties.forEach(prop => {
                     const isEmpty = !prop.value || prop.value.trim() === '';
-                    const icon = isEmpty ? '❌' : '✅';
+                    const icon = isEmpty ? 'EMPTY' : 'OK';
                     console.log(`   ${icon} ${prop.name}: "${prop.value}"`);
                 });
             } else {
-                console.log('   ❌ No properties found on this item');
+                console.log('   No properties found on this item');
             }
         });
     }
     
-    console.log('\n💡 If dimensions are empty:');
+    console.log('\nIf dimensions are empty:');
     console.log('   - Check Shopify product configuration');
     console.log('   - Verify customer filled in the form properly');
     console.log('   - Check if properties are being passed correctly in webhook');
@@ -237,7 +231,7 @@ function determineMeasurementOption(measurements) {
     return hasDimensions ? 'option1' : 'option2';
 }
 
-// UPDATED: Enhanced measurement extraction with unit support and empty string handling
+// Enhanced measurement extraction with unit support and empty string handling
 function extractCustomerMeasurements(properties) {
     const measurements = {};
     const dimensionValues = {};
@@ -248,15 +242,13 @@ function extractCustomerMeasurements(properties) {
     
     properties.forEach(prop => {
         const propName = prop.name?.toLowerCase();
-        const propValue = prop.value?.trim(); // Trim whitespace
+        const propValue = prop.value?.trim();
         
-        // Store ALL properties (for debugging and reference)
+        // Store ALL properties for reference
         measurements[`property_${prop.name}`] = prop.value;
         
-        // Check for dimension patterns: "Enter Dimension A (cm)" or "Dimension A"
         // Only process dimension if it has an actual value (not empty string)
         if (propName?.includes('dimension') && propValue && propValue !== '') {
-            // Extract the letter (A-G) from various formats
             const letterMatch = propName.match(/dimension\s*([a-g])/i);
             if (letterMatch) {
                 const letter = letterMatch[1].toUpperCase();
@@ -275,14 +267,13 @@ function extractCustomerMeasurements(properties) {
                     value: propValue,
                     unit: unit
                 };
-                console.log(`✅ Extracted Dimension ${letter}: ${propValue} ${unit}`);
+                console.log(`Extracted Dimension ${letter}: ${propValue} ${unit}`);
             }
         } else if (propName?.includes('dimension')) {
-            // Log when we skip empty dimensions
             const letterMatch = propName.match(/dimension\s*([a-g])/i);
             if (letterMatch) {
                 const letter = letterMatch[1].toUpperCase();
-                console.log(`❌ Skipping empty Dimension ${letter}`);
+                console.log(`Skipping empty Dimension ${letter}`);
             }
         }
     });
@@ -303,12 +294,50 @@ function extractCustomerMeasurements(properties) {
     };
 }
 
-// Enhanced product data extraction with measurements, shape info, and manufacturing options
+// Extract manufacturing options from line item
+function extractManufacturingOptions(lineItem) {
+    const manufacturingOptions = {
+        linkAttachment: null,
+        deliveryOption: "Rolled and Boxed" // Default for now
+    };
+    
+    // Extract Link Attachment from variant_title
+    if (lineItem.variant_title) {
+        const variantParts = lineItem.variant_title.split(' / ');
+        if (variantParts.length > 0) {
+            const linkAttachment = variantParts[variantParts.length - 1].trim();
+            
+            const linkOptions = [
+                'Leave Sections Loose',
+                'Leave Bolster Loose', 
+                'Fabric Link (+£40)',
+                'Zip-Link (+£40)'
+            ];
+            
+            if (linkOptions.some(option => linkAttachment.includes(option.split(' ')[0]))) {
+                manufacturingOptions.linkAttachment = linkAttachment;
+                console.log(`Extracted Link Attachment: ${linkAttachment}`);
+            }
+        }
+    }
+    
+    // Extract Delivery Option from properties
+    if (lineItem.properties) {
+        const deliveryProperty = lineItem.properties.find(prop => 
+            prop.name === 'Delivery'
+        );
+        if (deliveryProperty && deliveryProperty.value) {
+            manufacturingOptions.deliveryOption = deliveryProperty.value;
+        }
+    }
+    
+    return manufacturingOptions;
+}
+
+// Enhanced product data extraction
 function extractProductData(lineItems) {
     return lineItems.map(item => {
         const customerMeasurements = extractCustomerMeasurements(item.properties);
-        
-        // Extract manufacturing options from line item
         const manufacturingOptions = extractManufacturingOptions(item);
         
         return {
@@ -321,7 +350,6 @@ function extractProductData(lineItems) {
             productId: item.product_id,
             variantId: item.variant_id,
             
-            // Manufacturing options
             manufacturingOptions: manufacturingOptions,
             
             shapeInfo: {
@@ -342,49 +370,7 @@ function extractProductData(lineItems) {
     });
 }
 
-// Extract manufacturing options from line item
-function extractManufacturingOptions(lineItem) {
-    const manufacturingOptions = {
-        linkAttachment: null,
-        deliveryOption: "Rolled and Boxed" // Default for now
-    };
-    
-    // Extract Link Attachment from variant_title
-    if (lineItem.variant_title) {
-        // Split by " / " and get the last segment
-        const variantParts = lineItem.variant_title.split(' / ');
-        if (variantParts.length > 0) {
-            const linkAttachment = variantParts[variantParts.length - 1].trim();
-            
-            // Check if it's a recognised Link Attachment option
-            const linkOptions = [
-                'Leave Sections Loose',
-                'Leave Bolster Loose', 
-                'Fabric Link (+£40)',
-                'Zip-Link (+£40)'
-            ];
-            
-            if (linkOptions.some(option => linkAttachment.includes(option.split(' ')[0]))) {
-                manufacturingOptions.linkAttachment = linkAttachment;
-                console.log(`Extracted Link Attachment: ${linkAttachment}`);
-            }
-        }
-    }
-    
-    // Extract Delivery Option from properties (for future use)
-    if (lineItem.properties) {
-        const deliveryProperty = lineItem.properties.find(prop => 
-            prop.name === 'Delivery'
-        );
-        if (deliveryProperty && deliveryProperty.value) {
-            manufacturingOptions.deliveryOption = deliveryProperty.value;
-        }
-    }
-    
-    return manufacturingOptions;
-}
-
-// UPDATED: Main webhook handler for order creation with improved multi-item processing
+// Main webhook handler for order creation with multi-item support
 router.post('/orders/create', express.raw({ type: 'application/json' }), async (req, res) => {
     const timestamp = new Date().toISOString();
     console.log(`[${timestamp}] Received webhook from Shopify`);
@@ -430,14 +416,13 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
             return res.status(401).json({ error: 'Invalid signature' });
         }
         
-        // Extract data (now includes customer notes and mattress label)
+        // Extract data
         const customerData = extractCustomerData(order, store.domain);
         const productData = extractProductData(order.line_items || []);
         
         console.log(`Processing order ${customerData.shopifyOrderNumber} from ${customerData.customerName}`);
         console.log(`Products: ${productData.length} items`);
         
-        // Log customer notes and mattress label if present
         if (customerData.customerNotes) {
             console.log(`Customer Notes: "${customerData.customerNotes}"`);
         }
@@ -445,7 +430,7 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
             console.log(`Mattress Label: ${customerData.mattressLabel}`);
         }
         
-        // UPDATED: Debug empty measurements
+        // Debug empty measurements
         debugEmptyMeasurements(order);
         
         // Check product mappings and enhance with shape info
@@ -477,7 +462,7 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
             }
         }
         
-        // Log product details including measurements
+        // Log product details
         productData.forEach((product, index) => {
             console.log(`Product ${index + 1}: ${product.productTitle}`);
             
@@ -491,7 +476,6 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
                 
                 if (product.measurementStatus.providedDimensions && product.measurementStatus.providedDimensions.length > 0) {
                     console.log(`  Provided dimensions: ${product.measurementStatus.providedDimensions.join(', ')}`);
-                    // Log actual values with units
                     product.measurementStatus.providedDimensions.forEach(dim => {
                         const measurement = product.measurementStatus.measurements[dim];
                         if (measurement) {
@@ -519,8 +503,7 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
             }
         }
         
-        // UPDATED: MULTI-ITEM PROCESSING with better logging and error handling
-        const dbOrders = [];
+        // MULTI-ITEM PROCESSING: Store each line item as a separate order
         const responseData = {
             success: true,
             orderId: customerData.orderId,
@@ -539,25 +522,27 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
         };
         
         try {
-            console.log(`🔄 Attempting to store ${productData.length} line items as separate orders...`);
+            console.log(`Attempting to store ${productData.length} line items as separate orders...`);
             
             for (let itemIndex = 0; itemIndex < productData.length; itemIndex++) {
                 const product = productData[itemIndex];
                 const lineItem = order.line_items[itemIndex];
                 
-                console.log(`\n📦 Processing Item ${itemIndex + 1}/${productData.length}:`);
+                console.log(`\nProcessing Item ${itemIndex + 1}/${productData.length}:`);
                 console.log(`   Product: ${product.productTitle}`);
                 console.log(`   SKU: ${product.shopifySku}`);
                 console.log(`   Price: ${lineItem.price}`);
                 
-                // Create sub-order number: #CARA1639-1, #CARA1639-2, etc.
+                // Create sub-order number
                 const subOrderNumber = productData.length > 1 
                     ? `${customerData.shopifyOrderNumber}-${itemIndex + 1}`
                     : customerData.shopifyOrderNumber;
                 
-                const subOrderId = customerData.orderId; // Always use original orderId
+                const subOrderId = productData.length > 1
+                    ? `${customerData.orderId}-${itemIndex + 1}`
+                    : customerData.orderId;
                 
-                // Create extracted_measurements for THIS specific line item only
+                // Create extracted_measurements for this specific line item
                 const extractedMeasurementsForItem = {
                     sku: product.shopifySku,
                     measurements: {},
@@ -585,7 +570,7 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
                 // Create order data with ONLY this line item
                 const orderWithSingleItem = {
                     ...order,
-                    line_items: [lineItem], // Only this specific line item
+                    line_items: [lineItem],
                     extracted_measurements: [extractedMeasurementsForItem]
                 };
                 
@@ -595,7 +580,7 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
                     store_domain: customerData.storeDomain,
                     customerName: customerData.customerName,
                     customerEmail: customerData.customerEmail,
-                    totalPrice: lineItem.price, // Price for this specific item
+                    totalPrice: lineItem.price,
                     order_data: orderWithSingleItem,
                     supplier_assigned: supplierAssignment,
                     supplier_name: supplierName,
@@ -603,12 +588,11 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
                     mattress_label: customerData.mattressLabel
                 };
                 
-                console.log(`💾 Creating database entry for: ${subOrderNumber}`);
+                console.log(`Creating database entry for: ${subOrderNumber}`);
                 
                 const dbOrder = await db.orders.create(orderDataForDb);
-                dbOrders.push(dbOrder);
                 
-                console.log(`✅ Sub-order ${subOrderNumber} stored successfully (ID: ${dbOrder.id})`);
+                console.log(`Sub-order ${subOrderNumber} stored successfully (ID: ${dbOrder.id})`);
                 
                 // Add to response data
                 responseData.subOrders.push({
@@ -621,12 +605,11 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
                     shapeNumber: product.shapeInfo?.shapeNumber
                 });
                 
-                // UPDATED: Add each sub-order to Google Sheets separately
+                // Add each sub-order to Google Sheets separately
                 if (supplierAssignment && process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
                     try {
-                        console.log(`📊 Adding sub-order ${subOrderNumber} to Google Sheets...`);
+                        console.log(`Adding sub-order ${subOrderNumber} to Google Sheets...`);
                         
-                        // Create customer data for this specific sub-order
                         const subOrderCustomerData = {
                             ...customerData,
                             orderId: subOrderId,
@@ -634,7 +617,6 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
                             totalPrice: lineItem.price
                         };
                         
-                        // Create product data for this specific item
                         const subOrderProductData = [product];
                         
                         const sheetsResult = await googleSheets.addOrderToSheet(subOrderCustomerData, subOrderProductData);
@@ -647,23 +629,18 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
                                 new Date().toISOString(),
                                 sheetsResult.sheetRange
                             );
-                            console.log(`✅ Sub-order ${subOrderNumber} added to ${sheetsResult.supplierName} at ${sheetsResult.sheetRange}`);
+                            console.log(`Sub-order ${subOrderNumber} added to ${sheetsResult.supplierName} at ${sheetsResult.sheetRange}`);
                             responseData.sheetsUpdated = true;
                         }
                     } catch (error) {
-                        console.error(`❌ Error adding sub-order ${subOrderNumber} to Google Sheets:`, error.message);
+                        console.error(`Error adding sub-order ${subOrderNumber} to Google Sheets:`, error.message);
                     }
-                }
-                
-                // Add small delay between processing items to avoid rate limits
-                if (itemIndex < productData.length - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 100));
                 }
             }
             
-            responseData.subOrdersCreated = dbOrders.length;
+            responseData.subOrdersCreated = responseData.subOrders.length;
             
-            console.log(`\n🎉 All ${dbOrders.length} sub-orders processed successfully!`);
+            console.log(`\nAll ${responseData.subOrdersCreated} sub-orders processed successfully!`);
             console.log(`   Original order: ${customerData.shopifyOrderNumber}`);
             console.log(`   Sub-orders: ${responseData.subOrders.map(so => so.subOrderNumber).join(', ')}`);
             
@@ -678,7 +655,6 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
             console.error('ERROR storing orders in database:', error);
             console.error('Full error stack:', error.stack);
             responseData.error = error.message;
-            // Continue processing even if DB fails
         }
         
         // Log summary
@@ -707,7 +683,7 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
     }
 });
 
-// NEW: API endpoint to fetch all sub-orders for a given original order number
+// API endpoint to fetch all sub-orders for a given original order number - POSTGRESQL ONLY
 router.get('/orders/by-original/:originalOrderNumber', async (req, res) => {
     try {
         const { originalOrderNumber } = req.params;
@@ -715,19 +691,19 @@ router.get('/orders/by-original/:originalOrderNumber', async (req, res) => {
         // Remove # if present and any existing suffix
         const baseOrderNumber = originalOrderNumber.replace(/^#/, '').replace(/-\d+$/, '');
         
-        console.log(`🔍 Searching for sub-orders of: ${baseOrderNumber}`);
+        console.log(`Searching for sub-orders of: ${baseOrderNumber}`);
         
-        // Find all orders that start with the base order number
-        const subOrders = await db.orders.findAll({
-            where: {
-                order_number: {
-                    [Op.like]: `%${baseOrderNumber}%`
-                }
-            },
-            order: [['order_number', 'ASC']]
-        });
+        // Use PostgreSQL query
+        const query = `
+            SELECT * FROM orders 
+            WHERE order_number LIKE $1 
+            ORDER BY order_number ASC
+        `;
         
-        console.log(`📋 Found ${subOrders.length} sub-orders for ${originalOrderNumber}`);
+        const result = await req.app.locals.db.query(query, [`%${baseOrderNumber}%`]);
+        const subOrders = result.rows;
+        
+        console.log(`Found ${subOrders.length} sub-orders for ${originalOrderNumber}`);
         
         res.json({
             success: true,
@@ -737,7 +713,7 @@ router.get('/orders/by-original/:originalOrderNumber', async (req, res) => {
         });
         
     } catch (error) {
-        console.error('❌ Error fetching sub-orders:', error);
+        console.error('Error fetching sub-orders:', error);
         res.status(500).json({
             success: false,
             error: error.message
@@ -745,7 +721,7 @@ router.get('/orders/by-original/:originalOrderNumber', async (req, res) => {
     }
 });
 
-// Test endpoint to manually create an order with measurements, notes, and mattress label
+// Test endpoint to manually create an order
 router.post('/test/create-order', async (req, res) => {
     try {
         const timestamp = Date.now().toString();
