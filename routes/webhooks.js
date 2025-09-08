@@ -2,6 +2,7 @@
 const crypto = require('crypto');
 const db = require('../database/db');
 const googleSheets = require('../google-sheets');
+const { Op } = require('sequelize'); // Add this import for the new API endpoint
 
 const router = express.Router();
 
@@ -183,6 +184,33 @@ function extractCustomerData(order, storeDomain) {
     };
 }
 
+// Enhanced debugging for empty measurements
+function debugEmptyMeasurements(order) {
+    console.log('\n🔍 DEBUGGING EMPTY MEASUREMENTS:');
+    
+    if (order.line_items && order.line_items.length > 0) {
+        order.line_items.forEach((item, index) => {
+            console.log(`\n📦 Item ${index + 1}: ${item.title} (SKU: ${item.sku})`);
+            
+            if (item.properties && item.properties.length > 0) {
+                console.log('   Properties found:');
+                item.properties.forEach(prop => {
+                    const isEmpty = !prop.value || prop.value.trim() === '';
+                    const icon = isEmpty ? '❌' : '✅';
+                    console.log(`   ${icon} ${prop.name}: "${prop.value}"`);
+                });
+            } else {
+                console.log('   ❌ No properties found on this item');
+            }
+        });
+    }
+    
+    console.log('\n💡 If dimensions are empty:');
+    console.log('   - Check Shopify product configuration');
+    console.log('   - Verify customer filled in the form properly');
+    console.log('   - Check if properties are being passed correctly in webhook');
+}
+
 // Determine measurement option from order properties
 function determineMeasurementOption(measurements) {
     const hasDimensions = Object.keys(measurements).some(key => 
@@ -210,7 +238,7 @@ function determineMeasurementOption(measurements) {
     return hasDimensions ? 'option1' : 'option2';
 }
 
-// Enhanced measurement extraction with unit support
+// UPDATED: Enhanced measurement extraction with unit support and empty string handling
 function extractCustomerMeasurements(properties) {
     const measurements = {};
     const dimensionValues = {};
@@ -221,12 +249,17 @@ function extractCustomerMeasurements(properties) {
     
     properties.forEach(prop => {
         const propName = prop.name?.toLowerCase();
+        const propValue = prop.value?.trim(); // Trim whitespace
+        
+        // Store ALL properties (for debugging and reference)
+        measurements[`property_${prop.name}`] = prop.value;
         
         // Check for dimension patterns: "Enter Dimension A (cm)" or "Dimension A"
-        if (propName?.includes('dimension')) {
+        // Only process dimension if it has an actual value (not empty string)
+        if (propName?.includes('dimension') && propValue && propValue !== '') {
             // Extract the letter (A-G) from various formats
             const letterMatch = propName.match(/dimension\s*([a-g])/i);
-            if (letterMatch && prop.value) {
+            if (letterMatch) {
                 const letter = letterMatch[1].toUpperCase();
                 
                 // Extract unit from property name
@@ -240,15 +273,19 @@ function extractCustomerMeasurements(properties) {
                 }
                 
                 dimensionValues[letter] = {
-                    value: prop.value,
+                    value: propValue,
                     unit: unit
                 };
-                console.log(`Extracted Dimension ${letter}: ${prop.value} ${unit}`);
+                console.log(`✅ Extracted Dimension ${letter}: ${propValue} ${unit}`);
+            }
+        } else if (propName?.includes('dimension')) {
+            // Log when we skip empty dimensions
+            const letterMatch = propName.match(/dimension\s*([a-g])/i);
+            if (letterMatch) {
+                const letter = letterMatch[1].toUpperCase();
+                console.log(`❌ Skipping empty Dimension ${letter}`);
             }
         }
-        
-        // Store original property for reference
-        measurements[`property_${prop.name}`] = prop.value;
     });
     
     const providedDimensions = Object.keys(dimensionValues);
@@ -348,7 +385,7 @@ function extractManufacturingOptions(lineItem) {
     return manufacturingOptions;
 }
 
-// Main webhook handler for order creation
+// UPDATED: Main webhook handler for order creation with improved multi-item processing
 router.post('/orders/create', express.raw({ type: 'application/json' }), async (req, res) => {
     const timestamp = new Date().toISOString();
     console.log(`[${timestamp}] Received webhook from Shopify`);
@@ -409,22 +446,8 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
             console.log(`Mattress Label: ${customerData.mattressLabel}`);
         }
         
-        // Debug: Log raw line item properties
-        if (order.line_items && order.line_items.length > 0) {
-            console.log('=== DEBUG: Line Item Properties ===');
-            order.line_items.forEach((item, index) => {
-                console.log(`Item ${index + 1}: ${item.title}`);
-                if (item.properties && item.properties.length > 0) {
-                    console.log('Properties found:');
-                    item.properties.forEach(prop => {
-                        console.log(`  - ${prop.name}: ${prop.value}`);
-                    });
-                } else {
-                    console.log('  No properties on this item');
-                }
-            });
-            console.log('=== END DEBUG ===');
-        }
+        // UPDATED: Debug empty measurements
+        debugEmptyMeasurements(order);
         
         // Check product mappings and enhance with shape info
         const unmappedProducts = [];
@@ -497,130 +520,183 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
             }
         }
         
-        // Store order in database with measurements, notes, and mattress label
-        let dbOrder;
+        // UPDATED: MULTI-ITEM PROCESSING with better logging and error handling
+        const dbOrders = [];
+        const responseData = {
+            success: true,
+            orderId: customerData.orderId,
+            orderNumber: customerData.shopifyOrderNumber,
+            store: store.config.name,
+            productsProcessed: productData.length,
+            subOrdersCreated: 0,
+            supplierAssigned: supplierName,
+            sheetsUpdated: false,
+            unmappedProducts: unmappedProducts.length > 0 ? unmappedProducts : undefined,
+            measurementsExtracted: productData.some(p => p.measurementStatus?.providedDimensions?.length > 0),
+            customerNotesFound: !!customerData.customerNotes,
+            mattressLabelDetected: customerData.mattressLabel,
+            subOrders: [],
+            timestamp
+        };
+        
         try {
-            console.log('Attempting to store order in database...');
+            console.log(`🔄 Attempting to store ${productData.length} line items as separate orders...`);
             
-            // Create extracted_measurements array with proper structure
-            const extractedMeasurements = productData.map(p => {
-                const measurements = {};
+            for (let itemIndex = 0; itemIndex < productData.length; itemIndex++) {
+                const product = productData[itemIndex];
+                const lineItem = order.line_items[itemIndex];
                 
-                // Only include A-G dimensions with their values and units
+                console.log(`\n📦 Processing Item ${itemIndex + 1}/${productData.length}:`);
+                console.log(`   Product: ${product.productTitle}`);
+                console.log(`   SKU: ${product.shopifySku}`);
+                console.log(`   Price: ${lineItem.price}`);
+                
+                // Create sub-order number: #CARA1639-1, #CARA1639-2, etc.
+                const subOrderNumber = productData.length > 1 
+                    ? `${customerData.shopifyOrderNumber}-${itemIndex + 1}`
+                    : customerData.shopifyOrderNumber;
+                
+                const subOrderId = productData.length > 1
+                    ? `${customerData.orderId}-${itemIndex + 1}`
+                    : customerData.orderId;
+                
+                // Create extracted_measurements for THIS specific line item only
+                const extractedMeasurementsForItem = {
+                    sku: product.shopifySku,
+                    measurements: {},
+                    provided: product.measurementStatus?.providedDimensions || [],
+                    missing: product.measurementStatus?.missingDimensions || [],
+                };
+                
+                // Include A-G dimensions for this specific item
                 ['A', 'B', 'C', 'D', 'E', 'F', 'G'].forEach(dim => {
-                    if (p.measurementStatus?.measurements[dim]) {
-                        measurements[dim] = p.measurementStatus.measurements[dim];
+                    if (product.measurementStatus?.measurements[dim]) {
+                        extractedMeasurementsForItem.measurements[dim] = product.measurementStatus.measurements[dim];
                     }
                 });
                 
-                return {
-                    sku: p.shopifySku,
-                    measurements: measurements,
-                    provided: p.measurementStatus?.providedDimensions || [],
-                    missing: p.measurementStatus?.missingDimensions || [],
-                    // Include all original properties for reference
-                    ...Object.fromEntries(
-                        Object.entries(p.measurementStatus?.measurements || {})
-                            .filter(([key]) => key.startsWith('property_'))
-                    )
+                // Include properties for this item
+                Object.entries(product.measurementStatus?.measurements || {})
+                    .filter(([key]) => key.startsWith('property_'))
+                    .forEach(([key, value]) => {
+                        extractedMeasurementsForItem[key] = value;
+                    });
+                
+                console.log(`   Measurements provided: ${extractedMeasurementsForItem.provided.join(', ') || 'none'}`);
+                console.log(`   Missing: ${extractedMeasurementsForItem.missing.join(', ') || 'none'}`);
+                
+                // Create order data with ONLY this line item
+                const orderWithSingleItem = {
+                    ...order,
+                    line_items: [lineItem], // Only this specific line item
+                    extracted_measurements: [extractedMeasurementsForItem]
                 };
-            });
+                
+                const orderDataForDb = {
+                    orderId: subOrderId,
+                    order_number: subOrderNumber,
+                    store_domain: customerData.storeDomain,
+                    customerName: customerData.customerName,
+                    customerEmail: customerData.customerEmail,
+                    totalPrice: lineItem.price, // Price for this specific item
+                    order_data: orderWithSingleItem,
+                    supplier_assigned: supplierAssignment,
+                    supplier_name: supplierName,
+                    notes: customerData.customerNotes,
+                    mattress_label: customerData.mattressLabel
+                };
+                
+                console.log(`💾 Creating database entry for: ${subOrderNumber}`);
+                
+                const dbOrder = await db.orders.create(orderDataForDb);
+                dbOrders.push(dbOrder);
+                
+                console.log(`✅ Sub-order ${subOrderNumber} stored successfully (ID: ${dbOrder.id})`);
+                
+                // Add to response data
+                responseData.subOrders.push({
+                    subOrderNumber: subOrderNumber,
+                    dbId: dbOrder.id,
+                    sku: product.shopifySku,
+                    productTitle: product.productTitle,
+                    price: lineItem.price,
+                    measurementsCount: extractedMeasurementsForItem.provided.length,
+                    shapeNumber: product.shapeInfo?.shapeNumber
+                });
+                
+                // UPDATED: Add each sub-order to Google Sheets separately
+                if (supplierAssignment && process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
+                    try {
+                        console.log(`📊 Adding sub-order ${subOrderNumber} to Google Sheets...`);
+                        
+                        // Create customer data for this specific sub-order
+                        const subOrderCustomerData = {
+                            ...customerData,
+                            orderId: subOrderId,
+                            shopifyOrderNumber: subOrderNumber,
+                            totalPrice: lineItem.price
+                        };
+                        
+                        // Create product data for this specific item
+                        const subOrderProductData = [product];
+                        
+                        const sheetsResult = await googleSheets.addOrderToSheet(subOrderCustomerData, subOrderProductData);
+                        
+                        if (sheetsResult && sheetsResult.success) {
+                            await db.orders.updateSheetsSync(
+                                subOrderId,
+                                customerData.storeDomain,
+                                true,
+                                new Date().toISOString(),
+                                sheetsResult.sheetRange
+                            );
+                            console.log(`✅ Sub-order ${subOrderNumber} added to ${sheetsResult.supplierName} at ${sheetsResult.sheetRange}`);
+                            responseData.sheetsUpdated = true;
+                        }
+                    } catch (error) {
+                        console.error(`❌ Error adding sub-order ${subOrderNumber} to Google Sheets:`, error.message);
+                    }
+                }
+                
+                // Add small delay between processing items to avoid rate limits
+                if (itemIndex < productData.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+            }
             
-            // Include measurement data in the order_data JSON
-            const orderWithMeasurements = {
-                ...order,
-                extracted_measurements: extractedMeasurements
-            };
+            responseData.subOrdersCreated = dbOrders.length;
             
-            const orderDataForDb = {
-                orderId: customerData.orderId,
-                order_number: customerData.shopifyOrderNumber,
-                store_domain: customerData.storeDomain,
-                customerName: customerData.customerName,
-                customerEmail: customerData.customerEmail,
-                totalPrice: customerData.totalPrice,
-                order_data: orderWithMeasurements,
-                supplier_assigned: supplierAssignment,
-                supplier_name: supplierName,
-                // NEW: Customer notes and mattress label
-                notes: customerData.customerNotes,
-                mattress_label: customerData.mattressLabel
-            };
-            
-            console.log('Creating order with data:', {
-                orderId: orderDataForDb.orderId,
-                order_number: orderDataForDb.order_number,
-                store_domain: orderDataForDb.store_domain,
-                customerName: orderDataForDb.customerName,
-                notes: orderDataForDb.notes ? 'Yes' : 'No',
-                mattress_label: orderDataForDb.mattress_label || 'None'
-            });
-            
-            dbOrder = await db.orders.create(orderDataForDb);
-            
-            console.log('Order stored in database successfully');
-            console.log('Database returned order ID:', dbOrder.id);
-            console.log('Measurements stored:', JSON.stringify(extractedMeasurements, null, 2));
+            console.log(`\n🎉 All ${dbOrders.length} sub-orders processed successfully!`);
+            console.log(`   Original order: ${customerData.shopifyOrderNumber}`);
+            console.log(`   Sub-orders: ${responseData.subOrders.map(so => so.subOrderNumber).join(', ')}`);
             
             if (customerData.customerNotes) {
-                console.log('Customer notes stored successfully');
+                console.log('Customer notes stored successfully in all sub-orders');
             }
             if (customerData.mattressLabel) {
-                console.log(`Mattress label stored: ${customerData.mattressLabel}`);
+                console.log(`Mattress label stored: ${customerData.mattressLabel} in all sub-orders`);
             }
             
         } catch (error) {
-            console.error('ERROR storing order in database:', error);
+            console.error('ERROR storing orders in database:', error);
             console.error('Full error stack:', error.stack);
+            responseData.error = error.message;
             // Continue processing even if DB fails
         }
         
-        // Add to Google Sheets if configured
-        let sheetsResult = null;
-        if (supplierAssignment && process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
-            try {
-                console.log('Adding order to Google Sheets...');
-                sheetsResult = await googleSheets.addOrderToSheet(customerData, productData);
-                
-                if (sheetsResult && sheetsResult.success) {
-                    await db.orders.updateSheetsSync(
-                        customerData.orderId,
-                        customerData.storeDomain,
-                        true,
-                        new Date().toISOString(),
-                        sheetsResult.sheetRange
-                    );
-                    console.log(`Order added to ${sheetsResult.supplierName}`);
-                }
-            } catch (error) {
-                console.error('Error adding to Google Sheets:', error.message);
-            }
-        }
-        
         // Log summary
-        console.log('Order processed successfully');
+        console.log('Order processing complete');
+        console.log(`Original order: ${customerData.shopifyOrderNumber}`);
+        console.log(`Sub-orders created: ${responseData.subOrdersCreated}/${productData.length}`);
         console.log(`Customer: ${customerData.customerEmail}`);
-        console.log(`Total: ${customerData.currency} ${customerData.totalPrice}`);
+        console.log(`Total original price: ${customerData.currency} ${customerData.totalPrice}`);
         
         if (unmappedProducts.length > 0) {
             console.log(`Warning: ${unmappedProducts.length} products need mapping`);
         }
         
         // Send response
-        res.status(200).json({
-            success: true,
-            orderId: customerData.orderId,
-            orderNumber: customerData.shopifyOrderNumber,
-            store: store.config.name,
-            productsProcessed: productData.length,
-            supplierAssigned: supplierName,
-            sheetsUpdated: sheetsResult?.success || false,
-            unmappedProducts: unmappedProducts.length > 0 ? unmappedProducts : undefined,
-            measurementsExtracted: productData.some(p => p.measurementStatus?.providedDimensions?.length > 0),
-            customerNotesFound: !!customerData.customerNotes,
-            mattressLabelDetected: customerData.mattressLabel,
-            timestamp
-        });
+        res.status(200).json(responseData);
         
     } catch (error) {
         console.error('Webhook processing error:', error);
@@ -630,6 +706,44 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
             error: 'Webhook processing failed',
             message: error.message,
             timestamp
+        });
+    }
+});
+
+// NEW: API endpoint to fetch all sub-orders for a given original order number
+router.get('/orders/by-original/:originalOrderNumber', async (req, res) => {
+    try {
+        const { originalOrderNumber } = req.params;
+        
+        // Remove # if present and any existing suffix
+        const baseOrderNumber = originalOrderNumber.replace(/^#/, '').replace(/-\d+$/, '');
+        
+        console.log(`🔍 Searching for sub-orders of: ${baseOrderNumber}`);
+        
+        // Find all orders that start with the base order number
+        const subOrders = await db.orders.findAll({
+            where: {
+                order_number: {
+                    [Op.like]: `%${baseOrderNumber}%`
+                }
+            },
+            order: [['order_number', 'ASC']]
+        });
+        
+        console.log(`📋 Found ${subOrders.length} sub-orders for ${originalOrderNumber}`);
+        
+        res.json({
+            success: true,
+            originalOrderNumber: originalOrderNumber,
+            subOrders: subOrders,
+            count: subOrders.length
+        });
+        
+    } catch (error) {
+        console.error('❌ Error fetching sub-orders:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
         });
     }
 });
