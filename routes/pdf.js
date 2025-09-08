@@ -541,6 +541,7 @@ router.post('/generate', async (req, res) => {
 
 // Test routes
 router.get('/test', (req, res) => {
+  console.log('📄 PDF test endpoint called');
   res.json({
     success: true,
     message: 'Clean professional PDF layout is ready!',
@@ -551,5 +552,7 @@ router.get('/test', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
+console.log('📄 PDF routes registered: GET /orders/:id/pdf and POST /generate');
 
 module.exports = router;
