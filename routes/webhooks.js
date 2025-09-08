@@ -538,9 +538,8 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
                     ? `${customerData.shopifyOrderNumber}-${itemIndex + 1}`
                     : customerData.shopifyOrderNumber;
                 
-                const subOrderId = productData.length > 1
-                    ? `${customerData.orderId}-${itemIndex + 1}`
-                    : customerData.orderId;
+                // CORRECT - always use the original orderId as a number
+                const subOrderId = customerData.orderId; // Always use original orderId
                 
                 // Create extracted_measurements for this specific line item
                 const extractedMeasurementsForItem = {
