@@ -4,20 +4,21 @@ const fs = require('fs');
 const path = require('path');
 const router = express.Router();
 
-// Helper function to draw bordered boxes
-function drawBorderedBox(doc, x, y, width, height, title = null) {
+// Helper function to draw clean bordered boxes
+function drawCleanBox(doc, x, y, width, height, title = null) {
   // Draw border
-  doc.rect(x, y, width, height)
-     .stroke();
+  doc.rect(x, y, width, height).stroke();
   
   // Add title if provided
   if (title) {
-    doc.fontSize(12)
+    doc.fontSize(10)
        .font('Helvetica-Bold')
+       .fillColor('black')
        .text(title, x + 5, y + 5);
+    return y + 20; // Return content start position
   }
   
-  return y + (title ? 20 : 5); // Return content start position
+  return y + 5;
 }
 
 // Helper function to check if image exists
@@ -29,7 +30,7 @@ function imageExists(imagePath) {
   }
 }
 
-// Generate PDF for specific order
+// Generate PDF for specific order - FIXED LAYOUT
 router.get('/orders/:id/pdf', async (req, res) => {
   try {
     const orderId = req.params.id;
@@ -44,9 +45,9 @@ router.get('/orders/:id/pdf', async (req, res) => {
     }
     
     const order = result.rows[0];
-    const orderData = order.order_data;
+    console.log('Generating PDF for order:', order.order_number);
     
-    // Create PDF with professional styling
+    // Create PDF with A4 dimensions
     const doc = new PDFDocument({
       margin: 40,
       size: 'A4'
@@ -59,124 +60,135 @@ router.get('/orders/:id/pdf', async (req, res) => {
     // Pipe PDF to response
     doc.pipe(res);
     
-    // HEADER SECTION
-    doc.fontSize(20)
+    // === HEADER SECTION ===
+    doc.fontSize(18)
        .font('Helvetica-Bold')
        .fillColor('black')
        .text('Bespoke Mattress Company', 40, 40);
     
-    doc.fontSize(12)
+    doc.fontSize(11)
        .font('Helvetica')
-       .text('Purchase Order & Manufacturing Specification', 40, 65);
+       .text('Purchase Order & Manufacturing Specification', 40, 62);
     
-    // Order number and CONFIRMED badge
-    doc.fontSize(12)
+    doc.fontSize(11)
        .font('Helvetica')
-       .text(`Order: ${order.order_number}`, 40, 85);
+       .text(`Order: ${order.order_number}`, 40, 78);
     
     // CONFIRMED badge (top right)
-    doc.rect(480, 40, 80, 25)
-       .stroke();
-    doc.fontSize(10)
+    doc.rect(500, 40, 70, 20).stroke();
+    doc.fontSize(9)
        .font('Helvetica-Bold')
-       .text('CONFIRMED', 485, 50);
+       .text('CONFIRMED', 505, 48);
     
     // Horizontal line under header
-    doc.moveTo(40, 115)
-       .lineTo(555, 115)
+    doc.moveTo(40, 105)
+       .lineTo(555, 105)
        .stroke();
     
-    let yPosition = 130;
+    // === ORDER & CUSTOMER INFORMATION BOXES ===
+    let yPos = 120;
     
-    // ORDER INFORMATION BOX
-    const orderBoxHeight = 60;
-    const orderBoxY = drawBorderedBox(doc, 40, yPosition, 250, orderBoxHeight, 'Order Information');
-    
-    doc.fontSize(10)
+    // Order Information Box (left)
+    const orderBoxY = drawCleanBox(doc, 40, yPos, 250, 70, 'Order Information');
+    doc.fontSize(9)
        .font('Helvetica')
-       .text(`Order Number: ${order.order_number}`, 45, orderBoxY + 5)
-       .text(`Order ID: ${order.id}`, 45, orderBoxY + 18)
-       .text(`Date: ${new Date(order.created_date).toLocaleDateString('en-GB')}`, 45, orderBoxY + 31);
+       .text(`Order Number: ${order.order_number}`, 45, orderBoxY)
+       .text(`Order ID: ${order.id}`, 45, orderBoxY + 12)
+       .text(`Date: ${new Date(order.created_date).toLocaleDateString('en-GB')}`, 45, orderBoxY + 24);
     
-    // CUSTOMER INFORMATION BOX
-    const customerBoxY = drawBorderedBox(doc, 305, yPosition, 250, orderBoxHeight, 'Customer Information');
-    
-    doc.fontSize(10)
+    // Customer Information Box (right)
+    const customerBoxY = drawCleanBox(doc, 305, yPos, 250, 70, 'Customer Information');
+    doc.fontSize(9)
        .font('Helvetica')
-       .text(`Name: ${order.customer_name}`, 310, customerBoxY + 5)
-       .text(`Email: ${order.customer_email}`, 310, customerBoxY + 18);
+       .text(`Name: ${order.customer_name}`, 310, customerBoxY)
+       .text(`Email: ${order.customer_email}`, 310, customerBoxY + 12);
     
-    yPosition += orderBoxHeight + 20;
+    yPos += 85;
     
-    // PRODUCT SPECIFICATION SECTION
-    doc.fontSize(14)
+    // === PRODUCT SPECIFICATION SECTION ===
+    doc.fontSize(12)
        .font('Helvetica-Bold')
-       .text('Product Specification', 40, yPosition);
+       .text('Product Specification', 40, yPos);
     
-    yPosition += 25;
+    yPos += 20;
     
-    // Product details box
-    const productBoxHeight = 100;
-    const productBoxY = drawBorderedBox(doc, 40, yPosition, 515, productBoxHeight);
+    // Product Box
+    const productBoxY = drawCleanBox(doc, 40, yPos, 515, 90);
     
-    const lineItems = orderData?.order_data?.line_items;
+    // Extract product data from order
+    const orderData = order.order_data;
+    const lineItems = orderData?.order_data?.line_items || orderData?.line_items;
+    
     if (lineItems && lineItems[0]) {
       const product = lineItems[0];
       
-      doc.fontSize(11)
-         .font('Helvetica-Bold')
-         .text(`Product: ${product.title}`, 45, productBoxY + 5);
-      
       doc.fontSize(10)
-         .font('Helvetica')
-         .text(`SKU: ${product.sku}`, 45, productBoxY + 22)
-         .text(`Variant: ${product.variant_title || 'Standard'}`, 45, productBoxY + 35)
-         .text(`Quantity: ${product.quantity}`, 45, productBoxY + 48);
+         .font('Helvetica-Bold')
+         .text(`Product: ${product.title}`, 45, productBoxY);
       
-      // Extract firmness and other properties
+      doc.fontSize(9)
+         .font('Helvetica')
+         .text(`SKU: ${product.sku}`, 45, productBoxY + 15)
+         .text(`Variant: ${product.variant_title || 'Standard'}`, 45, productBoxY + 27)
+         .text(`Quantity: ${product.quantity}`, 45, productBoxY + 39);
+      
+      // Extract firmness and manufacturing details
       if (product.properties) {
         const firmnessProp = product.properties.find(p => p.name === 'Firmness');
         if (firmnessProp) {
-          doc.text(`Firmness: ${firmnessProp.value}`, 45, productBoxY + 61);
+          doc.text(`Firmness: ${firmnessProp.value}`, 45, productBoxY + 51);
         }
-        
-        // Manufacturing specification
-        const specification = `Product Specification: ${product.title} - ${product.variant_title || 'Standard'}`;
-        doc.fontSize(9)
-           .text(specification, 45, productBoxY + 76, { width: 500 });
       }
+      
+      // Full specification line
+      const specification = `Full specification: ${product.title} - ${product.variant_title || 'Standard'}`;
+      doc.fontSize(8)
+         .text(specification, 45, productBoxY + 65, { width: 500 });
     }
     
-    yPosition += productBoxHeight + 30;
+    yPos += 105;
     
-    // MEASUREMENTS & SHAPE DIAGRAM SECTION
-    doc.fontSize(14)
+    // === MEASUREMENTS & SHAPE DIAGRAM SECTION ===
+    doc.fontSize(12)
        .font('Helvetica-Bold')
-       .text('Measurements & Shape Diagram', 40, yPosition);
+       .text('Measurements & Shape Diagram', 40, yPos);
     
-    yPosition += 25;
+    yPos += 20;
     
-    // Left side - Dimensions table
-    const dimensionsBoxWidth = 180;
-    const dimensionsBoxHeight = 200;
-    const dimensionsBoxY = drawBorderedBox(doc, 40, yPosition, dimensionsBoxWidth, dimensionsBoxHeight, 'Dimensions');
+    // Left side - Dimensions Table
+    const dimBoxY = drawCleanBox(doc, 40, yPos, 180, 250, 'Dimensions');
     
     // Table headers
-    doc.fontSize(10)
+    doc.fontSize(9)
        .font('Helvetica-Bold')
-       .text('Dim', 45, dimensionsBoxY + 10)
-       .text('Value', 100, dimensionsBoxY + 10);
+       .text('Dim', 45, dimBoxY)
+       .text('Value', 100, dimBoxY);
     
-    // Horizontal line under headers
-    doc.moveTo(45, dimensionsBoxY + 25)
-       .lineTo(215, dimensionsBoxY + 25)
+    // Header underline
+    doc.moveTo(45, dimBoxY + 12)
+       .lineTo(215, dimBoxY + 12)
        .stroke();
     
-    // Dimension rows
-    const dimensions = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
-    let rowY = dimensionsBoxY + 35;
+    // Extract measurements from the correct path
+    let measurements = {};
     
-    const measurements = orderData?.order_data?.extracted_measurements?.[0]?.measurements || {};
+    // Try multiple possible paths for measurements
+    if (order.order_data?.order_data?.extracted_measurements?.[0]?.measurements) {
+      measurements = order.order_data.order_data.extracted_measurements[0].measurements;
+    } else if (order.extracted_measurements) {
+      // Handle JSONB field
+      const extractedMeasurements = typeof order.extracted_measurements === 'string' 
+        ? JSON.parse(order.extracted_measurements) 
+        : order.extracted_measurements;
+      measurements = extractedMeasurements?.measurements || extractedMeasurements || {};
+    }
+    
+    console.log('Extracted measurements:', measurements);
+    
+    // Dimension rows A-G
+    const dimensions = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+    let rowY = dimBoxY + 20;
+    let hasValidMeasurements = false;
     
     dimensions.forEach(dim => {
       const measurement = measurements[dim];
@@ -187,37 +199,28 @@ router.get('/orders/:id/pdf', async (req, res) => {
           valueText = measurement.unit 
             ? `${measurement.value} ${measurement.unit}`
             : measurement.value;
-        } else {
+          hasValidMeasurements = true;
+        } else if (typeof measurement === 'string' && measurement.trim()) {
           valueText = String(measurement);
+          hasValidMeasurements = true;
         }
       }
       
-      doc.fontSize(10)
+      doc.fontSize(9)
          .font('Helvetica')
          .text(dim, 45, rowY)
          .text(valueText, 100, rowY);
       
-      rowY += 15;
+      rowY += 14;
     });
     
-    // Status at bottom of dimensions box
-    const hasValidMeasurements = dimensions.some(dim => {
-      const measurement = measurements[dim];
-      return measurement && (
-        (typeof measurement === 'object' && measurement.value) ||
-        (typeof measurement === 'string' && measurement.trim())
-      );
-    });
-    
-    doc.fontSize(9)
+    // Status at bottom
+    doc.fontSize(8)
        .font('Helvetica-Oblique')
-       .text(`Status: ${hasValidMeasurements ? 'Verified' : 'Not verified'}`, 45, dimensionsBoxY + 170);
+       .text(`Status: ${hasValidMeasurements ? 'Verified' : 'Not verified'}`, 45, dimBoxY + 220);
     
     // Right side - Shape Diagram
-    const diagramBoxWidth = 320;
-    const diagramBoxHeight = 200;
-    const diagramBoxX = 235;
-    const diagramBoxY = drawBorderedBox(doc, diagramBoxX, yPosition, diagramBoxWidth, diagramBoxHeight, 'Shape Diagram');
+    const diagramBoxY = drawCleanBox(doc, 235, yPos, 320, 250, 'Shape Diagram');
     
     // Extract diagram number
     let diagramNumber = null;
@@ -227,20 +230,20 @@ router.get('/orders/:id/pdf', async (req, res) => {
     }
     
     if (diagramNumber) {
-      doc.fontSize(10)
+      doc.fontSize(9)
          .font('Helvetica')
-         .text(`Diagram: ${diagramNumber}`, diagramBoxX + 5, diagramBoxY + 10);
+         .text(`Diagram: ${diagramNumber}`, 240, diagramBoxY);
       
       // Try to add diagram image
       const imagePath = path.join(__dirname, '..', 'public', 'images', 'diagrams', `Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`);
       
       if (imageExists(imagePath)) {
         try {
-          // Add image with proper sizing
+          // Add image with proper sizing and positioning
           const imageWidth = 300;
-          const imageHeight = 150;
-          const imageX = diagramBoxX + 10;
-          const imageY = diagramBoxY + 30;
+          const imageHeight = 200;
+          const imageX = 245;
+          const imageY = diagramBoxY + 20;
           
           doc.image(imagePath, imageX, imageY, {
             width: imageWidth,
@@ -250,61 +253,60 @@ router.get('/orders/:id/pdf', async (req, res) => {
           });
         } catch (imageError) {
           console.log('Image load error:', imageError);
-          // Fallback text if image fails
-          doc.fontSize(10)
-             .text(`[Diagram ${diagramNumber} - Technical drawing]`, diagramBoxX + 10, diagramBoxY + 50)
-             .text('Image file not accessible', diagramBoxX + 10, diagramBoxY + 70);
+          // Fallback text
+          doc.fontSize(9)
+             .text(`[Diagram ${diagramNumber} - Technical drawing]`, 245, diagramBoxY + 60)
+             .text('Image file not accessible', 245, diagramBoxY + 80);
         }
       } else {
-        // No image available
-        doc.fontSize(10)
-           .text(`[Diagram ${diagramNumber} - Image not available]`, diagramBoxX + 10, diagramBoxY + 50)
-           .text('Please refer to technical specifications', diagramBoxX + 10, diagramBoxY + 70);
+        // No image available - show placeholder
+        doc.fontSize(9)
+           .text(`[Diagram ${diagramNumber} - Image not available]`, 245, diagramBoxY + 60)
+           .text('Please refer to technical specifications', 245, diagramBoxY + 80);
       }
     } else {
-      doc.fontSize(10)
-         .text('No diagram specified', diagramBoxX + 10, diagramBoxY + 50);
+      doc.fontSize(9)
+         .text('No diagram specified', 245, diagramBoxY + 60);
     }
     
-    yPosition += dimensionsBoxHeight + 30;
+    yPos += 265;
     
-    // CUSTOMER NOTES SECTION (if present)
+    // === CUSTOMER NOTES SECTION (if present) ===
     if (order.notes && order.notes.trim()) {
-      doc.fontSize(14)
+      doc.fontSize(12)
          .font('Helvetica-Bold')
-         .text('Customer Notes', 40, yPosition);
+         .text('Customer Notes', 40, yPos);
       
-      yPosition += 20;
+      yPos += 20;
       
-      const notesBoxHeight = 60;
-      const notesBoxY = drawBorderedBox(doc, 40, yPosition, 515, notesBoxHeight);
+      const notesBoxY = drawCleanBox(doc, 40, yPos, 515, 50);
       
-      doc.fontSize(10)
+      doc.fontSize(9)
          .font('Helvetica')
-         .text(order.notes, 45, notesBoxY + 5, { width: 505, height: 50 });
+         .text(order.notes, 45, notesBoxY, { width: 505, height: 40 });
       
-      yPosition += notesBoxHeight + 20;
+      yPos += 65;
     }
     
-    // FOOTER SECTION
-    // Add some space before footer
-    if (yPosition < 650) {
-      yPosition = 650;
+    // === FOOTER SECTION ===
+    // Ensure footer is at bottom of page
+    if (yPos < 750) {
+      yPos = 750;
     }
     
     // Horizontal line above footer
-    doc.moveTo(40, yPosition)
-       .lineTo(555, yPosition)
+    doc.moveTo(40, yPos)
+       .lineTo(555, yPos)
        .stroke();
     
-    yPosition += 15;
+    yPos += 10;
     
     // Footer information
-    doc.fontSize(9)
+    doc.fontSize(8)
        .font('Helvetica')
-       .text(`Generated: ${new Date().toLocaleDateString('en-GB')} ${new Date().toLocaleTimeString('en-GB')}`, 40, yPosition)
-       .text('Bespoke Mattress Company | Professional Manufacturing Specification', 40, yPosition + 12)
-       .text('This document contains all specifications required for manufacturing.', 40, yPosition + 24);
+       .text(`Generated: ${new Date().toLocaleDateString('en-GB')}, ${new Date().toLocaleTimeString('en-GB')}`, 40, yPos)
+       .text('Bespoke Mattress Company | Professional Manufacturing Specification', 40, yPos + 10)
+       .text('This document contains all specifications required for manufacturing.', 40, yPos + 20);
     
     // Finalize PDF
     doc.end();
@@ -315,7 +317,7 @@ router.get('/orders/:id/pdf', async (req, res) => {
   }
 });
 
-// Alternative route for React component
+// Alternative route for React component - SAME CLEAN LAYOUT
 router.post('/generate', async (req, res) => {
   try {
     const { order } = req.body;
@@ -323,6 +325,8 @@ router.post('/generate', async (req, res) => {
     if (!order) {
       return res.status(400).json({ error: 'Order data required' });
     }
+    
+    console.log('Generating PDF from React for:', order.orderNumber);
     
     // Create PDF using the order data from React
     const doc = new PDFDocument({
@@ -335,117 +339,109 @@ router.post('/generate', async (req, res) => {
     
     doc.pipe(res);
     
-    // HEADER SECTION
-    doc.fontSize(20)
+    // === HEADER SECTION ===
+    doc.fontSize(18)
        .font('Helvetica-Bold')
        .fillColor('black')
        .text('Bespoke Mattress Company', 40, 40);
     
-    doc.fontSize(12)
+    doc.fontSize(11)
        .font('Helvetica')
-       .text('Purchase Order & Manufacturing Specification', 40, 65);
+       .text('Purchase Order & Manufacturing Specification', 40, 62);
     
-    // Order number
-    doc.fontSize(12)
+    doc.fontSize(11)
        .font('Helvetica')
-       .text(`Order: ${order.orderNumber}`, 40, 85);
+       .text(`Order: ${order.orderNumber}`, 40, 78);
     
-    // CONFIRMED badge (top right)
-    doc.rect(480, 40, 80, 25)
-       .stroke();
-    doc.fontSize(10)
+    // CONFIRMED badge
+    doc.rect(500, 40, 70, 20).stroke();
+    doc.fontSize(9)
        .font('Helvetica-Bold')
-       .text('CONFIRMED', 485, 50);
+       .text('CONFIRMED', 505, 48);
     
-    // Horizontal line under header
-    doc.moveTo(40, 115)
-       .lineTo(555, 115)
+    // Header line
+    doc.moveTo(40, 105)
+       .lineTo(555, 105)
        .stroke();
     
-    let yPosition = 130;
+    // === ORDER & CUSTOMER INFO ===
+    let yPos = 120;
     
-    // ORDER INFORMATION BOX
-    const orderBoxHeight = 60;
-    const orderBoxY = drawBorderedBox(doc, 40, yPosition, 250, orderBoxHeight, 'Order Information');
-    
-    doc.fontSize(10)
+    // Order Information Box
+    const orderBoxY = drawCleanBox(doc, 40, yPos, 250, 70, 'Order Information');
+    doc.fontSize(9)
        .font('Helvetica')
-       .text(`Order Number: ${order.orderNumber}`, 45, orderBoxY + 5)
-       .text(`Order ID: ${order.id}`, 45, orderBoxY + 18)
-       .text(`Date: ${order.orderDate}`, 45, orderBoxY + 31);
+       .text(`Order Number: ${order.orderNumber}`, 45, orderBoxY)
+       .text(`Order ID: ${order.id}`, 45, orderBoxY + 12)
+       .text(`Date: ${order.orderDate}`, 45, orderBoxY + 24);
     
-    // CUSTOMER INFORMATION BOX
-    const customerBoxY = drawBorderedBox(doc, 305, yPosition, 250, orderBoxHeight, 'Customer Information');
-    
-    doc.fontSize(10)
+    // Customer Information Box
+    const customerBoxY = drawCleanBox(doc, 305, yPos, 250, 70, 'Customer Information');
+    doc.fontSize(9)
        .font('Helvetica')
-       .text(`Name: ${order.customer.name}`, 310, customerBoxY + 5)
-       .text(`Email: ${order.customer.email}`, 310, customerBoxY + 18);
+       .text(`Name: ${order.customer.name}`, 310, customerBoxY)
+       .text(`Email: ${order.customer.email}`, 310, customerBoxY + 12);
     
-    yPosition += orderBoxHeight + 20;
+    yPos += 85;
     
-    // PRODUCT SPECIFICATION SECTION
-    doc.fontSize(14)
+    // === PRODUCT SPECIFICATION ===
+    doc.fontSize(12)
        .font('Helvetica-Bold')
-       .text('Product Specification', 40, yPosition);
+       .text('Product Specification', 40, yPos);
     
-    yPosition += 25;
+    yPos += 20;
     
-    // Product details box
-    const productBoxHeight = 100;
-    const productBoxY = drawBorderedBox(doc, 40, yPosition, 515, productBoxHeight);
+    const productBoxY = drawCleanBox(doc, 40, yPos, 515, 90);
     
     if (order.lineItems && order.lineItems[0]) {
       const product = order.lineItems[0];
       
-      doc.fontSize(11)
-         .font('Helvetica-Bold')
-         .text(`Product: ${product.productTitle}`, 45, productBoxY + 5);
-      
       doc.fontSize(10)
-         .font('Helvetica')
-         .text(`SKU: ${product.sku}`, 45, productBoxY + 22)
-         .text(`Quantity: ${product.quantity}`, 45, productBoxY + 35);
+         .font('Helvetica-Bold')
+         .text(`Product: ${product.productTitle}`, 45, productBoxY);
       
-      // Manufacturing options
+      doc.fontSize(9)
+         .font('Helvetica')
+         .text(`SKU: ${product.sku}`, 45, productBoxY + 15)
+         .text(`Quantity: ${product.quantity}`, 45, productBoxY + 27);
+      
       if (order.linkAttachment) {
-        doc.text(`Link Attachment: ${order.linkAttachment}`, 45, productBoxY + 48);
+        doc.text(`Link Attachment: ${order.linkAttachment}`, 45, productBoxY + 39);
       }
       
       if (order.deliveryOption) {
-        doc.text(`Delivery: ${order.deliveryOption}`, 45, productBoxY + 61);
+        doc.text(`Delivery: ${order.deliveryOption}`, 45, productBoxY + 51);
       }
+      
+      const specification = `Full specification: ${product.productTitle}`;
+      doc.fontSize(8)
+         .text(specification, 45, productBoxY + 65, { width: 500 });
     }
     
-    yPosition += productBoxHeight + 30;
+    yPos += 105;
     
-    // MEASUREMENTS & SHAPE DIAGRAM SECTION
-    doc.fontSize(14)
+    // === MEASUREMENTS & SHAPE DIAGRAM ===
+    doc.fontSize(12)
        .font('Helvetica-Bold')
-       .text('Measurements & Shape Diagram', 40, yPosition);
+       .text('Measurements & Shape Diagram', 40, yPos);
     
-    yPosition += 25;
+    yPos += 20;
     
-    // Left side - Dimensions table
-    const dimensionsBoxWidth = 180;
-    const dimensionsBoxHeight = 200;
-    const dimensionsBoxY = drawBorderedBox(doc, 40, yPosition, dimensionsBoxWidth, dimensionsBoxHeight, 'Dimensions');
+    // Dimensions Table
+    const dimBoxY = drawCleanBox(doc, 40, yPos, 180, 250, 'Dimensions');
     
-    // Table headers
-    doc.fontSize(10)
+    doc.fontSize(9)
        .font('Helvetica-Bold')
-       .text('Dim', 45, dimensionsBoxY + 10)
-       .text('Value', 100, dimensionsBoxY + 10);
+       .text('Dim', 45, dimBoxY)
+       .text('Value', 100, dimBoxY);
     
-    // Horizontal line under headers
-    doc.moveTo(45, dimensionsBoxY + 25)
-       .lineTo(215, dimensionsBoxY + 25)
+    doc.moveTo(45, dimBoxY + 12)
+       .lineTo(215, dimBoxY + 12)
        .stroke();
     
     // Dimension rows from React component
     const dimensions = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
-    let rowY = dimensionsBoxY + 35;
-    
+    let rowY = dimBoxY + 20;
     let hasValues = false;
     
     dimensions.forEach(dim => {
@@ -454,98 +450,83 @@ router.post('/generate', async (req, res) => {
         hasValues = true;
       }
       
-      doc.fontSize(10)
+      doc.fontSize(9)
          .font('Helvetica')
          .text(dim, 45, rowY)
          .text(value, 100, rowY);
       
-      rowY += 15;
+      rowY += 14;
     });
     
-    // Status at bottom of dimensions box
-    doc.fontSize(9)
+    doc.fontSize(8)
        .font('Helvetica-Oblique')
-       .text(`Status: ${hasValues ? 'Verified' : 'Not verified'}`, 45, dimensionsBoxY + 170);
+       .text(`Status: ${hasValues ? 'Verified' : 'Not verified'}`, 45, dimBoxY + 220);
     
-    // Right side - Shape Diagram
-    const diagramBoxWidth = 320;
-    const diagramBoxHeight = 200;
-    const diagramBoxX = 235;
-    const diagramBoxY = drawBorderedBox(doc, diagramBoxX, yPosition, diagramBoxWidth, diagramBoxHeight, 'Shape Diagram');
+    // Shape Diagram
+    const diagramBoxY = drawCleanBox(doc, 235, yPos, 320, 250, 'Shape Diagram');
     
     if (order.diagramNumber) {
-      doc.fontSize(10)
+      doc.fontSize(9)
          .font('Helvetica')
-         .text(`Diagram: ${order.diagramNumber}`, diagramBoxX + 5, diagramBoxY + 10);
+         .text(`Diagram: ${order.diagramNumber}`, 240, diagramBoxY);
       
-      // Try to add diagram image
       const imagePath = path.join(__dirname, '..', 'public', 'images', 'diagrams', `Shape_${order.diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`);
       
       if (imageExists(imagePath)) {
         try {
-          const imageWidth = 300;
-          const imageHeight = 150;
-          const imageX = diagramBoxX + 10;
-          const imageY = diagramBoxY + 30;
-          
-          doc.image(imagePath, imageX, imageY, {
-            width: imageWidth,
-            height: imageHeight,
-            fit: [imageWidth, imageHeight],
+          doc.image(imagePath, 245, diagramBoxY + 20, {
+            width: 300,
+            height: 200,
+            fit: [300, 200],
             align: 'center'
           });
         } catch (imageError) {
-          doc.fontSize(10)
-             .text(`[Diagram ${order.diagramNumber} - Technical drawing]`, diagramBoxX + 10, diagramBoxY + 50)
-             .text('Image file not accessible', diagramBoxX + 10, diagramBoxY + 70);
+          doc.fontSize(9)
+             .text(`[Diagram ${order.diagramNumber} - Technical drawing]`, 245, diagramBoxY + 60);
         }
       } else {
-        doc.fontSize(10)
-           .text(`[Diagram ${order.diagramNumber} - Image not available]`, diagramBoxX + 10, diagramBoxY + 50);
+        doc.fontSize(9)
+           .text(`[Diagram ${order.diagramNumber} - Image not available]`, 245, diagramBoxY + 60);
       }
     } else {
-      doc.fontSize(10)
-         .text('No diagram specified', diagramBoxX + 10, diagramBoxY + 50);
+      doc.fontSize(9)
+         .text('No diagram specified', 245, diagramBoxY + 60);
     }
     
-    yPosition += dimensionsBoxHeight + 30;
+    yPos += 265;
     
-    // CUSTOMER NOTES SECTION (if present)
+    // === CUSTOMER NOTES ===
     if (order.notes && order.notes.trim()) {
-      doc.fontSize(14)
+      doc.fontSize(12)
          .font('Helvetica-Bold')
-         .text('Customer Notes', 40, yPosition);
+         .text('Customer Notes', 40, yPos);
       
-      yPosition += 20;
+      yPos += 20;
       
-      const notesBoxHeight = 60;
-      const notesBoxY = drawBorderedBox(doc, 40, yPosition, 515, notesBoxHeight);
-      
-      doc.fontSize(10)
+      const notesBoxY = drawCleanBox(doc, 40, yPos, 515, 50);
+      doc.fontSize(9)
          .font('Helvetica')
-         .text(order.notes, 45, notesBoxY + 5, { width: 505, height: 50 });
+         .text(order.notes, 45, notesBoxY, { width: 505, height: 40 });
       
-      yPosition += notesBoxHeight + 20;
+      yPos += 65;
     }
     
-    // FOOTER SECTION
-    if (yPosition < 650) {
-      yPosition = 650;
+    // === FOOTER ===
+    if (yPos < 750) {
+      yPos = 750;
     }
     
-    // Horizontal line above footer
-    doc.moveTo(40, yPosition)
-       .lineTo(555, yPosition)
+    doc.moveTo(40, yPos)
+       .lineTo(555, yPos)
        .stroke();
     
-    yPosition += 15;
+    yPos += 10;
     
-    // Footer information
-    doc.fontSize(9)
+    doc.fontSize(8)
        .font('Helvetica')
-       .text(`Generated: ${new Date().toLocaleDateString('en-GB')} ${new Date().toLocaleTimeString('en-GB')}`, 40, yPosition)
-       .text('Bespoke Mattress Company | Professional Manufacturing Specification', 40, yPosition + 12)
-       .text('This document contains all specifications required for manufacturing.', 40, yPosition + 24);
+       .text(`Generated: ${new Date().toLocaleDateString('en-GB')}, ${new Date().toLocaleTimeString('en-GB')}`, 40, yPos)
+       .text('Bespoke Mattress Company | Professional Manufacturing Specification', 40, yPos + 10)
+       .text('This document contains all specifications required for manufacturing.', 40, yPos + 20);
     
     // Finalize PDF
     doc.end();
@@ -560,19 +541,11 @@ router.post('/generate', async (req, res) => {
 router.get('/test', (req, res) => {
   res.json({
     success: true,
-    message: 'Professional PDF routes are working!',
+    message: 'Clean professional PDF layout is ready!',
     endpoints: [
       'GET /api/pdf/orders/:id/pdf - Generate PDF for specific order',
       'POST /api/pdf/generate - Generate PDF from React component data'
     ],
-    timestamp: new Date().toISOString()
-  });
-});
-
-router.get('/health', (req, res) => {
-  res.json({
-    status: 'healthy',
-    message: 'PDF service operational with professional styling',
     timestamp: new Date().toISOString()
   });
 });
