@@ -1,4 +1,4 @@
-// OrderProcessor.jsx - Cleaned and Fixed Syntax
+// OrderProcessor.jsx - Fixed Layout Structure
 
 import React, { useState, useEffect } from 'react';
 import { Download, Mail, Edit3, Save, X } from 'lucide-react';
@@ -758,7 +758,7 @@ const OrderProcessor = () => {
                     </div>
                   </div>
 
-                  {/* Mattress Label */}
+                  {/* Mattress Label - CORRECTLY POSITIONED AS SEPARATE SECTION */}
                   <div className="border rounded-lg p-4">
                     <h3 className="font-semibold mb-3">Mattress Label</h3>
                     <select
