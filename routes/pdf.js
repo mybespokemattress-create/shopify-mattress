@@ -63,7 +63,7 @@ router.post('/generate', async (req, res) => {
     doc.fontSize(24)
        .font('Helvetica-Bold')
        .fillColor('black')
-       .text('Bespoke Mattress Company', 40, 40);
+       .text('My Bespoke Order Ltd', 40, 40);
     
     doc.fontSize(14)
        .font('Helvetica')
@@ -342,8 +342,7 @@ router.post('/generate', async (req, res) => {
        .font('Helvetica')
        .fillColor('black')
        .text(`Generated: ${new Date().toLocaleDateString('en-GB')}, ${new Date().toLocaleTimeString('en-GB')}`, 40, yPos)
-       .text('Bespoke Mattress Company | Professional Manufacturing Specification', 40, yPos + 15)
-       .text('This document contains all specifications required for manufacturing.', 40, yPos + 30);
+       .text('My Bespoke Order Ltd | Professional Manufacturing Specification', 40, yPos + 15)
     
     // Finalize PDF
     doc.end();
