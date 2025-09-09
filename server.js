@@ -305,7 +305,7 @@ app.get('/api/orders/:id', async (req, res) => {
 app.put('/api/orders/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { processing_status, notes, mattress_label } = req.body;
+    const { processing_status, notes, mattress_label, email_sent } = req.body;
     
     // Build dynamic update query based on provided fields
     const updateFields = [];
@@ -325,6 +325,12 @@ app.put('/api/orders/:id', async (req, res) => {
     if (mattress_label !== undefined) {
       updateFields.push(`mattress_label = $${valueIndex++}`);
       values.push(mattress_label);
+    }
+
+    // ADD THIS BLOCK
+    if (email_sent !== undefined) {
+      updateFields.push(`email_sent = $${valueIndex++}`);
+      values.push(email_sent);
     }
     
     if (updateFields.length === 0) {
