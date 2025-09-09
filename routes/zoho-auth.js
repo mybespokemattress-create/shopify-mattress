@@ -10,7 +10,7 @@ router.get('/test', (req, res) => {
 
 // Step 1: Redirect user to Zoho authorization
 router.get('/auth', (req, res) => {
-  const authUrl = `https://accounts.zoho.eu/oauth/v2/auth?` +
+  const authUrl = `https://accounts.zoho.uk/oauth/v2/auth?` +
     `response_type=code&` +
     `client_id=${process.env.ZOHO_CLIENT_ID}&` +
     `scope=ZohoMail.messages.CREATE&` +
@@ -26,7 +26,7 @@ router.get('/callback', async (req, res) => {
   try {
     const { code } = req.query;
     
-    const tokenResponse = await axios.post('https://accounts.zoho.eu/oauth/v2/token', {
+    const tokenResponse = await axios.post('https://accounts.zoho.uk/oauth/v2/token', {
       grant_type: 'authorization_code',
       client_id: process.env.ZOHO_CLIENT_ID,
       client_secret: process.env.ZOHO_CLIENT_SECRET,
