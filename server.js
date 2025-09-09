@@ -17,6 +17,8 @@ const pdfRoutes = require('./routes/pdf');
 console.log('✓ PDF routes loaded successfully');
 const zohoAuthRoutes = require('./routes/zoho-auth');
 console.log('✓ Zoho auth routes loaded successfully');
+const emailRoutes = require('./routes/email');
+console.log('✓ Email routes loaded successfully');
 
 const app = express();
 console.log('✓ Express app created');
@@ -60,6 +62,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // IMPORTANT: Mount API routes BEFORE static files
 app.use('/api/pdf', pdfRoutes);
 app.use('/auth/zoho', zohoAuthRoutes);
+app.use('/api/email', emailRoutes);
 
 // ADD THIS DEBUG ROUTE HERE:
 app.get('/debug-test', (req, res) => {
