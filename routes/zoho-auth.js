@@ -20,20 +20,46 @@ router.get('/auth', (req, res) => {
   res.redirect(authUrl);
 });
 
-// Step 2: Handle OAuth callback and get access token (DEBUG VERSION)
+// Step 2: Handle OAuth callback and get access token
 router.get('/callback', async (req, res) => {
-  // Log everything we receive
-  console.log('Full query parameters:', req.query);
-  console.log('Full URL:', req.url);
-  console.log('Headers:', req.headers);
-  
-  // Return debug info
-  res.json({
-    received_params: req.query,
-    full_url: req.url,
-    has_code: !!req.query.code,
-    code_value: req.query.code || 'NOT_PRESENT'
-  });
+  try {
+    const { code } = req.query;
+    
+    if (!code) {
+      return res.status(400).json({ error: 'No authorization code received' });
+    }
+
+    console.log('Received code:', code);
+    console.log('Environment vars check:', {
+      client_id: process.env.ZOHO_CLIENT_ID ? 'SET' : 'MISSING',
+      client_secret: process.env.ZOHO_CLIENT_SECRET ? 'SET' : 'MISSING',
+      redirect_uri: process.env.ZOHO_REDIRECT_URI
+    });
+    
+    const tokenResponse = await axios.post('https://accounts.zoho.com/oauth/v2/token', {
+      grant_type: 'authorization_code',
+      client_id: process.env.ZOHO_CLIENT_ID,
+      client_secret: process.env.ZOHO_CLIENT_SECRET,
+      redirect_uri: process.env.ZOHO_REDIRECT_URI,
+      code: code
+    });
+    
+    // Store tokens (you'll need to save these to database)
+    const { access_token, refresh_token } = tokenResponse.data;
+    
+    res.json({ 
+      success: true, 
+      message: 'OAuth setup complete!',
+      tokens: { access_token, refresh_token }
+    });
+    
+  } catch (error) {
+    console.error('OAuth error details:', error.response?.data || error.message);
+    res.status(500).json({ 
+      error: 'OAuth failed', 
+      details: error.response?.data || error.message 
+    });
+  }
 });
 
 module.exports = router;
