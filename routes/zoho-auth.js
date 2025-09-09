@@ -3,7 +3,7 @@ const axios = require('axios');
 const router = express.Router();
 
 // Step 1: Redirect user to Zoho authorization
-router.get('/', (req, res) => {
+router.get('/auth', (req, res) => {
   const authUrl = `https://accounts.zoho.eu/oauth/v2/auth?` +
     `response_type=code&` +
     `client_id=${process.env.ZOHO_CLIENT_ID}&` +

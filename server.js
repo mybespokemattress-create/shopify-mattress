@@ -57,6 +57,10 @@ app.use('/webhook', require('./routes/webhooks'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// IMPORTANT: Mount API routes BEFORE static files
+app.use('/api/pdf', pdfRoutes);
+app.use('/auth/zoho', zohoAuthRoutes);
+
 // Serve static files from React build - FIXED PATH
 app.use(express.static(path.join(__dirname, 'client/build')));
 
@@ -429,10 +433,6 @@ app.get('/api/orders/search/:query', async (req, res) => {
     res.status(500).json({ error: 'Search failed' });
   }
 });
-
-// IMPORTANT: Mount PDF routes BEFORE the catch-all route
-app.use('/api/pdf', pdfRoutes);
-app.use('/auth/zoho', zohoAuthRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
