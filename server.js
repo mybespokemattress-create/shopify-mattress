@@ -230,7 +230,7 @@ app.get('/api/orders', async (req, res) => {
     
     const query = `
     SELECT 
-        id,
+    id,
         order_number,
         customer_name,
         customer_email,
@@ -241,7 +241,8 @@ app.get('/api/orders', async (req, res) => {
         order_data,
         extracted_measurements,
         created_date,
-        updated_date
+        updated_date,
+        email_sent
       FROM processed_orders 
       ORDER BY created_date DESC 
       LIMIT $1 OFFSET $2
