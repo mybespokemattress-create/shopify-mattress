@@ -258,18 +258,19 @@ const OrderProcessor = () => {
         const supplierEmail = getSupplierEmail(selectedOrder.supplierName);
         const subject = `Purchase Order ${selectedOrder.orderNumber} - ${selectedOrder.customer.name}`;
         
-        const zohoUrl = `https://mail.zoho.eu/zm/h/compose?from=${encodeURIComponent('angelo@mybespokemattress.com')}&to=${encodeURIComponent(supplierEmail)}&subject=${encodeURIComponent(subject)}`;
+        const zohoUrl = `https://mail.zoho.com/zm/#compose?to=${encodeURIComponent(supplierEmail)}&subject=${encodeURIComponent(subject)}`;
         window.open(zohoUrl, '_blank');
         alert('Zoho Mail opened with supplier details pre-filled. Please attach PDF and send.');
         };
 
   const markOrderAsSent = async () => {
-  try {
-    const response = await fetch(`/api/orders/${selectedOrder.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email_sent: true })
-    });
+    console.log('markOrderAsSent function called!', selectedOrder?.id); 
+    try {
+        const response = await fetch(`/api/orders/${selectedOrder.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email_sent: true })
+        });
     
     if (response.ok) {
       setOrders(orders.map(order => 
