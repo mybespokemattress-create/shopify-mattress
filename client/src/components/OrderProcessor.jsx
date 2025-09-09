@@ -259,9 +259,9 @@ const OrderProcessor = () => {
         const supplierEmail = getSupplierEmail(selectedOrder.supplierName);
         const subject = `Purchase Order ${selectedOrder.orderNumber} - ${selectedOrder.customer.name}`;
         
-        const zohoUrl = `https://mail.zoho.com/zm/#compose?to=${encodeURIComponent(supplierEmail)}&subject=${encodeURIComponent(subject)}`;
-        window.open(zohoUrl, '_blank');
-        alert('Zoho Mail opened with supplier details pre-filled. Please attach PDF and send.');
+        // Standard mailto - will open in Zoho Mail since it's your default
+        const mailtoUrl = `mailto:${supplierEmail}?subject=${encodeURIComponent(subject)}`;
+        window.open(mailtoUrl, '_blank');
         };
 
         const markOrderAsSent = async () => {
