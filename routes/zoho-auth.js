@@ -19,7 +19,7 @@ router.get('/auth', (req, res) => {
   const authUrl = `https://accounts.zoho.com/oauth/v2/auth?` +
     `response_type=code&` +
     `client_id=${process.env.ZOHO_CLIENT_ID}&` +
-    `scope=ZohoMail.messages.ALL&` +
+    `scope=ZohoMail.messages.ALL,ZohoMail.accounts.READ&` +
     `redirect_uri=${encodeURIComponent(process.env.ZOHO_REDIRECT_URI)}&` +
     `access_type=offline&` +
     `prompt=consent`;
@@ -78,7 +78,7 @@ async function storeOAuthTokens(tokenData, userLocation) {
             expiresAt,
             correctMailDomain,  // Use correct Mail domain, not what Zoho returns
             userLocation || 'us',
-            'ZohoMail.messages.ALL',
+            'ZohoMail.messages.ALL,ZohoMail.accounts.READ',
             true
         ]);
         
