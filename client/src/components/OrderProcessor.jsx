@@ -265,38 +265,20 @@ const OrderProcessor = () => {
         };
 
         const markOrderAsSent = async () => {
-        console.log('=== markOrderAsSent DEBUG ===');
-        console.log('selectedOrder:', selectedOrder);
-        console.log('selectedOrder.id:', selectedOrder?.id);
-        
-        if (!selectedOrder?.id) {
-            console.log('ERROR: No order ID found!');
-            return;
-        }
-        
-        try {
-            console.log('About to make PUT request to:', `/api/orders/${selectedOrder.id}`);
-            const response = await fetch(`/api/orders/${selectedOrder.id}`, {
+          const response = await fetch(`/api/orders/${selectedOrder.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email_sent: true })
-            });
-            
-            console.log('Response status:', response.status);
-            console.log('Response ok:', response.ok);
-            
-            if (response.ok) {
-            console.log('Database update successful');
+          });
+          
+          if (response.ok) {
             setOrders(orders.map(order => 
-                order.id === selectedOrder.id ? { ...order, emailSent: true } : order
+              order.id === selectedOrder.id ? { ...order, emailSent: true } : order
             ));
             setSelectedOrder(prev => ({ ...prev, emailSent: true }));
-            } else {
-            console.log('Database update failed');
-            }
-        } catch (err) {
-            console.error('Error in markOrderAsSent:', err);
-        }
+          } else {
+            alert(`API Error: ${response.status}`);
+          }
         };
 
   const filteredOrders = orders.filter(order =>
