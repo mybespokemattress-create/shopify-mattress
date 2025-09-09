@@ -8,11 +8,15 @@ const crypto = require('crypto');
 console.log('✓ Crypto loaded');
 const { Pool } = require('pg');
 console.log('✓ PostgreSQL Pool loaded');
+const axios = require('axios');
+console.log('✓ Axios loaded');
 
 // Import PDF routes
 console.log('Attempting to load PDF routes...');
 const pdfRoutes = require('./routes/pdf');
 console.log('✓ PDF routes loaded successfully');
+const zohoAuthRoutes = require('./routes/zoho-auth');
+console.log('✓ Zoho auth routes loaded successfully');
 
 const app = express();
 console.log('✓ Express app created');
@@ -428,6 +432,7 @@ app.get('/api/orders/search/:query', async (req, res) => {
 
 // IMPORTANT: Mount PDF routes BEFORE the catch-all route
 app.use('/api/pdf', pdfRoutes);
+app.use('/auth/zoho', zohoAuthRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
