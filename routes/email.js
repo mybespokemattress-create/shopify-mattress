@@ -28,6 +28,28 @@ async function getActiveOAuthToken() {
     }
 }
 
+// Function to get Zoho account ID
+async function getZohoAccountId(accessToken, apiDomain) {
+    try {
+        const response = await axios.get(`${apiDomain}/api/accounts`, {
+            headers: {
+                'Authorization': `Zoho-oauthtoken ${accessToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        // Return the first account ID (primary account)
+        if (response.data && response.data.data && response.data.data.length > 0) {
+            return response.data.data[0].accountId;
+        }
+        
+        throw new Error('No Zoho Mail accounts found');
+    } catch (error) {
+        console.error('Error getting Zoho account ID:', error);
+        throw error;
+    }
+}
+
 // Function to refresh OAuth token if needed
 async function refreshOAuthToken(refreshToken, apiDomain) {
     try {
@@ -86,7 +108,7 @@ router.post('/send', async (req, res) => {
         if (!token) {
             return res.status(401).json({
                 error: 'No active OAuth token found',
-                message: 'Please authorize with Zoho first',
+                message: 'Please authorise with Zoho first',
                 auth_url: '/auth/zoho/auth'
             });
         }
@@ -104,13 +126,19 @@ router.post('/send', async (req, res) => {
             );
         }
 
-        // Prepare email data for Zoho Mail API
+        // Get the Zoho Mail domain (default to .com if not specified)
+        const mailDomain = token.api_domain || 'https://mail.zoho.com';
+        
+        // Get account ID
+        const accountId = await getZohoAccountId(token.access_token, mailDomain);
+
+        // Prepare email data for Zoho Mail API (correct format)
         const emailData = {
             fromAddress: process.env.ZOHO_FROM_EMAIL || 'orders@yourdomain.com',
             toAddress: to,
             subject: subject,
             content: body,
-            contentType: 'text/html'
+            mailFormat: 'html'  // Changed from contentType to mailFormat
         };
 
         // Add attachments if provided
@@ -118,9 +146,9 @@ router.post('/send', async (req, res) => {
             emailData.attachments = attachments;
         }
 
-        // Send email via Zoho Mail API
+        // Send email via Zoho Mail API (correct endpoint)
         const emailResponse = await axios.post(
-            `${token.api_domain}/mail/v1/messages`,
+            `${mailDomain}/api/accounts/${accountId}/messages`,  // Correct endpoint
             emailData,
             {
                 headers: {
@@ -161,7 +189,7 @@ router.post('/send', async (req, res) => {
         if (error.response?.status === 401) {
             return res.status(401).json({
                 error: 'OAuth token invalid or expired',
-                message: 'Please re-authorize with Zoho',
+                message: 'Please re-authorise with Zoho',
                 auth_url: '/auth/zoho/auth'
             });
         }
@@ -186,7 +214,13 @@ router.post('/test', async (req, res) => {
             });
         }
 
-        // Send a simple test email
+        // Get the Zoho Mail domain (default to .com if not specified)
+        const mailDomain = token.api_domain || 'https://mail.zoho.com';
+        
+        // Get account ID
+        const accountId = await getZohoAccountId(token.access_token, mailDomain);
+
+        // Send a simple test email (correct format)
         const testEmailData = {
             fromAddress: process.env.ZOHO_FROM_EMAIL || 'test@yourdomain.com',
             toAddress: process.env.TEST_EMAIL || 'test@example.com',
@@ -196,11 +230,11 @@ router.post('/test', async (req, res) => {
                 <p>This is a test email sent at ${new Date().toISOString()}</p>
                 <p>If you receive this, your email automation is working!</p>
             `,
-            contentType: 'text/html'
+            mailFormat: 'html'  // Changed from contentType to mailFormat
         };
 
         const emailResponse = await axios.post(
-            `${token.api_domain}/mail/v1/messages`,
+            `${mailDomain}/api/accounts/${accountId}/messages`,  // Correct endpoint
             testEmailData,
             {
                 headers: {
