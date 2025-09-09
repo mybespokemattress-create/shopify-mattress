@@ -451,9 +451,42 @@ const OrderProcessor = () => {
                         </button>
                         <button
                         onClick={async () => {
-                            await generatePDF();
-                            setTimeout(() => openZohoMail(), 500);
-                            await markOrderAsSent();
+                            try {
+                                // 1. Download PDF locally
+                                await generatePDF();
+                                
+                                // 2. Send test email automatically
+                                const emailResponse = await fetch('/api/email/send', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        to: 'angelo@mybespokemattress.com',  // Your test email
+                                        subject: `Purchase Order ${selectedOrder.orderNumber} - ${selectedOrder.customer.name}`,
+                                        body: `
+                                            <h2>New Purchase Order</h2>
+                                            <p>Dear Supplier,</p>
+                                            <p>Please find attached a new purchase order:</p>
+                                            <ul>
+                                                <li><strong>Order Number:</strong> ${selectedOrder.orderNumber}</li>
+                                                <li><strong>Customer:</strong> ${selectedOrder.customer.name}</li>
+                                                <li><strong>Product:</strong> ${selectedOrder.lineItems[0]?.productTitle}</li>
+                                            </ul>
+                                            <p>Kind regards,<br>Bespoke Mattress Company</p>
+                                        `,
+                                        orderId: selectedOrder.id
+                                    })
+                                });
+
+                                if (!emailResponse.ok) throw new Error('Email sending failed');
+                                
+                                // 3. Mark as sent only if successful
+                                await markOrderAsSent();
+                                alert('PDF downloaded and email sent successfully!');
+                                
+                            } catch (error) {
+                                console.error('Error:', error);
+                                alert(`Failed: ${error.message}`);
+                            }
                         }}
                         className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 flex items-center gap-2"
                         >
