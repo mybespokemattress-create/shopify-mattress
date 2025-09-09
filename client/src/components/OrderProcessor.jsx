@@ -93,6 +93,7 @@ const OrderProcessor = () => {
       },
       orderDate: apiOrder.created_date ? new Date(apiOrder.created_date).toISOString().split('T')[0] : '',
       status: apiOrder.processing_status === 'received' ? 'pending_review' : 'ready_to_send',
+      emailSent: apiOrder.email_sent || false,
       lineItems: [{
         sku: orderData.sku || lineItems?.[0]?.sku || 'Unknown SKU',
         productTitle: lineItems?.[0]?.title || 'Unknown Product',
@@ -251,6 +252,25 @@ const OrderProcessor = () => {
     alert('Zoho Mail opened. Please attach PDF and send.');
   };
 
+  const markOrderAsSent = async () => {
+  try {
+    const response = await fetch(`/api/orders/${selectedOrder.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email_sent: true })
+    });
+    
+    if (response.ok) {
+      setOrders(orders.map(order => 
+        order.id === selectedOrder.id ? { ...order, emailSent: true } : order
+      ));
+      setSelectedOrder(prev => ({ ...prev, emailSent: true }));
+    }
+  } catch (err) {
+    console.error('Error marking order as sent:', err);
+  }
+};
+
   const filteredOrders = orders.filter(order =>
     order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
     order.customer.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -373,12 +393,14 @@ const OrderProcessor = () => {
                         </div>
                         <div>
                           <span className={`px-2 py-1 rounded text-xs ${
-                            order.status === 'ready_to_send' 
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {order.status === 'ready_to_send' ? 'Ready' : 'Review'}
-                          </span>
+                            order.emailSent 
+                                ? 'bg-green-100 text-green-800'
+                                : order.status === 'ready_to_send' 
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-grey-100 text-grey-800'
+                            }`}>
+                            {order.emailSent ? 'Sent' : (order.status === 'ready_to_send' ? 'Ready' : 'Review')}
+                            </span>
                         </div>
                       </div>
                     </div>
@@ -414,11 +436,12 @@ const OrderProcessor = () => {
                           Download PDF
                         </button>
                         <button
-                          onClick={() => {
-                            generatePDF();
+                        onClick={async () => {
+                            await generatePDF();
                             setTimeout(() => openZohoMail(), 500);
-                          }}
-                          className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 flex items-center gap-2"
+                            await markOrderAsSent();
+                        }}
+                        className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 flex items-center gap-2"
                         >
                           <Mail size={16} />
                           <Download size={14} />
