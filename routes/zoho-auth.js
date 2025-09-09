@@ -27,11 +27,27 @@ router.get('/auth', (req, res) => {
   res.redirect(authUrl);
 });
 
+// Function to get correct Mail API domain from user location
+function getMailApiDomain(userLocation) {
+    switch(userLocation) {
+        case 'us': return 'https://mail.zoho.com';
+        case 'eu': return 'https://mail.zoho.eu';
+        case 'in': return 'https://mail.zoho.in';
+        case 'au': return 'https://mail.zoho.com.au';
+        case 'jp': return 'https://mail.zoho.jp';
+        case 'ca': return 'https://mail.zohocloud.ca';
+        default: return 'https://mail.zoho.com';
+    }
+}
+
 // Function to store OAuth tokens in database
-async function storeOAuthTokens(tokenData) {
+async function storeOAuthTokens(tokenData, userLocation) {
     try {
         // Calculate expires_at timestamp (1 hour from now)
         const expiresAt = new Date(Date.now() + (tokenData.expires_in * 1000));
+        
+        // Get the correct Mail API domain (override what Zoho returns)
+        const correctMailDomain = getMailApiDomain(userLocation || 'us');
         
         // First, mark any existing active tokens as inactive
         await pool.query(`
@@ -40,7 +56,7 @@ async function storeOAuthTokens(tokenData) {
             WHERE provider = 'zoho' AND is_active = true
         `);
         
-        // Insert new token
+        // Insert new token with corrected Mail API domain
         const result = await pool.query(`
             INSERT INTO oauth_tokens (
                 provider, 
@@ -60,13 +76,13 @@ async function storeOAuthTokens(tokenData) {
             tokenData.refresh_token,
             tokenData.token_type || 'Bearer',
             expiresAt,
-            tokenData.api_domain,
-            tokenData.user_location,
+            correctMailDomain,  // Use correct Mail domain, not what Zoho returns
+            userLocation || 'us',
             'ZohoMail.messages.CREATE',
             true
         ]);
         
-        console.log('✅ OAuth tokens stored in database with ID:', result.rows[0].id);
+        console.log('✅ OAuth tokens stored with correct Mail API domain:', correctMailDomain);
         return result.rows[0].id;
     } catch (error) {
         console.error('❌ Error storing OAuth tokens:', error);
@@ -133,22 +149,19 @@ router.get('/callback', async (req, res) => {
     
     console.log('Token response received');
     
-    // Add location to token data
-    const tokenData = {
-      ...tokenResponse.data,
-      user_location: location
-    };
+    // Store tokens with correct Mail API domain
+    const tokenId = await storeOAuthTokens(tokenResponse.data, location);
     
-    // Store tokens in database
-    const tokenId = await storeOAuthTokens(tokenData);
+    // Get the correct Mail API domain for response
+    const correctMailDomain = getMailApiDomain(location || 'us');
     
     res.json({ 
       success: true, 
       message: 'OAuth setup complete and tokens stored in database!',
       token_id: tokenId,
-      api_domain: tokenData.api_domain,
-      user_location: location,
-      expires_in: tokenData.expires_in
+      api_domain: correctMailDomain,  // Return correct Mail domain
+      user_location: location || 'us',
+      expires_in: tokenResponse.data.expires_in
     });
     
   } catch (error) {
