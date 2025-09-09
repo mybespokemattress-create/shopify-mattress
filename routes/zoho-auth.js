@@ -36,13 +36,19 @@ router.get('/callback', async (req, res) => {
       redirect_uri: process.env.ZOHO_REDIRECT_URI
     });
     
-    const tokenResponse = await axios.post('https://accounts.zoho.com/oauth/v2/token', {
-      grant_type: 'authorization_code',
-      client_id: process.env.ZOHO_CLIENT_ID,
-      client_secret: process.env.ZOHO_CLIENT_SECRET,
-      redirect_uri: process.env.ZOHO_REDIRECT_URI,
-      code: code
-    });
+    // According to Zoho docs, token exchange should be a GET request with query parameters
+    const tokenUrl = `https://accounts.zoho.com/oauth/v2/token?` +
+      `client_id=${process.env.ZOHO_CLIENT_ID}&` +
+      `client_secret=${process.env.ZOHO_CLIENT_SECRET}&` +
+      `grant_type=authorization_code&` +
+      `redirect_uri=${encodeURIComponent(process.env.ZOHO_REDIRECT_URI)}&` +
+      `code=${code}`;
+    
+    console.log('Making token request to:', tokenUrl);
+    
+    const tokenResponse = await axios.get(tokenUrl);
+    
+    console.log('Token response:', tokenResponse.data);
     
     // Store tokens (you'll need to save these to database)
     const { access_token, refresh_token } = tokenResponse.data;
