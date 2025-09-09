@@ -245,12 +245,23 @@ const OrderProcessor = () => {
     }
   };
 
-  const openZohoMail = () => {
-    const subject = `Purchase Order ${selectedOrder.orderNumber}`;
-    const zohoUrl = `https://mail.zoho.eu/zm/h/compose?subject=${encodeURIComponent(subject)}`;
-    window.open(zohoUrl, '_blank');
-    alert('Zoho Mail opened. Please attach PDF and send.');
-  };
+    const getSupplierEmail = (supplierName) => {
+        const supplierEmails = {
+            'Southern Production': 'mbm@southernfoam.co.uk',
+            'Mattressshire Production': 'mattressshire.wmltd@gmail.com'
+        };
+        
+        return supplierEmails[supplierName] || 'orders@bespokemattresscompany.com';
+        };
+
+    const openZohoMail = () => {
+        const supplierEmail = getSupplierEmail(selectedOrder.supplierName);
+        const subject = `Purchase Order ${selectedOrder.orderNumber} - ${selectedOrder.customer.name}`;
+        
+        const zohoUrl = `https://mail.zoho.eu/zm/h/compose?from=${encodeURIComponent('angelo@mybespokemattress.com')}&to=${encodeURIComponent(supplierEmail)}&subject=${encodeURIComponent(subject)}`;
+        window.open(zohoUrl, '_blank');
+        alert('Zoho Mail opened with supplier details pre-filled. Please attach PDF and send.');
+        };
 
   const markOrderAsSent = async () => {
   try {
