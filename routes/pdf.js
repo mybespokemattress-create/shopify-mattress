@@ -297,30 +297,30 @@ router.post('/generate', async (req, res) => {
     
     yPos += 240;
     
-    // === CUSTOMER NOTES SECTION - COMPACT ===
-    // Check if we have notes and if there's space (keep within A4 bounds)
-    if (order.notes && order.notes.trim() && yPos < 700) {
+    // === CUSTOMER NOTES SECTION - TWO LINES MAX ===
+    // Only show if notes exist, readable 12pt font, max 2 lines
+    if (order.notes && order.notes.trim() && yPos < 720) {
       doc.fontSize(14)
          .font('Helvetica-Bold')
          .fillColor('black')
          .text('Customer Notes', 30, yPos);
       
-      yPos += 20;
+      yPos += 22;
       
-      // Calculate available height for notes (ensure footer fits)
-      const maxNotesHeight = Math.min(80, 750 - yPos);
-      const notesBoxY = drawCleanBox(doc, 30, yPos, 535, maxNotesHeight);
+      // Compact box sized for exactly 2 lines of 12pt text
+      const notesHeight = 45;
+      const notesBoxY = drawCleanBox(doc, 30, yPos, 535, notesHeight);
       
-      doc.fontSize(9)
+      doc.fontSize(12)
          .font('Helvetica')
          .fillColor('black')
          .text(order.notes, 40, notesBoxY, { 
            width: 515, 
-           height: maxNotesHeight - 20,
-           ellipsis: true // Truncate if too long
+           height: 32, // Height for exactly 2 lines of 12pt text
+           ellipsis: true
          });
       
-      yPos += maxNotesHeight + 10;
+      yPos += 55;
     }
     
     // === COMPACT FOOTER SECTION ===
