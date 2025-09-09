@@ -126,11 +126,11 @@ router.post('/send', async (req, res) => {
             );
         }
 
-        // Get the Zoho Mail domain (default to .com if not specified)
-        const mailDomain = token.api_domain || 'https://mail.zoho.com';
+        // Get the correct Mail API domain for user's location
+        const mailDomain = getMailApiDomain(token.user_location || 'us');
         
         // Get account ID
-        const accountId = await getZohoAccountId(token.access_token, mailDomain);
+        const accountId = await getZohoAccountId(token.access_token, token.user_location || 'us');
 
         // Prepare email data for Zoho Mail API (correct format)
         const emailData = {
