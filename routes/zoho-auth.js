@@ -2,15 +2,14 @@ const express = require('express');
 const axios = require('axios');
 const router = express.Router();
 
-// ADD THIS TEST ROUTE FIRST:
+// Test route
 router.get('/test', (req, res) => {
   res.json({ message: 'Zoho router works!' });
 });
 
-
 // Step 1: Redirect user to Zoho authorization
 router.get('/auth', (req, res) => {
-  const authUrl = `https://accounts.zoho.uk/oauth/v2/auth?` +
+  const authUrl = `https://accounts.zoho.com/oauth/v2/auth?` +
     `response_type=code&` +
     `client_id=${process.env.ZOHO_CLIENT_ID}&` +
     `scope=ZohoMail.messages.CREATE&` +
@@ -25,8 +24,9 @@ router.get('/auth', (req, res) => {
 router.get('/callback', async (req, res) => {
   try {
     const { code } = req.query;
+    console.log('Received authorization code:', code ? 'YES' : 'NO');
     
-    const tokenResponse = await axios.post('https://accounts.zoho.uk/oauth/v2/token', {
+    const tokenResponse = await axios.post('https://accounts.zoho.com/oauth/v2/token', {
       grant_type: 'authorization_code',
       client_id: process.env.ZOHO_CLIENT_ID,
       client_secret: process.env.ZOHO_CLIENT_SECRET,
@@ -34,7 +34,6 @@ router.get('/callback', async (req, res) => {
       code: code
     });
     
-    // Store tokens (you'll need to save these to database)
     const { access_token, refresh_token } = tokenResponse.data;
     
     res.json({ 
@@ -44,8 +43,11 @@ router.get('/callback', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('OAuth error:', error);
-    res.status(500).json({ error: 'OAuth failed' });
+    console.error('OAuth error details:', error.response?.data || error.message);
+    res.status(500).json({ 
+      error: 'OAuth failed',
+      details: error.response?.data || error.message
+    });
   }
 });
 
