@@ -255,6 +255,7 @@ const OrderProcessor = () => {
         };
 
     const openZohoMail = () => {
+        console.log('Supplier name:', selectedOrder.supplierName);
         const supplierEmail = getSupplierEmail(selectedOrder.supplierName);
         const subject = `Purchase Order ${selectedOrder.orderNumber} - ${selectedOrder.customer.name}`;
         
@@ -263,25 +264,40 @@ const OrderProcessor = () => {
         alert('Zoho Mail opened with supplier details pre-filled. Please attach PDF and send.');
         };
 
-  const markOrderAsSent = async () => {
-    console.log('markOrderAsSent function called!', selectedOrder?.id); 
-    try {
-        const response = await fetch(`/api/orders/${selectedOrder.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email_sent: true })
-        });
-    
-    if (response.ok) {
-      setOrders(orders.map(order => 
-        order.id === selectedOrder.id ? { ...order, emailSent: true } : order
-      ));
-      setSelectedOrder(prev => ({ ...prev, emailSent: true }));
-    }
-  } catch (err) {
-    console.error('Error marking order as sent:', err);
-  }
-};
+        const markOrderAsSent = async () => {
+        console.log('=== markOrderAsSent DEBUG ===');
+        console.log('selectedOrder:', selectedOrder);
+        console.log('selectedOrder.id:', selectedOrder?.id);
+        
+        if (!selectedOrder?.id) {
+            console.log('ERROR: No order ID found!');
+            return;
+        }
+        
+        try {
+            console.log('About to make PUT request to:', `/api/orders/${selectedOrder.id}`);
+            const response = await fetch(`/api/orders/${selectedOrder.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email_sent: true })
+            });
+            
+            console.log('Response status:', response.status);
+            console.log('Response ok:', response.ok);
+            
+            if (response.ok) {
+            console.log('Database update successful');
+            setOrders(orders.map(order => 
+                order.id === selectedOrder.id ? { ...order, emailSent: true } : order
+            ));
+            setSelectedOrder(prev => ({ ...prev, emailSent: true }));
+            } else {
+            console.log('Database update failed');
+            }
+        } catch (err) {
+            console.error('Error in markOrderAsSent:', err);
+        }
+        };
 
   const filteredOrders = orders.filter(order =>
     order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
