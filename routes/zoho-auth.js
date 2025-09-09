@@ -203,8 +203,4 @@ router.get('/token/status', async (req, res) => {
 });
 
 // Export the function so other parts of your app can use it
-module.exports = {
-    router,
-    getActiveOAuthToken,
-    storeOAuthTokens
-};
+module.exports = router;
