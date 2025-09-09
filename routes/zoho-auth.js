@@ -2,7 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const router = express.Router();
 
-// Test route
+// Test route to verify router works
 router.get('/test', (req, res) => {
   res.json({ message: 'Zoho router works!' });
 });
@@ -24,7 +24,17 @@ router.get('/auth', (req, res) => {
 router.get('/callback', async (req, res) => {
   try {
     const { code } = req.query;
-    console.log('Received authorization code:', code ? 'YES' : 'NO');
+    
+    if (!code) {
+      return res.status(400).json({ error: 'No authorization code received' });
+    }
+
+    console.log('Received code:', code);
+    console.log('Environment vars check:', {
+      client_id: process.env.ZOHO_CLIENT_ID ? 'SET' : 'MISSING',
+      client_secret: process.env.ZOHO_CLIENT_SECRET ? 'SET' : 'MISSING',
+      redirect_uri: process.env.ZOHO_REDIRECT_URI
+    });
     
     const tokenResponse = await axios.post('https://accounts.zoho.com/oauth/v2/token', {
       grant_type: 'authorization_code',
@@ -34,6 +44,7 @@ router.get('/callback', async (req, res) => {
       code: code
     });
     
+    // Store tokens (you'll need to save these to database)
     const { access_token, refresh_token } = tokenResponse.data;
     
     res.json({ 
@@ -45,8 +56,8 @@ router.get('/callback', async (req, res) => {
   } catch (error) {
     console.error('OAuth error details:', error.response?.data || error.message);
     res.status(500).json({ 
-      error: 'OAuth failed',
-      details: error.response?.data || error.message
+      error: 'OAuth failed', 
+      details: error.response?.data || error.message 
     });
   }
 });
