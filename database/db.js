@@ -47,6 +47,26 @@ async function initialize() {
                 created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
+
+        // ADD THIS NEW TABLE HERE - OAuth tokens table for storing Zoho authentication
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS oauth_tokens (
+                id SERIAL PRIMARY KEY,
+                provider VARCHAR(50) NOT NULL DEFAULT 'zoho',
+                user_identifier VARCHAR(255),
+                access_token TEXT NOT NULL,
+                refresh_token TEXT NOT NULL,
+                token_type VARCHAR(50) DEFAULT 'Bearer',
+                expires_at TIMESTAMP,
+                api_domain VARCHAR(255),
+                user_location VARCHAR(10),
+                scope TEXT,
+                is_active BOOLEAN DEFAULT true,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        console.log('✅ Created oauth_tokens table');
         
         // Create processed_orders table with correct schema
         await pool.query(`
@@ -106,6 +126,14 @@ async function initialize() {
             CREATE INDEX IF NOT EXISTS idx_orders_shopify_order_id ON processed_orders(shopify_order_id)
         `);
         
+        // ADD THESE NEW INDEXES HERE - Create indexes for OAuth tokens table
+        await pool.query(`
+            CREATE INDEX IF NOT EXISTS idx_oauth_tokens_provider_active ON oauth_tokens(provider, is_active)
+        `);
+        await pool.query(`
+            CREATE INDEX IF NOT EXISTS idx_oauth_tokens_user_identifier ON oauth_tokens(user_identifier)
+        `);
+        
         // Insert store configurations and sample data
         await insertStoreConfigs();
         await insertSampleData();
@@ -118,6 +146,7 @@ async function initialize() {
     }
 }
 
+// REST OF YOUR FILE STAYS THE SAME...
 async function insertStoreConfigs() {
     const stores = [
         [process.env.STORE1_DOMAIN, process.env.STORE1_NAME, process.env.STORE1_WEBHOOK_SECRET, process.env.STORE1_ACCESS_TOKEN],
