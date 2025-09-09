@@ -61,6 +61,15 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/api/pdf', pdfRoutes);
 app.use('/auth/zoho', zohoAuthRoutes);
 
+// ADD THIS DEBUG ROUTE HERE:
+app.get('/debug-test', (req, res) => {
+  res.json({ 
+    message: 'Debug route works!',
+    timestamp: new Date(),
+    routes_loaded: 'yes'
+  });
+});
+
 // Serve static files from React build - FIXED PATH
 app.use(express.static(path.join(__dirname, 'client/build')));
 

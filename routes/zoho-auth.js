@@ -2,6 +2,12 @@ const express = require('express');
 const axios = require('axios');
 const router = express.Router();
 
+// ADD THIS TEST ROUTE FIRST:
+router.get('/test', (req, res) => {
+  res.json({ message: 'Zoho router works!' });
+});
+
+
 // Step 1: Redirect user to Zoho authorization
 router.get('/auth', (req, res) => {
   const authUrl = `https://accounts.zoho.eu/oauth/v2/auth?` +
