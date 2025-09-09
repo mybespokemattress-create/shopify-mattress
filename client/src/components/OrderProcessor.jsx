@@ -254,19 +254,20 @@ const OrderProcessor = () => {
         return supplierEmails[supplierName] || 'orders@bespokemattresscompany.com';
         };
 
-    const openZohoMail = () => {
-        console.log('Supplier name:', selectedOrder.supplierName);
-        const supplierEmail = getSupplierEmail(selectedOrder.supplierName);
-        const subject = `Purchase Order ${selectedOrder.orderNumber} - ${selectedOrder.customer.name}`;
-        
-        // Open Zoho Mail compose window
-        window.open('https://mail.zoho.eu/zm/#compose', '_blank');
-        
-        // Create alert with email details to copy
-        setTimeout(() => {
-            alert(`Zoho Mail opened. Please copy these details:\n\nTO: ${supplierEmail}\nSUBJECT: ${subject}\n\nThen attach the downloaded PDF and send.`);
-        }, 1000);
+        const openZohoMail = () => {
+            console.log('Supplier name:', selectedOrder.supplierName);
+            const supplierEmail = getSupplierEmail(selectedOrder.supplierName);
+            const subject = `Purchase Order ${selectedOrder.orderNumber} - ${selectedOrder.customer.name}`;
+            
+            // Official Zoho compose URL
+            window.open('https://mail.zoho.eu/zm/#compose', '_blank');
+            
+            // Create alert with email details to copy
+            setTimeout(() => {
+                alert(`Zoho Mail opened. Please copy these details:\n\nTO: ${supplierEmail}\nSUBJECT: ${subject}\n\nThen attach the downloaded PDF and send.`);
+            }, 1000);
         };
+
         const markOrderAsSent = async () => {
           const response = await fetch(`/api/orders/${selectedOrder.id}`, {
             method: 'PUT',
