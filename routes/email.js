@@ -168,9 +168,12 @@ router.post('/send', async (req, res) => {
         // Add PDF attachment if generated
         if (pdfAttachment) {
             emailData.attachments = [pdfAttachment];
+            console.log('Email will include attachment:', JSON.stringify(pdfAttachment, null, 2));
         } else if (attachments && attachments.length > 0) {
             emailData.attachments = attachments;
         }
+
+        console.log('Final email data:', JSON.stringify(emailData, null, 2));
 
         // Send email via Zoho Mail API
         const emailResponse = await axios.post(
