@@ -88,6 +88,8 @@ async function uploadAttachmentToZoho(pdfBuffer, filename, accessToken, accountI
         
     } catch (error) {
         console.error('Failed to upload attachment to Zoho:', error.response?.data || error.message);
+        console.error('Zoho upload failed with detailed error:', error.response?.status, error.response?.data, error.message);
+        console.error('Upload request details - URL:', `${getMailApiDomain(userLocation)}/api/accounts/${accountId}/messages/attachments?uploadType=multipart`);
         throw error;
     }
 }
