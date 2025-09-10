@@ -476,6 +476,7 @@ const OrderProcessor = () => {
                                         orderId: selectedOrder.id,
                                         orderData: selectedOrder  // ADD THIS LINE
                                     })
+                                });
 
                                 if (!emailResponse.ok) throw new Error('Email sending failed');
                                 
