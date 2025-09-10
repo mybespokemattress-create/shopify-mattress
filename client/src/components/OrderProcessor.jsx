@@ -738,8 +738,8 @@ const OrderProcessor = () => {
 
                   <div className="border rounded-lg p-4">
                     <h3 className="font-semibold mb-3">Product Information</h3>
-                    <div className="grid grid-cols-4 gap-4">
-                      <div className="col-span-3">
+                    <div className="grid grid-cols-6 gap-4">
+                      <div className="col-span-5">
                         <label className="block text-sm text-slate-600 mb-1">Supplier Code</label>
                         <input
                           type="text"
