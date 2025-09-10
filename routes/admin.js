@@ -289,3 +289,20 @@ router.get('/orders', async (req, res) => {
 });
 
 module.exports = router;
+
+// Test endpoint to check line_items column
+router.get('/test-line-items', async (req, res) => {
+    try {
+        const result = await req.app.locals.db.query(`
+            SELECT id, order_number, line_items 
+            FROM processed_orders 
+            ORDER BY created_date DESC 
+            LIMIT 1
+        `);
+        res.json({ success: true, data: result.rows });
+    } catch (error) {
+        res.json({ success: false, error: error.message });
+    }
+});
+
+module.exports = router;
