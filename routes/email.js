@@ -95,9 +95,9 @@ router.post('/send', async (req, res) => {
                 const pdfBuffer = await generatePurchaseOrderPDF(orderData);
                 
                 pdfAttachment = {
-                    filename: `Order_${orderData.orderNumber || orderId}_${orderData.customer?.name?.replace(/\s+/g, '_') || 'Customer'}.pdf`,
+                    attachmentName: `Order_${orderData.orderNumber || orderId}_${orderData.customer?.name?.replace(/\s+/g, '_') || 'Customer'}.pdf`,
                     content: pdfBuffer.toString('base64'),
-                    contentType: 'application/pdf'
+                    mimeType: 'application/pdf'
                 };
                 console.log('PDF generated successfully for email attachment');
             } catch (pdfError) {
@@ -151,7 +151,7 @@ router.post('/send', async (req, res) => {
             success: true,
             message: 'Email sent successfully',
             messageId: emailResponse.data.messageId || emailResponse.data.id,
-            orderId: orderId
+            orderId: req.body.orderId || 'unknown'
         });
 
     } catch (error) {
@@ -173,7 +173,7 @@ router.post('/send', async (req, res) => {
         res.status(500).json({
             error: 'Failed to send email',
             details: error.response?.data || error.message,
-            orderId: orderId
+            orderId: req.body.orderId || 'unknown'
         });
     }
 });
