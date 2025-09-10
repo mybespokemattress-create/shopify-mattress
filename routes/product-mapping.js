@@ -86,7 +86,7 @@ const MATTRESS_MAPPINGS = {
 /**
  * Detect which mattress type a product is
  */
-function detectMattressType(productTitle, handle = null) {
+function detectMattressType(productTitle, shopifySku = null, handle = null) {
   console.log(`Detecting mattress type for: ${productTitle}`);
   
   for (const [mattressType, config] of Object.entries(MATTRESS_MAPPINGS)) {
@@ -110,7 +110,7 @@ function mapProduct(productTitle, productVariant = null, productProperties = nul
   
   try {
     // 1. Detect mattress type
-    const mattressType = detectMattressType(productTitle, handle);
+    if (config.active && config.detector(productTitle, shopifySku, handle)) {
     
     if (!mattressType) {
       return {
