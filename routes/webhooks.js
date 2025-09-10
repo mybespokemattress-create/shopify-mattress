@@ -594,6 +594,16 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
                     customerEmail: customerData.customerEmail,
                     totalPrice: lineItem.price,
                     order_data: orderWithSingleItem,
+                    line_items: [{
+                        sku: product.shopifySku,
+                        title: product.productTitle,
+                        quantity: product.quantity,
+                        price: lineItem.price,
+                        properties: lineItem.properties,
+                        supplier_code: product.supplierSpecification ? 'COOLPLUS' : null,
+                        specification: product.supplierSpecification || null,
+                        mapped: !!product.supplierSpecification
+                    }],
                     supplier_assigned: supplierAssignment,
                     supplier_name: supplierName,
                     notes: customerData.customerNotes,
