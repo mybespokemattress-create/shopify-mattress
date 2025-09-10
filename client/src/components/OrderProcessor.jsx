@@ -234,7 +234,7 @@ const OrderProcessor = () => {
         quantity: 1,
         properties: properties
       }],
-      supplierCode: orderData.supplierSpecification || '',
+      supplierCode: apiOrder.line_items?.[0]?.specification || orderData.supplierSpecification || '',
       shapeNumber: orderData.shapeNumber || '',
       diagramNumber: diagramNumber,
       shapeDiagramUrl: getDiagramImageUrl(diagramNumber),
