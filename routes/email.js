@@ -122,7 +122,7 @@ router.post('/send', async (req, res) => {
             console.log('Token expiring soon, refreshing...');
             token.access_token = await refreshOAuthToken(
                 token.refresh_token, 
-                token.api_domain || 'https://accounts.zoho.com'
+                'https://accounts.zoho.com'
             );
         }
 
