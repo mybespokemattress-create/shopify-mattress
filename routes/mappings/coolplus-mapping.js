@@ -115,12 +115,7 @@ function isCoolplusMattress(productTitle, shopifySku = null, handle = null) {
   
   // FALLBACK METHOD: Check product title
   const title = productTitle.toLowerCase();
-  const handleText = handle ? handle.toLowerCase() : '';
-  
-  const titleMatch = title.includes('coolplus') || 
-                    title.includes('cool plus') || 
-                    handleText.includes('coolplus') || 
-                    handleText.includes('cool plus');
+  const titleMatch = title.includes('coolplus') || title.includes('cool plus');
   
   if (titleMatch) {
     console.log(`[Coolplus] Detected via title: ${productTitle}`);
@@ -348,63 +343,6 @@ function mapCoolplusMattress(productTitle, productVariant = null, productPropert
 }
 
 // ============================================================================
-// TESTING FUNCTIONS
-// ============================================================================
-
-/**
- * Test Coolplus mattress mapping with various inputs
- */
-function testMapping() {
-  console.log('\n=== TESTING COOLPLUS MATTRESS MAPPING ===\n');
-  
-  const testCases = [
-    {
-      name: 'CoolpS31 - SKU prefix detection',
-      title: 'Coolplus Narrow Right Curved Corner Caravan Mattress - Single',
-      sku: 'CoolpS31',
-      variant: null,
-      properties: [{ name: 'Firmness', value: 'Hard' }],
-      expected: '4" 33/175 Blue Base Layer + 1" 30/130 White Middle Layer + 1" FR50/125 Top Layer + Coolplus Cover'
-    },
-    {
-      name: 'Coolplus 6" Medium firm',
-      title: 'Coolplus Narrow Right Cut Out Caravan Mattress - Single',
-      sku: 'Cool123',
-      variant: { title: '6" inch / 15cm - Standard support' },
-      properties: [{ name: 'Firmness', value: 'Medium firm' }],
-      expected: '1" 33/175 Blue Base Layer + 3" 30/130 White Middle Layer + 2" FR50/125 Top Layer + Coolplus Cover'
-    },
-    {
-      name: 'Coolplus 8" Firm Orthopaedic',
-      title: 'Coolplus Rectangle Mattress - Double',
-      sku: 'Cool456',
-      variant: { title: '8" inch / 20cm - Premium support' },
-      properties: [{ name: 'Firmness', value: 'Firm Orthopaedic' }],
-      expected: '2" 33/175 Blue Base Layer + 5" 30/130 White Middle Layer + 1" FR50/125 Top Layer + Coolplus Cover'
-    }
-  ];
-
-  testCases.forEach((testCase, index) => {
-    console.log(`--- Test ${index + 1}: ${testCase.name} ---`);
-    
-    const result = mapCoolplusMattress(testCase.title, testCase.variant, testCase.properties, testCase.sku);
-    
-    if (result.success) {
-      const match = result.specification.fullSpecification === testCase.expected;
-      console.log(`Result: ${result.specification.fullSpecification}`);
-      console.log(`Expected: ${testCase.expected}`);
-      console.log(`${match ? '✅' : '❌'} Match: ${match ? 'YES' : 'NO'}`);
-      console.log(`Confidence: ${result.confidence}%`);
-      console.log(`Thickness: ${result.debugInfo.extractedThickness}"`);
-      console.log(`Firmness: ${result.debugInfo.extractedFirmness}`);
-    } else {
-      console.log(`❌ Error: ${result.error}`);
-    }
-    console.log('');
-  });
-}
-
-// ============================================================================
 // EXPORTS
 // ============================================================================
 
@@ -418,9 +356,6 @@ module.exports = {
   extractFirmness,
   generateSpecification,
   
-  // Testing
-  testMapping,
-  
   // Configuration
   COOLPLUS_SPECS,
   
@@ -429,8 +364,3 @@ module.exports = {
   version: '1.0.0',
   lastUpdated: new Date().toISOString()
 };
-
-// Auto-run tests if file executed directly
-if (require.main === module) {
-  testMapping();
-}

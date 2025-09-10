@@ -80,17 +80,18 @@ const MATTRESS_MAPPINGS = {
 };
 
 // ============================================================================
-// MAIN MAPPING FUNCTIONS
+// MAIN MAPPING FUNCTIONS - FIXED TO USE SKU PREFIX
 // ============================================================================
 
 /**
  * Detect which mattress type a product is
+ * FIXED: Now properly checks SKU prefix as primary method
  */
 function detectMattressType(productTitle, shopifySku = null, handle = null) {
-  console.log(`Detecting mattress type for: ${productTitle}`);
+  console.log(`Detecting mattress type for: ${productTitle}, SKU: ${shopifySku || 'Not provided'}`);
   
   for (const [mattressType, config] of Object.entries(MATTRESS_MAPPINGS)) {
-    if (config.active && config.detector(productTitle, handle)) {
+    if (config.active && config.detector(productTitle, shopifySku, handle)) {
       console.log(`Detected mattress type: ${mattressType}`);
       return mattressType;
     }
@@ -102,6 +103,7 @@ function detectMattressType(productTitle, shopifySku = null, handle = null) {
 
 /**
  * Main product mapping function - routes to appropriate mattress mapper
+ * FIXED: Now properly passes SKU through the detection chain
  */
 function mapProduct(productTitle, productVariant = null, productProperties = null, shopifySku = null, handle = null) {
   console.log(`\n=== MAIN PRODUCT MAPPING ===`);
@@ -109,8 +111,8 @@ function mapProduct(productTitle, productVariant = null, productProperties = nul
   console.log(`SKU: ${shopifySku || 'Not provided'}`);
   
   try {
-    // 1. Detect mattress type
-    if (config.active && config.detector(productTitle, shopifySku, handle)) {
+    // 1. Detect mattress type (now passes SKU)
+    const mattressType = detectMattressType(productTitle, shopifySku, handle);
     
     if (!mattressType) {
       return {
@@ -166,9 +168,13 @@ function mapProduct(productTitle, productVariant = null, productProperties = nul
  */
 router.post('/parse', async (req, res) => {
   try {
-    const { productTitle, productVariant, productProperties, shopifySku, handle } = req.body;
+    const { productTitle, title, productVariant, productProperties, shopifySku, sku, handle } = req.body;
     
-    if (!productTitle) {
+    // Handle different parameter names
+    const finalTitle = productTitle || title;
+    const finalSku = shopifySku || sku;
+    
+    if (!finalTitle) {
       return res.status(400).json({ 
         success: false,
         error: 'Product title is required' 
@@ -176,7 +182,7 @@ router.post('/parse', async (req, res) => {
     }
 
     // Map the product
-    const result = mapProduct(productTitle, productVariant, productProperties, shopifySku, handle);
+    const result = mapProduct(finalTitle, productVariant, productProperties, finalSku, handle);
     
     res.json({
       success: result.success,
@@ -209,6 +215,54 @@ router.get('/types', (req, res) => {
     res.status(500).json({ 
       success: false,
       error: 'Failed to get mattress types' 
+    });
+  }
+});
+
+/**
+ * POST /api/mapping/test - Test mapping with order-like data
+ */
+router.post('/test', async (req, res) => {
+  try {
+    const { order_number, line_items } = req.body;
+    
+    if (!line_items || !Array.isArray(line_items) || line_items.length === 0) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'line_items array is required' 
+      });
+    }
+
+    const results = [];
+    
+    for (const item of line_items) {
+      const result = mapProduct(
+        item.title,
+        { title: item.variant_title },
+        item.properties,
+        item.sku,
+        null
+      );
+      
+      results.push({
+        title: item.title,
+        sku: item.sku,
+        mapping: result
+      });
+    }
+    
+    res.json({
+      success: true,
+      order_number: order_number || 'TEST',
+      results,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Test mapping error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to test product mapping' 
     });
   }
 });
