@@ -305,8 +305,8 @@ app.get('/api/orders', async (req, res) => {
     const offset = (page - 1) * limit;
     
     const query = `
-    SELECT 
-    id,
+      SELECT 
+        id,
         order_number,
         customer_name,
         customer_email,
@@ -316,6 +316,7 @@ app.get('/api/orders', async (req, res) => {
         mattress_label,
         order_data,
         extracted_measurements,
+        line_items,
         created_date,
         updated_date,
         email_sent,
@@ -325,7 +326,7 @@ app.get('/api/orders', async (req, res) => {
       FROM processed_orders 
       ORDER BY created_date DESC 
       LIMIT $1 OFFSET $2
-    `;
+      `;
     
     const countQuery = 'SELECT COUNT(*) FROM processed_orders';
     
