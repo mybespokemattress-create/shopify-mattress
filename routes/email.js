@@ -187,12 +187,12 @@ router.post('/send', async (req, res) => {
         console.log('Email sent successfully');
 
         // Update order status in database if orderId provided
-        if (orderId) {
+        if (orderId && !isNaN(parseInt(orderId))) {
             await pool.query(`
                 UPDATE processed_orders 
                 SET email_sent = true, updated_date = CURRENT_TIMESTAMP 
                 WHERE id = $1
-            `, [orderId]);
+            `, [parseInt(orderId)]);
             
             console.log(`Updated order ${orderId} email status`);
         }
