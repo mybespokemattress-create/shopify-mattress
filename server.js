@@ -573,3 +573,7 @@ async function startServer() {
 console.log('Calling startServer...');
 startServer();
 console.log('startServer called');
+
+module.exports = {
+  processShopifyOrder
+};
