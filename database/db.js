@@ -534,16 +534,16 @@ const orders = {
     },
     
     getRecent: async (limit = 50) => {
-        const result = await pool.query(`
-            SELECT *, 
-                   CASE WHEN supplier_assigned IS NOT NULL THEN true ELSE false END as has_supplier,
-                   CASE WHEN sheets_synced = true THEN true ELSE false END as synced_to_sheets
-            FROM processed_orders 
-            ORDER BY created_date DESC 
-            LIMIT $1
-        `, [limit]);
-        return result.rows;
-    },
+    const result = await pool.query(`
+        SELECT *, line_items,
+               CASE WHEN supplier_assigned IS NOT NULL THEN true ELSE false END as has_supplier,
+               CASE WHEN sheets_synced = true THEN true ELSE false END as synced_to_sheets
+        FROM processed_orders 
+        ORDER BY created_date DESC 
+        LIMIT $1
+    `, [limit]);
+    return result.rows;
+},
 
     getBySupplier: async (supplierKey) => {
         const result = await pool.query(`
