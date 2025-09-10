@@ -91,9 +91,26 @@ function detectMattressType(productTitle, shopifySku = null, handle = null) {
   console.log(`Detecting mattress type for: ${productTitle}, SKU: ${shopifySku || 'Not provided'}`);
   
   for (const [mattressType, config] of Object.entries(MATTRESS_MAPPINGS)) {
-    if (config.active && config.detector(productTitle, shopifySku, handle)) {
-      console.log(`Detected mattress type: ${mattressType}`);
-      return mattressType;
+    if (config.active) {
+      try {
+        // Try new signature first (with SKU)
+        const detected = config.detector(productTitle, shopifySku, handle);
+        if (detected) {
+          console.log(`Detected mattress type: ${mattressType}`);
+          return mattressType;
+        }
+      } catch (error) {
+        // Fall back to old signature (without SKU) for compatibility
+        try {
+          const detected = config.detector(productTitle, handle);
+          if (detected) {
+            console.log(`Detected mattress type: ${mattressType} (legacy detection)`);
+            return mattressType;
+          }
+        } catch (fallbackError) {
+          console.log(`Failed to detect ${mattressType}: ${fallbackError.message}`);
+        }
+      }
     }
   }
   
