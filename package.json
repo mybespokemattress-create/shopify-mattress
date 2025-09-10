@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "build": "npm install",
+    "build": "cd client && npm install && npm run build",
     "migrate": "node migrate-db.js"
   },
   "dependencies": {
