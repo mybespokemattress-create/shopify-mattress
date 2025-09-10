@@ -738,15 +738,15 @@ const OrderProcessor = () => {
 
                   <div className="border rounded-lg p-4">
                     <h3 className="font-semibold mb-3">Product Information</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
+                    <div className="grid grid-cols-4 gap-4">
+                      <div className="col-span-3">
                         <label className="block text-sm text-slate-600 mb-1">Supplier Code</label>
                         <input
                           type="text"
                           value={selectedOrder.supplierCode}
                           onChange={(e) => updateOrderField('supplierCode', e.target.value)}
                           disabled={!editMode}
-                          className="w-full px-3 py-2 border rounded disabled:bg-slate-100 font-mono"
+                          className="w-full px-3 py-2 border rounded disabled:bg-slate-100 font-mono text-sm"
                         />
                       </div>
                       <div>
