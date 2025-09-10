@@ -40,7 +40,7 @@ function generatePDFContent(doc, orderData) {
   doc.fontSize(18)
      .font('Helvetica-Bold')
      .fillColor('black')
-     .text('Bespoke Mattress Company', 40, 40);
+     .text('My Bespoke Order Ltd', 40, 40);
 
   doc.fontSize(11)
      .font('Helvetica')
@@ -182,13 +182,11 @@ function generatePDFContent(doc, orderData) {
 
     if (measurement) {
       if (typeof measurement === 'object' && 'value' in measurement) {
-        valueText = measurement.unit 
-          ? `${measurement.value} ${measurement.unit}`
-          : measurement.value;
-        hasValidMeasurements = true;
+          valueText = measurement.value; // Remove unit addition here
+          hasValidMeasurements = true;
       } else if (typeof measurement === 'string' && measurement.trim()) {
-        valueText = String(measurement);
-        hasValidMeasurements = true;
+          valueText = String(measurement);
+          hasValidMeasurements = true;
       }
     }
 
@@ -316,7 +314,7 @@ function generatePDFContent(doc, orderData) {
      .font('Helvetica')
      .fillColor('black')
      .text(`Generated: ${new Date().toLocaleDateString('en-GB')}, ${new Date().toLocaleTimeString('en-GB')}`, 40, yPos)
-     .text('Bespoke Mattress Company | Professional Manufacturing Specification', 40, yPos + 10)
+     .text('My Bespoke Order Ltd | Professional Manufacturing Specification', 40, yPos + 10)
      .text('This document contains all specifications required for manufacturing.', 40, yPos + 20);
 }
 

@@ -251,7 +251,7 @@ const OrderProcessor = () => {
             'Mattressshire Production': 'mattressshire.wmltd@gmail.com'
         };
         
-        return supplierEmails[supplierName] || 'orders@bespokemattresscompany.com';
+        return supplierEmails[supplierName] || 'angelo@mybespokemattress.com';
         };
 
         const openZohoMail = () => {
@@ -469,9 +469,8 @@ const OrderProcessor = () => {
                                             <ul>
                                                 <li><strong>Order Number:</strong> ${selectedOrder.orderNumber}</li>
                                                 <li><strong>Customer:</strong> ${selectedOrder.customer.name}</li>
-                                                <li><strong>Product:</strong> ${selectedOrder.lineItems[0]?.productTitle}</li>
                                             </ul>
-                                            <p>Kind regards,<br>Bespoke Mattress Company</p>
+                                            <p>Kind regards,<br>My Bespoke Order Ltd</p>
                                         `,
                                         orderId: selectedOrder.id,
                                         orderData: selectedOrder  // ADD THIS LINE
