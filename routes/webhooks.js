@@ -433,30 +433,43 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
         // Debug empty measurements
         debugEmptyMeasurements(order);
         
-        // Check product mappings and enhance with shape info
+        // Use the new product mapping system instead of database lookup
         const unmappedProducts = [];
         for (const product of productData) {
             if (product.shopifySku) {
                 try {
-                    const mapping = await db.productMappings.getBySku(product.shopifySku);
-                    if (mapping) {
-                        console.log(`Found mapping for SKU: ${product.shopifySku}`);
-                        product.supplierSpecification = mapping.supplier_specification;
-                        product.shapeId = mapping.shape_id;
-                        
-                        if (mapping.shape_id) {
-                            const shapeMatch = mapping.shape_id.match(/(\d+)/);
-                            if (shapeMatch) {
-                                product.shapeInfo.shapeNumber = shapeMatch[1];
-                                console.log(`Shape ${product.shapeInfo.shapeNumber} assigned to ${product.shopifySku}`);
-                            }
-                        }
+                    // Call the new mapping system
+                    const { mapProduct } = require('../routes/product-mapping');
+                    
+                    // Convert measurement properties back to array format for mapping
+                    const properties = [];
+                    if (product.measurementStatus?.measurements) {
+                        Object.entries(product.measurementStatus.measurements)
+                            .filter(([key]) => key.startsWith('property_'))
+                            .forEach(([key, value]) => {
+                                properties.push({ 
+                                    name: key.replace('property_', ''), 
+                                    value: value 
+                                });
+                            });
+                    }
+                    
+                    const mappingResult = mapProduct(
+                        product.productTitle,
+                        product.variantTitle ? { title: product.variantTitle } : null,
+                        properties,
+                        product.shopifySku
+                    );
+                    
+                    if (mappingResult.success && mappingResult.specification) {
+                        product.supplierSpecification = mappingResult.specification.fullSpecification;
+                        console.log(`✓ Mapped SKU ${product.shopifySku}: ${mappingResult.specification.fullSpecification}`);
                     } else {
                         console.log(`No mapping found for SKU: ${product.shopifySku}`);
                         unmappedProducts.push(product.shopifySku);
                     }
                 } catch (error) {
-                    console.error(`Error checking mapping for SKU ${product.shopifySku}:`, error);
+                    console.error(`Error mapping SKU ${product.shopifySku}:`, error);
                     unmappedProducts.push(product.shopifySku);
                 }
             }
