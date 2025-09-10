@@ -102,7 +102,8 @@ router.post('/send', async (req, res) => {
             subject, 
             body, 
             attachments = [],
-            orderId 
+            orderId,
+            orderData
         } = req.body;
 
         // Validate required fields
@@ -145,6 +146,27 @@ router.post('/send', async (req, res) => {
         // Get account ID
         const accountId = await getZohoAccountId(token.access_token, token.user_location || 'us');
 
+        // Generate PDF if order data is provided
+        let pdfAttachment = null;
+        if (orderData && orderId) {
+            try {
+                console.log('Generating PDF for email attachment...');
+                // Import PDF generation function
+                const { generatePurchaseOrderPDF } = require('../routes/pdf');
+                const pdfBuffer = await generatePurchaseOrderPDF(orderData);
+                
+                pdfAttachment = {
+                    filename: `Order_${orderData.orderNumber || orderId}_${orderData.customer?.name?.replace(/\s+/g, '_') || 'Customer'}.pdf`,
+                    content: pdfBuffer.toString('base64'),
+                    contentType: 'application/pdf'
+                };
+                console.log('PDF generated successfully for email attachment');
+            } catch (pdfError) {
+                console.error('PDF generation failed for email:', pdfError);
+                // Continue without PDF attachment - don't fail the email
+            }
+        }
+
         // Prepare email data for Zoho Mail API (correct format)
         const emailData = {
             fromAddress: process.env.ZOHO_FROM_EMAIL || 'orders@yourdomain.com',
@@ -154,8 +176,10 @@ router.post('/send', async (req, res) => {
             mailFormat: 'html'
         };
 
-        // Add attachments if provided
-        if (attachments && attachments.length > 0) {
+        // Add PDF attachment if generated
+        if (pdfAttachment) {
+            emailData.attachments = [pdfAttachment];
+        } else if (attachments && attachments.length > 0) {
             emailData.attachments = attachments;
         }
 

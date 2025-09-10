@@ -473,9 +473,9 @@ const OrderProcessor = () => {
                                             </ul>
                                             <p>Kind regards,<br>Bespoke Mattress Company</p>
                                         `,
-                                        orderId: selectedOrder.id
+                                        orderId: selectedOrder.id,
+                                        orderData: selectedOrder  // ADD THIS LINE
                                     })
-                                });
 
                                 if (!emailResponse.ok) throw new Error('Email sending failed');
                                 
