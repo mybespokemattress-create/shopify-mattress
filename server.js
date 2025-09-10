@@ -19,6 +19,12 @@ const zohoAuthRoutes = require('./routes/zoho-auth');
 console.log('✓ Zoho auth routes loaded successfully');
 const emailRoutes = require('./routes/email');
 console.log('✓ Email routes loaded successfully');
+console.log('Loading diagram routes...');
+const diagramRoutes = require('./routes/diagrams');
+console.log('✓ Diagram routes loaded successfully');
+console.log('Loading product mapping routes...');
+const productMappingRoutes = require('./routes/product-mapping');
+console.log('✓ Product mapping routes loaded successfully');
 
 const app = express();
 console.log('✓ Express app created');
@@ -63,6 +69,8 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/api/pdf', pdfRoutes);
 app.use('/auth/zoho', zohoAuthRoutes);
 app.use('/api/email', emailRoutes);
+app.use('/api/diagrams', diagramRoutes);
+app.use('/api/mapping', productMappingRoutes.router);
 
 // ADD THIS DEBUG ROUTE HERE:
 app.get('/debug-test', (req, res) => {
@@ -75,6 +83,8 @@ app.get('/debug-test', (req, res) => {
 
 // Serve static files from React build - FIXED PATH
 app.use(express.static(path.join(__dirname, 'client/build')));
+// Serve uploaded files
+app.use('/uploads', express.static('uploads'));
 
 // CORS headers for development
 app.use((req, res, next) => {
@@ -151,7 +161,7 @@ function getMattressLabelFromStore(order) {
   }
 }
 
-// Process Shopify order function
+// Enhanced Process Shopify order function with product mapping
 async function processShopifyOrder(order) {
   try {
     console.log(`Processing order: ${order.order_number}`);
@@ -163,10 +173,53 @@ async function processShopifyOrder(order) {
     console.log(`Extracted notes: ${customerNotes ? 'Yes' : 'None'}`);
     console.log(`Mattress label: ${mattressLabel}`);
     
-    // Extract measurements from order (implement your extraction logic)
+    // Process each line item with product mapping
+    const processedItems = [];
+    
+    for (const item of order.line_items) {
+      console.log(`\nProcessing item: ${item.title}`);
+      
+      // Use the mapping system to get supplier specification
+      let supplierSpec = 'Mapping required';
+      let mappingConfidence = 0;
+      
+      try {
+        // Call the product mapping system
+        const { mapProduct } = require('./routes/product-mapping');
+        
+        const mappingResult = mapProduct(
+          item.title,
+          item.variant_title ? { title: item.variant_title } : null,
+          item.properties || null,
+          item.sku || null
+        );
+        
+        if (mappingResult.success && mappingResult.specification) {
+          supplierSpec = mappingResult.specification.fullSpecification;
+          mappingConfidence = mappingResult.confidence;
+          console.log(`✓ Mapped: ${supplierSpec}`);
+        } else {
+          console.log(`✗ Mapping failed: ${mappingResult.error}`);
+        }
+        
+      } catch (mappingError) {
+        console.error('Mapping system error:', mappingError);
+      }
+      
+      processedItems.push({
+        title: item.title,
+        sku: item.sku || 'N/A',
+        quantity: item.quantity,
+        price: item.price,
+        supplier_specification: supplierSpec,
+        mapping_confidence: mappingConfidence
+      });
+    }
+    
+    // Extract measurements from order
     const extractedMeasurements = extractMeasurementsFromOrder(order);
     
-    // Store order in database - FIXED COLUMN NAMES
+    // Store order in database with processed items
     const insertQuery = `
       INSERT INTO processed_orders (
         shopify_order_id,
@@ -176,15 +229,17 @@ async function processShopifyOrder(order) {
         total_price,
         order_data,
         extracted_measurements,
+        line_items,
         processing_status,
         notes,
         mattress_label,
         created_date
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       ON CONFLICT (shopify_order_id) 
       DO UPDATE SET
         order_data = EXCLUDED.order_data,
         extracted_measurements = EXCLUDED.extracted_measurements,
+        line_items = EXCLUDED.line_items,
         notes = EXCLUDED.notes,
         mattress_label = EXCLUDED.mattress_label,
         updated_date = NOW()
@@ -202,13 +257,14 @@ async function processShopifyOrder(order) {
       order.total_price,
       JSON.stringify(order),
       JSON.stringify(extractedMeasurements),
+      JSON.stringify(processedItems), // Store the processed items with specifications
       'received',
       customerNotes,
       mattressLabel,
       new Date(order.created_at)
     ]);
     
-    console.log(`Order ${order.order_number} stored successfully with notes and mattress label`);
+    console.log(`Order ${order.order_number} stored successfully with ${processedItems.length} mapped items`);
     
   } catch (error) {
     console.error('Error processing order:', error);
@@ -262,7 +318,10 @@ app.get('/api/orders', async (req, res) => {
         extracted_measurements,
         created_date,
         updated_date,
-        email_sent
+        email_sent,
+        has_custom_diagram,
+        custom_diagram_url,
+        diagram_upload_date
       FROM processed_orders 
       ORDER BY created_date DESC 
       LIMIT $1 OFFSET $2

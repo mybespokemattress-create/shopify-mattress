@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Mail, Edit3, Save, X } from 'lucide-react';
+import { Download, Mail, Edit3, Save, X, Upload, Trash2, AlertTriangle } from 'lucide-react';
 
 const OrderProcessor = () => {
   const [orders, setOrders] = useState([]);
@@ -8,10 +8,144 @@ const OrderProcessor = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // New state for diagram upload
+  const [uploadingDiagram, setUploadingDiagram] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [storageStatus, setStorageStatus] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const getDiagramImageUrl = (diagramNumber) => {
     if (!diagramNumber) return null;
     return `/images/diagrams/Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`;
+  };
+
+  // Check storage status
+  const checkStorageStatus = async () => {
+    try {
+      const response = await fetch('/api/diagrams/storage-status');
+      if (response.ok) {
+        const status = await response.json();
+        setStorageStatus(status);
+      }
+    } catch (error) {
+      console.error('Failed to check storage status:', error);
+    }
+  };
+
+  // Handle file selection
+  const handleFileSelect = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      // Validate file size and type on frontend
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+      
+      if (file.size > maxSize) {
+        alert('File too large. Maximum size is 5MB.');
+        return;
+      }
+      
+      if (!allowedTypes.includes(file.type)) {
+        alert('Invalid file type. Only JPG, PNG, and PDF files are allowed.');
+        return;
+      }
+      
+      setSelectedFile(file);
+    }
+  };
+
+  // Upload diagram
+  const handleDiagramUpload = async () => {
+    if (!selectedFile) return;
+    
+    setUploadingDiagram(true);
+    setUploadProgress(0);
+    
+    try {
+      const formData = new FormData();
+      formData.append('diagram', selectedFile);
+      
+      const response = await fetch(`/api/diagrams/${selectedOrder.id}/upload-diagram`, {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Upload failed');
+      }
+      
+      const result = await response.json();
+      
+      // Update selected order with new diagram info
+      setSelectedOrder(prev => ({
+        ...prev,
+        has_custom_diagram: true,
+        custom_diagram_url: result.url,
+        custom_diagram_filename: result.filename
+      }));
+      
+      // Update orders list
+      setOrders(orders.map(order => 
+        order.id === selectedOrder.id 
+          ? { ...order, has_custom_diagram: true, custom_diagram_url: result.url }
+          : order
+      ));
+      
+      // Update storage status
+      if (result.storage) {
+        setStorageStatus(result.storage);
+      }
+      
+      setSelectedFile(null);
+      alert('Diagram uploaded successfully!');
+      
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert(`Upload failed: ${error.message}`);
+    } finally {
+      setUploadingDiagram(false);
+      setUploadProgress(0);
+    }
+  };
+
+  // Remove diagram
+  const handleDiagramRemove = async () => {
+    if (!confirm('Are you sure you want to remove this custom diagram?')) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/diagrams/${selectedOrder.id}/diagram`, {
+        method: 'DELETE'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to remove diagram');
+      }
+      
+      // Update selected order
+      setSelectedOrder(prev => ({
+        ...prev,
+        has_custom_diagram: false,
+        custom_diagram_url: null,
+        custom_diagram_filename: null
+      }));
+      
+      // Update orders list
+      setOrders(orders.map(order => 
+        order.id === selectedOrder.id 
+          ? { ...order, has_custom_diagram: false, custom_diagram_url: null }
+          : order
+      ));
+      
+      alert('Diagram removed successfully!');
+      
+    } catch (error) {
+      console.error('Remove error:', error);
+      alert(`Failed to remove diagram: ${error.message}`);
+    }
   };
 
   const transformApiOrder = (apiOrder) => {
@@ -110,7 +244,11 @@ const OrderProcessor = () => {
       supplierName: apiOrder.supplier_name || orderData.supplierName,
       rawMeasurements: measurements,
       notes: apiOrder.notes || '',
-      mattressLabel: apiOrder.mattress_label || 'CaravanMattresses'
+      mattressLabel: apiOrder.mattress_label || 'CaravanMattresses',
+      // Add custom diagram fields
+      has_custom_diagram: apiOrder.has_custom_diagram || false,
+      custom_diagram_url: apiOrder.custom_diagram_url || null,
+      custom_diagram_filename: apiOrder.custom_diagram_url ? apiOrder.custom_diagram_url.split('/').pop() : null
     };
   };
 
@@ -139,6 +277,7 @@ const OrderProcessor = () => {
 
   useEffect(() => {
     fetchOrders();
+    checkStorageStatus();
     const interval = setInterval(fetchOrders, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -150,6 +289,7 @@ const OrderProcessor = () => {
     } else {
       setSelectedOrder({ ...order });
       setEditMode(false);
+      setSelectedFile(null); // Clear any selected file
     }
   };
 
@@ -188,6 +328,7 @@ const OrderProcessor = () => {
     const originalOrder = orders.find(order => order.id === selectedOrder.id);
     setSelectedOrder({ ...originalOrder });
     setEditMode(false);
+    setSelectedFile(null); // Clear any selected file
   };
 
   const updateOrderField = (field, value) => {
@@ -329,6 +470,14 @@ const OrderProcessor = () => {
               <p className="text-slate-600 mt-1">
                 Review and process Shopify orders before sending to suppliers
               </p>
+              {storageStatus && storageStatus.percentage > 80 && (
+                <div className="mt-2 flex items-center gap-2 text-amber-600">
+                  <AlertTriangle size={16} />
+                  <span className="text-sm">
+                    Storage {storageStatus.percentage}% full ({storageStatus.used}/{storageStatus.limit})
+                  </span>
+                </div>
+              )}
             </div>
             <div className="text-sm text-slate-500">
               {orders.length} orders loaded
@@ -388,6 +537,11 @@ const OrderProcessor = () => {
                             {order.diagramNumber && (
                               <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
                                 Shape {order.diagramNumber}
+                              </span>
+                            )}
+                            {order.has_custom_diagram && (
+                              <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700">
+                                Custom
                               </span>
                             )}
                             {order.notes && (
@@ -689,9 +843,32 @@ const OrderProcessor = () => {
                               Shape {selectedOrder.diagramNumber}
                             </span>
                           )}
+                          {selectedOrder.has_custom_diagram && (
+                            <span className="ml-2 px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-medium">
+                              Custom Diagram
+                            </span>
+                          )}
                         </h4>
-                        <div className="border rounded bg-slate-50" style={{height: '500px'}}>
-                          {selectedOrder.shapeDiagramUrl ? (
+                        
+                        <div className="border rounded bg-slate-50" style={{height: '400px'}}>
+                          {selectedOrder.has_custom_diagram && selectedOrder.custom_diagram_url ? (
+                            <div className="w-full h-full">
+                              <img 
+                                src={selectedOrder.custom_diagram_url} 
+                                alt={`Custom diagram for order ${selectedOrder.orderNumber}`}
+                                className="w-full h-full object-contain"
+                                onError={(e) => {
+                                  console.error('Custom diagram failed to load:', selectedOrder.custom_diagram_url);
+                                  e.target.style.display = 'none';
+                                  e.target.nextSibling.style.display = 'flex';
+                                }}
+                              />
+                              <div className="w-full h-full flex-col items-center justify-center text-slate-400 hidden">
+                                <div className="text-sm mb-1">Custom diagram failed to load</div>
+                                <div className="text-xs">{selectedOrder.custom_diagram_filename}</div>
+                              </div>
+                            </div>
+                          ) : selectedOrder.shapeDiagramUrl ? (
                             <div className="w-full h-full">
                               <img 
                                 src={selectedOrder.shapeDiagramUrl} 
@@ -728,14 +905,67 @@ const OrderProcessor = () => {
                           )}
                         </div>
                         
+                        {/* Enhanced Upload Interface */}
                         {editMode && (
-                          <div className="flex gap-2 mt-2">
-                            <button className="flex-1 px-3 py-1 bg-blue-600 text-white rounded text-sm">
-                              Upload
-                            </button>
-                            <button className="flex-1 px-3 py-1 bg-slate-500 text-white rounded text-sm">
-                              Generate
-                            </button>
+                          <div className="mt-4 border-t pt-4">
+                            <h5 className="text-sm font-medium mb-2">Upload Custom Diagram</h5>
+                            
+                            {storageStatus && storageStatus.percentage > 80 && (
+                              <div className="mb-2 p-2 bg-yellow-100 text-yellow-800 rounded text-sm flex items-center gap-2">
+                                <AlertTriangle size={16} />
+                                Warning: Storage is {storageStatus.percentage}% full ({storageStatus.used}/{storageStatus.limit})
+                              </div>
+                            )}
+                            
+                            <input 
+                              type="file" 
+                              accept=".jpg,.jpeg,.png,.pdf"
+                              onChange={handleFileSelect}
+                              className="mb-2 block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                            />
+                            
+                            {selectedFile && (
+                              <div className="mb-2 p-2 bg-blue-50 rounded">
+                                <p className="text-sm text-blue-800">
+                                  Selected: {selectedFile.name} ({(selectedFile.size/1024/1024).toFixed(2)}MB)
+                                </p>
+                                <div className="flex gap-2 mt-2">
+                                  <button 
+                                    onClick={handleDiagramUpload} 
+                                    disabled={uploadingDiagram}
+                                    className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1"
+                                  >
+                                    <Upload size={14} />
+                                    {uploadingDiagram ? 'Uploading...' : 'Upload Diagram'}
+                                  </button>
+                                  <button 
+                                    onClick={() => setSelectedFile(null)} 
+                                    className="px-3 py-1 bg-slate-500 text-white rounded text-sm hover:bg-slate-600"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                            
+                            {selectedOrder.has_custom_diagram && (
+                              <div className="mt-2 p-2 bg-green-50 rounded">
+                                <p className="text-sm text-green-800 mb-2">
+                                  Custom diagram uploaded: {selectedOrder.custom_diagram_filename}
+                                </p>
+                                <button 
+                                  onClick={handleDiagramRemove} 
+                                  className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700 flex items-center gap-1"
+                                >
+                                  <Trash2 size={14} />
+                                  Remove Custom Diagram
+                                </button>
+                              </div>
+                            )}
+                            
+                            <div className="mt-2 text-xs text-slate-500">
+                              Supported formats: JPG, PNG, PDF. Maximum size: 5MB.
+                            </div>
                           </div>
                         )}
                       </div>

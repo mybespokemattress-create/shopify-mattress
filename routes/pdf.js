@@ -67,7 +67,6 @@ function generatePDFContent(doc, orderData) {
      .font('Helvetica')
      .fillColor('black')
      .text(`Order Number: ${orderData.orderNumber}`, 45, orderBoxY)
-     .text(`Order ID: ${orderData.id}`, 45, orderBoxY + 12)
      .text(`Date: ${orderData.orderDate}`, 300, orderBoxY);
 
   yPos += 65;
@@ -136,8 +135,8 @@ function generatePDFContent(doc, orderData) {
 
   yPos += 20;
 
-  // Left side - Dimensions Table
-  const dimBoxY = drawCleanBox(doc, 40, yPos, 180, 250, 'Dimensions');
+  // Left side - Dimensions Table (made taller to match diagram)
+  const dimBoxY = drawCleanBox(doc, 40, yPos, 180, 350, 'Dimensions');
 
   // Table headers
   doc.fontSize(9)
@@ -199,82 +198,148 @@ function generatePDFContent(doc, orderData) {
     rowY += 14;
   });
 
-  // Status at bottom
+  // Status at bottom (moved down for taller box)
   doc.fontSize(8)
      .font('Helvetica-Oblique')
      .fillColor('black')
-     .text(`Status: ${hasValidMeasurements ? 'Verified' : 'Not verified'}`, 45, dimBoxY + 220);
+     .text(`Status: ${hasValidMeasurements ? 'Verified' : 'Not verified'}`, 45, dimBoxY + 320);
 
-  // Right side - Shape Diagram with Shopify image loading
-  const diagramBoxY = drawCleanBox(doc, 235, yPos, 320, 250, 'Shape Diagram');
+  // Right side - Shape Diagram with Custom Diagram Priority (MUCH LARGER)
+  const diagramBoxY = drawCleanBox(doc, 235, yPos, 320, 350, 'Shape Diagram');
 
-  // Extract diagram number from React data
-  let diagramNumber = orderData.diagramNumber || orderData.shapeNumber;
+  // Check for custom diagram first
+  let imageLoaded = false;
+  
+  console.log('🔍 Checking for custom diagram...');
+  console.log('🔍 Order has_custom_diagram:', orderData.has_custom_diagram);
+  console.log('🔍 Order custom_diagram_url:', orderData.custom_diagram_url);
 
-  console.log('🔍 Attempting to extract diagram number from React...');
-  console.log('🔍 Diagram number from React:', diagramNumber);
+  // PRIORITY 1: Custom uploaded diagram
+  if (orderData.has_custom_diagram && orderData.custom_diagram_url) {
+    const customDiagramPath = path.join(__dirname, '..', orderData.custom_diagram_url);
+    console.log('🔍 Trying custom diagram path:', customDiagramPath);
+    
+    if (imageExists(customDiagramPath)) {
+      try {
+        console.log('🔍 Custom diagram found! Loading:', customDiagramPath);
+        
+        // Add custom diagram label
+        doc.fontSize(9)
+           .font('Helvetica-Bold')
+           .fillColor('black')
+           .text('Custom Diagram', 240, diagramBoxY);
 
-  if (diagramNumber) {
-    doc.fontSize(9)
-       .font('Helvetica')
-       .fillColor('black')
-       .text(`Diagram: ${diagramNumber}`, 240, diagramBoxY);
+        // Add image with MUCH LARGER sizing and positioning
+        const imageWidth = 305;  // Almost full width of box
+        const imageHeight = 300; // Much taller
+        const imageX = 242;      // Centered in box
+        const imageY = diagramBoxY + 20;
 
-    // Try multiple possible image paths for Shopify diagrams
-    const imagePaths = [
-      path.join(__dirname, '..', 'public', 'images', 'diagrams', `Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`),
-      path.join(__dirname, '..', 'client', 'public', 'images', 'diagrams', `Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`),
-      path.join(__dirname, '..', 'images', 'diagrams', `Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`),
-      `/images/diagrams/Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`
-    ];
-
-    let imageLoaded = false;
-
-    for (const imagePath of imagePaths) {
-      console.log('🔍 Trying image path:', imagePath);
-      if (imageExists(imagePath)) {
-        try {
-          console.log('🔍 Image found! Loading:', imagePath);
-          // Add image with proper sizing and positioning
-          const imageWidth = 300;
-          const imageHeight = 200;
-          const imageX = 245;
-          const imageY = diagramBoxY + 20;
-
-          doc.image(imagePath, imageX, imageY, {
-            width: imageWidth,
-            height: imageHeight,
-            fit: [imageWidth, imageHeight],
-            align: 'center'
-          });
-          imageLoaded = true;
-          console.log('🔍 Image loaded successfully');
-          break;
-        } catch (imageError) {
-          console.log('🔍 Image load error for path:', imagePath, imageError.message);
-          continue;
-        }
-      } else {
-        console.log('🔍 Image not found at path:', imagePath);
+        doc.image(customDiagramPath, imageX, imageY, {
+          width: imageWidth,
+          height: imageHeight,
+          fit: [imageWidth, imageHeight],
+          align: 'center'
+        });
+        
+        imageLoaded = true;
+        console.log('🔍 Custom diagram loaded successfully');
+        
+        // Add filename at bottom (positioned for larger box)
+        const filename = orderData.custom_diagram_url.split('/').pop();
+        doc.fontSize(8)
+           .font('Helvetica')
+           .fillColor('gray')
+           .text(`File: ${filename}`, 245, diagramBoxY + 310);
+           
+      } catch (imageError) {
+        console.log('🔍 Custom diagram load error:', imageError.message);
       }
+    } else {
+      console.log('🔍 Custom diagram file not found at path:', customDiagramPath);
     }
-
-    if (!imageLoaded) {
-      console.log('🔍 No image found in any path, showing placeholder');
-      // Fallback text if no image found
-      doc.fontSize(9)
-         .fillColor('black')
-         .text(`[Diagram ${diagramNumber} - Image not available]`, 245, diagramBoxY + 60)
-         .text('Please refer to technical specifications', 245, diagramBoxY + 80);
-    }
-  } else {
-    console.log('🔍 No diagram number found in React data');
-    doc.fontSize(9)
-       .fillColor('black')
-       .text('No diagram specified', 245, diagramBoxY + 60);
   }
 
-  yPos += 265;
+  // PRIORITY 2: Standard Shopify diagram (fallback)
+  if (!imageLoaded) {
+    // Extract diagram number from React data
+    let diagramNumber = orderData.diagramNumber || orderData.shapeNumber;
+
+    console.log('🔍 No custom diagram, attempting standard diagram...');
+    console.log('🔍 Diagram number from React:', diagramNumber);
+
+    if (diagramNumber) {
+      doc.fontSize(9)
+         .font('Helvetica')
+         .fillColor('black')
+         .text(`Standard Diagram: ${diagramNumber}`, 240, diagramBoxY);
+
+      // Try multiple possible image paths for Shopify diagrams
+      const imagePaths = [
+        path.join(__dirname, '..', 'public', 'images', 'diagrams', `Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`),
+        path.join(__dirname, '..', 'client', 'public', 'images', 'diagrams', `Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`),
+        path.join(__dirname, '..', 'images', 'diagrams', `Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`),
+        `/images/diagrams/Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`
+      ];
+
+      for (const imagePath of imagePaths) {
+        console.log('🔍 Trying standard image path:', imagePath);
+        if (imageExists(imagePath)) {
+          try {
+            console.log('🔍 Standard image found! Loading:', imagePath);
+            // Add image with MUCH LARGER sizing and positioning
+            const imageWidth = 305;  // Almost full width of box
+            const imageHeight = 300; // Much taller
+            const imageX = 242;      // Centered in box
+            const imageY = diagramBoxY + 20;
+
+            doc.image(imagePath, imageX, imageY, {
+              width: imageWidth,
+              height: imageHeight,
+              fit: [imageWidth, imageHeight],
+              align: 'center'
+            });
+            imageLoaded = true;
+            console.log('🔍 Standard image loaded successfully');
+            break;
+          } catch (imageError) {
+            console.log('🔍 Standard image load error for path:', imagePath, imageError.message);
+            continue;
+          }
+        } else {
+          console.log('🔍 Standard image not found at path:', imagePath);
+        }
+      }
+    }
+  }
+
+  // PRIORITY 3: No diagram available (fallback message)
+  if (!imageLoaded) {
+    console.log('🔍 No diagrams found, showing placeholder');
+    
+    if (orderData.has_custom_diagram) {
+      // Custom diagram was expected but failed to load
+      doc.fontSize(9)
+         .fillColor('red')
+         .text('Custom Diagram Upload Failed', 245, diagramBoxY + 60)
+         .fillColor('black')
+         .text('Please check file availability', 245, diagramBoxY + 80);
+    } else if (orderData.diagramNumber) {
+      // Standard diagram was expected but failed to load
+      doc.fontSize(9)
+         .fillColor('black')
+         .text(`[Diagram ${orderData.diagramNumber} - Image not available]`, 245, diagramBoxY + 60)
+         .text('Please refer to technical specifications', 245, diagramBoxY + 80);
+    } else {
+      // No diagram specified
+      doc.fontSize(9)
+         .fillColor('black')
+         .text('No diagram specified', 245, diagramBoxY + 60)
+         .text('Manual order - refer to customer notes', 245, diagramBoxY + 80);
+    }
+  }
+
+  yPos += 365; // Updated for larger diagram section
 
   // === CUSTOMER NOTES SECTION (if present) ===
   if (orderData.notes && orderData.notes.trim()) {
