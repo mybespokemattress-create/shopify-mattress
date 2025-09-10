@@ -28,17 +28,30 @@ async function getActiveOAuthToken() {
     }
 }
 
+// Function to get correct Mail API domain from user location
+function getMailApiDomain(userLocation) {
+    switch(userLocation) {
+        case 'us': return 'https://mail.zoho.com';
+        case 'eu': return 'https://mail.zoho.eu';
+        case 'in': return 'https://mail.zoho.in';
+        case 'au': return 'https://mail.zoho.com.au';
+        case 'jp': return 'https://mail.zoho.jp';
+        case 'ca': return 'https://mail.zohocloud.ca';
+        default: return 'https://mail.zoho.com';
+    }
+}
+
 // Function to get Zoho account ID
-async function getZohoAccountId(accessToken, apiDomain) {
+async function getZohoAccountId(accessToken, userLocation) {
     try {
-        const response = await axios.get(`${apiDomain}/api/accounts`, {
+        const mailDomain = getMailApiDomain(userLocation);
+        const response = await axios.get(`${mailDomain}/api/accounts`, {
             headers: {
                 'Authorization': `Zoho-oauthtoken ${accessToken}`,
                 'Content-Type': 'application/json'
             }
         });
         
-        // Return the first account ID (primary account)
         if (response.data && response.data.data && response.data.data.length > 0) {
             return response.data.data[0].accountId;
         }
@@ -138,7 +151,7 @@ router.post('/send', async (req, res) => {
             toAddress: to,
             subject: subject,
             content: body,
-            mailFormat: 'html'  // Changed from contentType to mailFormat
+            mailFormat: 'html'
         };
 
         // Add attachments if provided
@@ -146,9 +159,9 @@ router.post('/send', async (req, res) => {
             emailData.attachments = attachments;
         }
 
-        // Send email via Zoho Mail API (correct endpoint)
+        // Send email via Zoho Mail API
         const emailResponse = await axios.post(
-            `${mailDomain}/api/accounts/${accountId}/messages`,  // Correct endpoint
+            `${mailDomain}/api/accounts/${accountId}/messages`,
             emailData,
             {
                 headers: {
@@ -214,13 +227,13 @@ router.post('/test', async (req, res) => {
             });
         }
 
-        // Get the Zoho Mail domain (default to .com if not specified)
-        const mailDomain = token.api_domain || 'https://mail.zoho.com';
+        // Get the correct Mail API domain for user's location
+        const mailDomain = getMailApiDomain(token.user_location || 'us');
         
         // Get account ID
-        const accountId = await getZohoAccountId(token.access_token, mailDomain);
+        const accountId = await getZohoAccountId(token.access_token, token.user_location || 'us');
 
-        // Send a simple test email (correct format)
+        // Send a simple test email
         const testEmailData = {
             fromAddress: process.env.ZOHO_FROM_EMAIL || 'test@yourdomain.com',
             toAddress: process.env.TEST_EMAIL || 'test@example.com',
@@ -230,11 +243,11 @@ router.post('/test', async (req, res) => {
                 <p>This is a test email sent at ${new Date().toISOString()}</p>
                 <p>If you receive this, your email automation is working!</p>
             `,
-            mailFormat: 'html'  // Changed from contentType to mailFormat
+            mailFormat: 'html'
         };
 
         const emailResponse = await axios.post(
-            `${mailDomain}/api/accounts/${accountId}/messages`,  // Correct endpoint
+            `${mailDomain}/api/accounts/${accountId}/messages`,
             testEmailData,
             {
                 headers: {
