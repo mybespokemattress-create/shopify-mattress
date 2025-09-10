@@ -1,6 +1,7 @@
 const express = require('express');
 const axios = require('axios');
 const { Pool } = require('pg');
+const FormData = require('form-data');
 const router = express.Router();
 
 // Import functions from other modules
@@ -44,6 +45,49 @@ async function getZohoAccountId(accessToken, userLocation) {
         throw new Error('No Zoho Mail accounts found');
     } catch (error) {
         console.error('Error getting Zoho account ID:', error);
+        throw error;
+    }
+}
+
+// Function to upload attachment to Zoho's file store
+async function uploadAttachmentToZoho(pdfBuffer, filename, accessToken, accountId, userLocation) {
+    try {
+        console.log('Uploading attachment to Zoho file store...');
+        
+        const mailDomain = getMailApiDomain(userLocation);
+        
+        // Create form data for multipart upload
+        const form = new FormData();
+        
+        // Add the PDF buffer as a file
+        form.append('attach', pdfBuffer, {
+            filename: filename,
+            contentType: 'application/pdf'
+        });
+        
+        // Upload to Zoho's attachment API
+        const uploadResponse = await axios.post(
+            `${mailDomain}/api/accounts/${accountId}/messages/attachments?uploadType=multipart`,
+            form,
+            {
+                headers: {
+                    'Authorization': `Zoho-oauthtoken ${accessToken}`,
+                    ...form.getHeaders()
+                }
+            }
+        );
+        
+        console.log('Attachment uploaded successfully to Zoho');
+        
+        // Return the attachment reference for email
+        return {
+            storeName: uploadResponse.data.storeName,
+            attachmentPath: uploadResponse.data.attachmentPath,
+            attachmentName: uploadResponse.data.attachmentName || filename
+        };
+        
+    } catch (error) {
+        console.error('Failed to upload attachment to Zoho:', error.response?.data || error.message);
         throw error;
     }
 }
@@ -94,14 +138,20 @@ router.post('/send', async (req, res) => {
                 console.log('Generating PDF for email attachment...');
                 const pdfBuffer = await generatePurchaseOrderPDF(orderData);
                 
-                pdfAttachment = {
-                    attachmentName: `Order_${orderData.orderNumber || orderId}_${orderData.customer?.name?.replace(/\s+/g, '_') || 'Customer'}.pdf`,
-                    content: pdfBuffer.toString('base64'),
-                    mimeType: 'application/pdf'
-                };
-                console.log('PDF generated successfully for email attachment');
+                const filename = `Order_${orderData.orderNumber || orderId}_${orderData.customer?.name?.replace(/\s+/g, '_') || 'Customer'}.pdf`;
+                
+                // Upload to Zoho's file store
+                pdfAttachment = await uploadAttachmentToZoho(
+                    pdfBuffer, 
+                    filename, 
+                    token.access_token, 
+                    accountId, 
+                    token.user_location || 'us'
+                );
+                
+                console.log('PDF generated and uploaded successfully for email attachment');
             } catch (pdfError) {
-                console.error('PDF generation failed for email:', pdfError);
+                console.error('PDF generation or upload failed for email:', pdfError);
                 // Continue without PDF attachment - don't fail the email
             }
         }
