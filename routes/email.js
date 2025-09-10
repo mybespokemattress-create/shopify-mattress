@@ -95,11 +95,12 @@ async function uploadAttachmentToZoho(pdfBuffer, filename, accessToken, accountI
             throw new Error('No data returned from Zoho upload');
         }
         
-        // Return the attachment reference for email
+        // Return the attachment reference for email - fix for Zoho's array structure
+        const attachmentData = uploadResponse.data.data[0]; // Get first item from data array
         const attachmentRef = {
-            storeName: uploadResponse.data.storeName,
-            attachmentPath: uploadResponse.data.attachmentPath,
-            attachmentName: uploadResponse.data.attachmentName || filename
+            storeName: attachmentData.storeName,
+            attachmentPath: attachmentData.attachmentPath,
+            attachmentName: attachmentData.attachmentName || filename
         };
         
         console.log('Creating attachment reference:', JSON.stringify(attachmentRef, null, 2));
