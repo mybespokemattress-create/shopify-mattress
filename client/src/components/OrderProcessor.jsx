@@ -769,39 +769,46 @@ const OrderProcessor = () => {
 
                   <div className="border rounded-lg p-4">
                     <h3 className="font-semibold mb-3">Product Information</h3>
-
-                      {/* ADD THIS DEBUG DISPLAY */}
-                      {selectedOrder.supplierCode === '' && (
-                        <div className="mb-2 p-2 bg-yellow-100 text-yellow-700 rounded text-xs">
-                          Debug: supplierCode is empty string. Check console for data flow.
-                        </div>
-                      )}
-                      {/* END DEBUG DISPLAY */}
-
-                    <div className="grid grid-cols-6 gap-4">
-                      <div className="col-span-5">
-                        <label className="block text-sm text-slate-600 mb-1">Supplier Code</label>
+                    
+                    {/* Supplier Code - Full width, multi-line */}
+                    <div className="mb-4">
+                      <label className="block text-sm text-slate-600 mb-1">Supplier Code</label>
+                      <textarea
+                        value={selectedOrder.supplierCode}
+                        onChange={(e) => updateOrderField('supplierCode', e.target.value)}
+                        disabled={!editMode}
+                        rows={2}
+                        className="w-full px-3 py-2 border rounded disabled:bg-slate-100 font-mono text-sm resize-none"
+                      />
+                    </div>
+                    
+                    {/* SKU and Quantity on same line below */}
+                    <div className="flex gap-4">
+                      <div className="flex-1">
+                        <label className="block text-sm text-slate-600 mb-1">Product SKU</label>
                         <input
                           type="text"
-                          value={selectedOrder.supplierCode}
-                          onChange={(e) => updateOrderField('supplierCode', e.target.value)}
-                          disabled={!editMode}
-                          className="w-full px-3 py-2 border rounded disabled:bg-slate-100 font-mono text-sm"
+                          value={selectedOrder.lineItems[0]?.sku || 'Unknown SKU'}
+                          disabled
+                          className="w-full px-3 py-2 border rounded bg-slate-100 text-sm"
                         />
                       </div>
-                      <div>
-                        <label className="block text-sm text-slate-600 mb-1">Quantity</label>
+                      <div className="w-20">
+                        <label className="block text-sm text-slate-600 mb-1">Qty</label>
                         <input
                           type="number"
                           value={selectedOrder.lineItems[0]?.quantity || 1}
                           onChange={(e) => updateOrderField('quantity', parseInt(e.target.value))}
                           disabled={!editMode}
-                          className="w-full px-3 py-2 border rounded disabled:bg-slate-100"
+                          className="w-full px-2 py-2 border rounded disabled:bg-slate-100 text-center"
+                          min="1"
+                          max="99"
                         />
                       </div>
                     </div>
+                    
                     {selectedOrder.supplierName && (
-                      <div className="mt-2 text-sm text-slate-600">
+                      <div className="mt-3 text-sm text-slate-600">
                         Assigned to: <span className="font-medium">{selectedOrder.supplierName}</span>
                       </div>
                     )}
