@@ -3,30 +3,15 @@ const axios = require('axios');
 const { Pool } = require('pg');
 const router = express.Router();
 
+// Import functions from other modules
+const { generatePurchaseOrderPDF } = require('../routes/pdf');
+const { getActiveOAuthToken, refreshOAuthToken } = require('../routes/zoho-auth');
+
 // Database pool
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
-
-// Function to get active OAuth token
-async function getActiveOAuthToken() {
-    try {
-        const result = await pool.query(`
-            SELECT * FROM oauth_tokens 
-            WHERE provider = 'zoho' 
-            AND is_active = true 
-            AND expires_at > CURRENT_TIMESTAMP
-            ORDER BY created_at DESC 
-            LIMIT 1
-        `);
-        
-        return result.rows[0] || null;
-    } catch (error) {
-        console.error('Error retrieving OAuth token:', error);
-        throw error;
-    }
-}
 
 // Function to get correct Mail API domain from user location
 function getMailApiDomain(userLocation) {
@@ -63,37 +48,6 @@ async function getZohoAccountId(accessToken, userLocation) {
     }
 }
 
-// Function to refresh OAuth token if needed
-async function refreshOAuthToken(refreshToken, apiDomain) {
-    try {
-        const formData = new URLSearchParams();
-        formData.append('grant_type', 'refresh_token');
-        formData.append('client_id', process.env.ZOHO_CLIENT_ID);
-        formData.append('client_secret', process.env.ZOHO_CLIENT_SECRET);
-        formData.append('refresh_token', refreshToken);
-
-        const response = await axios.post(`${apiDomain}/oauth/v2/token`, formData, {
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            }
-        });
-
-        // Update database with new access token
-        const expiresAt = new Date(Date.now() + (response.data.expires_in * 1000));
-        
-        await pool.query(`
-            UPDATE oauth_tokens 
-            SET access_token = $1, expires_at = $2, updated_at = CURRENT_TIMESTAMP
-            WHERE refresh_token = $3 AND is_active = true
-        `, [response.data.access_token, expiresAt, refreshToken]);
-
-        return response.data.access_token;
-    } catch (error) {
-        console.error('Error refreshing OAuth token:', error);
-        throw error;
-    }
-}
-
 // Send email endpoint
 router.post('/send', async (req, res) => {
     try {
@@ -116,7 +70,7 @@ router.post('/send', async (req, res) => {
 
         console.log(`Sending email for order ${orderId} to ${to}`);
 
-        // Get active OAuth token
+        // Get active OAuth token (with auto-refresh)
         let token = await getActiveOAuthToken();
         
         if (!token) {
@@ -125,19 +79,6 @@ router.post('/send', async (req, res) => {
                 message: 'Please authorise with Zoho first',
                 auth_url: '/auth/zoho/auth'
             });
-        }
-
-        // Check if token is expiring soon (within 5 minutes)
-        const now = new Date();
-        const expiresAt = new Date(token.expires_at);
-        const timeUntilExpiry = expiresAt - now;
-        
-        if (timeUntilExpiry < 5 * 60 * 1000) { // Less than 5 minutes
-            console.log('Token expiring soon, refreshing...');
-            token.access_token = await refreshOAuthToken(
-                token.refresh_token, 
-                'https://accounts.zoho.com'
-            );
         }
 
         // Get the correct Mail API domain for user's location
@@ -151,8 +92,6 @@ router.post('/send', async (req, res) => {
         if (orderData && orderId) {
             try {
                 console.log('Generating PDF for email attachment...');
-                // Import PDF generation function
-                const { generatePurchaseOrderPDF } = require('../routes/pdf');
                 const pdfBuffer = await generatePurchaseOrderPDF(orderData);
                 
                 pdfAttachment = {
