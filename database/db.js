@@ -319,8 +319,8 @@ const orders = {
         const result = await pool.query(`
             INSERT INTO processed_orders 
             (shopify_order_id, order_number, store_domain, customer_name, customer_email, 
-            total_price, order_data, processing_status, google_sheets_status, notes, mattress_label, extracted_measurements) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            total_price, order_data, processing_status, google_sheets_status, notes, mattress_label, extracted_measurements, line_items) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
             RETURNING *
         `, [
             orderData.orderId || orderData.id,
@@ -334,7 +334,8 @@ const orders = {
             'pending',
             orderData.notes || null,
             orderData.mattress_label || null,
-            orderData.extracted_measurements ? JSON.stringify(orderData.extracted_measurements) : null
+            orderData.extracted_measurements ? JSON.stringify(orderData.extracted_measurements) : null,
+            orderData.line_items ? JSON.stringify(orderData.line_items) : null
         ]);
         return result.rows[0];
     },
