@@ -52,9 +52,16 @@ async function getZohoAccountId(accessToken, userLocation) {
 // Function to upload attachment to Zoho's file store
 async function uploadAttachmentToZoho(pdfBuffer, filename, accessToken, accountId, userLocation) {
     try {
-        console.log('Uploading attachment to Zoho file store...');
+        console.log('Starting Zoho attachment upload process...');
+        console.log('Filename:', filename);
+        console.log('PDF buffer size:', pdfBuffer.length);
+        console.log('Account ID:', accountId);
+        console.log('User location:', userLocation);
         
         const mailDomain = getMailApiDomain(userLocation);
+        const uploadUrl = `${mailDomain}/api/accounts/${accountId}/messages/attachments?uploadType=multipart`;
+        
+        console.log('Upload URL:', uploadUrl);
         
         // Create form data for multipart upload
         const form = new FormData();
@@ -65,31 +72,59 @@ async function uploadAttachmentToZoho(pdfBuffer, filename, accessToken, accountI
             contentType: 'application/pdf'
         });
         
-        // Upload to Zoho's attachment API
-        const uploadResponse = await axios.post(
-            `${mailDomain}/api/accounts/${accountId}/messages/attachments?uploadType=multipart`,
-            form,
-            {
-                headers: {
-                    'Authorization': `Zoho-oauthtoken ${accessToken}`,
-                    ...form.getHeaders()
-                }
-            }
-        );
+        console.log('Form data created, making upload request...');
         
-        console.log('Attachment uploaded successfully to Zoho');
+        // Upload to Zoho's attachment API
+        const uploadResponse = await axios.post(uploadUrl, form, {
+            headers: {
+                'Authorization': `Zoho-oauthtoken ${accessToken}`,
+                ...form.getHeaders()
+            }
+        });
+        
+        console.log('=== ZOHO UPLOAD RESPONSE DEBUG ===');
+        console.log('Response Status:', uploadResponse.status);
+        console.log('Response Status Text:', uploadResponse.statusText);
+        console.log('Response Data:', JSON.stringify(uploadResponse.data, null, 2));
+        console.log('Response Headers:', JSON.stringify(uploadResponse.headers, null, 2));
+        console.log('=== END ZOHO UPLOAD RESPONSE DEBUG ===');
+        
+        // Check if we got the expected fields
+        if (!uploadResponse.data) {
+            console.error('No data in upload response!');
+            throw new Error('No data returned from Zoho upload');
+        }
         
         // Return the attachment reference for email
-        return {
+        const attachmentRef = {
             storeName: uploadResponse.data.storeName,
             attachmentPath: uploadResponse.data.attachmentPath,
             attachmentName: uploadResponse.data.attachmentName || filename
         };
         
+        console.log('Creating attachment reference:', JSON.stringify(attachmentRef, null, 2));
+        
+        // Validate that we have all required fields
+        if (!attachmentRef.storeName || !attachmentRef.attachmentPath) {
+            console.error('Missing required fields in Zoho response!');
+            console.error('Expected: storeName, attachmentPath, attachmentName');
+            console.error('Got storeName:', attachmentRef.storeName);
+            console.error('Got attachmentPath:', attachmentRef.attachmentPath);
+            console.error('Got attachmentName:', attachmentRef.attachmentName);
+            throw new Error('Incomplete attachment data from Zoho');
+        }
+        
+        console.log('Attachment upload successful with all required fields');
+        return attachmentRef;
+        
     } catch (error) {
-        console.error('Failed to upload attachment to Zoho:', error.response?.data || error.message);
-        console.error('Zoho upload failed with detailed error:', error.response?.status, error.response?.data, error.message);
-        console.error('Upload request details - URL:', `${getMailApiDomain(userLocation)}/api/accounts/${accountId}/messages/attachments?uploadType=multipart`);
+        console.error('=== ZOHO UPLOAD ERROR DEBUG ===');
+        console.error('Error message:', error.message);
+        console.error('Error response status:', error.response?.status);
+        console.error('Error response data:', JSON.stringify(error.response?.data, null, 2));
+        console.error('Error response headers:', JSON.stringify(error.response?.headers, null, 2));
+        console.error('Upload URL that failed:', `${getMailApiDomain(userLocation)}/api/accounts/${accountId}/messages/attachments?uploadType=multipart`);
+        console.error('=== END ZOHO UPLOAD ERROR DEBUG ===');
         throw error;
     }
 }
@@ -153,7 +188,8 @@ router.post('/send', async (req, res) => {
                 
                 console.log('PDF generated and uploaded successfully for email attachment');
             } catch (pdfError) {
-                console.error('PDF generation or upload failed for email:', pdfError);
+                console.error('PDF generation or upload failed for email:', pdfError.message);
+                console.error('Full PDF error:', pdfError);
                 // Continue without PDF attachment - don't fail the email
             }
         }
@@ -170,12 +206,15 @@ router.post('/send', async (req, res) => {
         // Add PDF attachment if generated
         if (pdfAttachment) {
             emailData.attachments = [pdfAttachment];
-            console.log('Email will include attachment:', JSON.stringify(pdfAttachment, null, 2));
-        } else if (attachments && attachments.length > 0) {
-            emailData.attachments = attachments;
+            console.log('Email WILL include attachment:', JSON.stringify(pdfAttachment, null, 2));
+        } else {
+            console.log('Email will NOT include attachment - pdfAttachment is null');
+            if (attachments && attachments.length > 0) {
+                emailData.attachments = attachments;
+            }
         }
 
-        console.log('Final email data:', JSON.stringify(emailData, null, 2));
+        console.log('Final email data being sent to Zoho:', JSON.stringify(emailData, null, 2));
 
         // Send email via Zoho Mail API
         const emailResponse = await axios.post(
