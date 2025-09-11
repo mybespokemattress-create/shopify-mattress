@@ -215,6 +215,35 @@ function generatePDFContent(doc, orderData) {
      .fillColor('black')
      .text(`Status: ${hasValidMeasurements ? 'Verified' : 'Not verified'}`, 45, dimBoxY + 320);
 
+  // === ADDITIONAL SPECIFICATIONS SECTION ===
+  yPos += 10; // Small gap before additional specs
+  
+  doc.fontSize(10)
+     .font('Helvetica-Bold')
+     .fillColor('black')
+     .text('Additional Specifications', 45, dimBoxY + 340);
+
+  // Radius of Top Corner
+  doc.fontSize(9)
+     .font('Helvetica')
+     .fillColor('black')
+     .text('Radius of Top Corner:', 45, dimBoxY + 360)
+     .text(orderData.radiusTopCorner || '-', 160, dimBoxY + 360);
+
+  // Radius of Bottom Corner  
+  doc.fontSize(9)
+     .font('Helvetica')
+     .fillColor('black')
+     .text('Radius of Bottom Corner:', 45, dimBoxY + 375)
+     .text(orderData.radiusBottomCorner || '-', 160, dimBoxY + 375);
+
+  // Finished Size Must Not Exceed
+  doc.fontSize(9)
+     .font('Helvetica')
+     .fillColor('black')
+     .text('Finished Size Must Not Exceed:', 45, dimBoxY + 390)
+     .text(orderData.finishedSizeMax || '-', 160, dimBoxY + 390);
+
   // Right side - Shape Diagram with Custom Diagram Priority (MUCH LARGER)
   const diagramBoxY = drawCleanBox(doc, 235, yPos, 320, 350, 'Shape Diagram');
 
