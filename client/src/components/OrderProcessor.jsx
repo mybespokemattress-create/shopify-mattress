@@ -217,18 +217,25 @@ const OrderProcessor = () => {
     const dimensions = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
     
     dimensions.forEach(dim => {
-      const measurement = measurements[dim];
-      if (measurement) {
-        if (typeof measurement === 'object' && 'value' in measurement) {
-          const displayValue = measurement.unit 
-            ? `${measurement.value} ${measurement.unit}`
-            : measurement.value;
-          properties[`Dimension ${dim}`] = displayValue;
-        } else {
-          properties[`Dimension ${dim}`] = String(measurement);
-        }
+      // First try to get from saved database columns
+      const savedDimension = apiOrder[`dimension_${dim.toLowerCase()}`];
+      if (savedDimension) {
+        properties[`Dimension ${dim}`] = savedDimension;
       } else {
-        properties[`Dimension ${dim}`] = '';
+        // Fall back to original measurements extraction
+        const measurement = measurements[dim];
+        if (measurement) {
+          if (typeof measurement === 'object' && 'value' in measurement) {
+            const displayValue = measurement.unit 
+              ? `${measurement.value} ${measurement.unit}`
+              : measurement.value;
+            properties[`Dimension ${dim}`] = displayValue;
+          } else {
+            properties[`Dimension ${dim}`] = String(measurement);
+          }
+        } else {
+          properties[`Dimension ${dim}`] = '';
+        }
       }
     });
 
@@ -253,12 +260,15 @@ const OrderProcessor = () => {
         quantity: 1,
         properties: properties
       }],
-      supplierCode: apiOrder.line_items?.[0]?.specification || orderData.supplierSpecification || '',
+      supplierCode: apiOrder.supplier_code || apiOrder.line_items?.[0]?.specification || orderData.supplierSpecification || '',
       shapeNumber: orderData.shapeNumber || '',
       diagramNumber: diagramNumber,
       shapeDiagramUrl: getDiagramImageUrl(diagramNumber),
-      linkAttachment: linkAttachment,
-      deliveryOption: deliveryOption,
+      linkAttachment: apiOrder.link_attachment || linkAttachment,
+      deliveryOption: apiOrder.delivery_option || deliveryOption,
+      radiusTopCorner: apiOrder.radius_top_corner || '',
+      radiusBottomCorner: apiOrder.radius_bottom_corner || '',
+      finishedSizeMax: apiOrder.finished_size_max || '',
       totalPrice: apiOrder.total_price,
       supplierName: apiOrder.supplier_name || orderData.supplierName,
       rawMeasurements: measurements,
