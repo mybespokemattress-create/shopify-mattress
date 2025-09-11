@@ -80,7 +80,7 @@ function generatePDFContent(doc, orderData) {
   yPos += 20;
 
   // Supplier Code Box
-  const supplierBoxY = drawCleanBox(doc, 40, yPos, 515, 70);
+  const supplierBoxY = drawCleanBox(doc, 40, yPos, 515, 110);
 
   // Extract supplier code from React data
   console.log('PDF DEBUG - orderData.supplierCode:', orderData.supplierCode);
@@ -103,17 +103,6 @@ function generatePDFContent(doc, orderData) {
     .fillColor('black')
     .text(orderData.lineItems?.[0]?.quantity || '1', 45, supplierBoxY + 15);
 
-  // Supplier Code (below quantity)
-  doc.fontSize(10)
-    .font('Helvetica-Bold')
-    .fillColor('black')
-    .text('Supplier Code:', 45, supplierBoxY + 35);
-
-  doc.fontSize(9)
-    .font('Helvetica')
-    .fillColor('black')
-    .text(supplierCode, 45, supplierBoxY + 50);
-
   // Link Attachment (top right)
   doc.fontSize(10)
     .font('Helvetica-Bold')
@@ -125,18 +114,29 @@ function generatePDFContent(doc, orderData) {
     .fillColor('black')
     .text(linkAttachment, 300, supplierBoxY + 15);
 
-  // Delivery (bottom right)
+  // Supplier Code (full width)
   doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
-    .text('Delivery:', 300, supplierBoxY + 35);
+    .text('Supplier Code:', 45, supplierBoxY + 35);
 
   doc.fontSize(9)
     .font('Helvetica')
     .fillColor('black')
-    .text(orderData.deliveryOption || 'Rolled and Boxed', 300, supplierBoxY + 50);
+    .text(supplierCode, 45, supplierBoxY + 50, { width: 470, height: 20 });
 
-  yPos += 85;
+  // Delivery (new line below supplier code)
+  doc.fontSize(10)
+    .font('Helvetica-Bold')
+    .fillColor('black')
+    .text('Delivery:', 45, supplierBoxY + 75);
+
+  doc.fontSize(9)
+    .font('Helvetica')
+    .fillColor('black')
+    .text(orderData.deliveryOption || 'Rolled and Boxed', 45, supplierBoxY + 90);
+
+  yPos += 125;
 
   // === MEASUREMENTS & SHAPE DIAGRAM SECTION ===
   doc.fontSize(12)
@@ -390,7 +390,7 @@ function generatePDFContent(doc, orderData) {
      .font('Helvetica')
      .fillColor('black')
      .text(`Generated: ${new Date().toLocaleDateString('en-GB')}, ${new Date().toLocaleTimeString('en-GB')}`, 40, yPos)
-     .text('My Bespoke Order Ltd | Professional Manufacturing Specification', 40, yPos + 10)
+     .text('My Bespoke Order Ltd | Tel: 0121 663 6299, WhatsApp us at 07769 431 970 Messages only - **Calls not accepted**d', 40, yPos + 10)
      .text('This document contains all specifications required for manufacturing.', 40, yPos + 20);
 }
 
