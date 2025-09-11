@@ -92,35 +92,49 @@ function generatePDFContent(doc, orderData) {
 
   console.log('🔍 Final link attachment:', linkAttachment);
 
+  // Quantity (top left)
   doc.fontSize(10)
-     .font('Helvetica-Bold')
-     .fillColor('black')
-     .text('Supplier Code:', 45, supplierBoxY);
+    .font('Helvetica-Bold')
+    .fillColor('black')
+    .text('Quantity:', 45, supplierBoxY);
 
   doc.fontSize(9)
-     .font('Helvetica')
-     .fillColor('black')
-     .text(supplierCode, 45, supplierBoxY + 15);
+    .font('Helvetica')
+    .fillColor('black')
+    .text(orderData.lineItems?.[0]?.quantity || '1', 45, supplierBoxY + 15);
 
+  // Supplier Code (below quantity)
   doc.fontSize(10)
-     .font('Helvetica-Bold')
-     .fillColor('black')
-     .text('Link Attachment:', 45, supplierBoxY + 35);
+    .font('Helvetica-Bold')
+    .fillColor('black')
+    .text('Supplier Code:', 45, supplierBoxY + 35);
 
   doc.fontSize(9)
-     .font('Helvetica')
-     .fillColor('black')
-     .text(linkAttachment, 45, supplierBoxY + 50);
+    .font('Helvetica')
+    .fillColor('black')
+    .text(supplierCode, 45, supplierBoxY + 50);
 
+  // Link Attachment (top right)
   doc.fontSize(10)
-     .font('Helvetica-Bold')
-     .fillColor('black')
-     .text('Delivery:', 300, supplierBoxY + 35);
+    .font('Helvetica-Bold')
+    .fillColor('black')
+    .text('Link Attachment:', 300, supplierBoxY);
 
   doc.fontSize(9)
-     .font('Helvetica')
-     .fillColor('black')
-     .text(orderData.deliveryOption || 'Rolled and Boxed', 300, supplierBoxY + 50);
+    .font('Helvetica')
+    .fillColor('black')
+    .text(linkAttachment, 300, supplierBoxY + 15);
+
+  // Delivery (bottom right)
+  doc.fontSize(10)
+    .font('Helvetica-Bold')
+    .fillColor('black')
+    .text('Delivery:', 300, supplierBoxY + 35);
+
+  doc.fontSize(9)
+    .font('Helvetica')
+    .fillColor('black')
+    .text(orderData.deliveryOption || 'Rolled and Boxed', 300, supplierBoxY + 50);
 
   yPos += 85;
 
