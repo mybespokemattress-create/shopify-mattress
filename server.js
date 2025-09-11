@@ -387,17 +387,12 @@ app.put('/api/orders/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { 
-      processing_status, 
-      notes, 
-      mattress_label, 
-      email_sent,
-      order_number,
-      customer_name,
-      customer_email,
-      supplier_code,
-      link_attachment,
-      delivery_option,
-      measurements
+      processing_status, notes, mattress_label, email_sent,
+      order_number, customer_name, customer_email, order_date,
+      supplier_code, product_sku, quantity,
+      dimension_a, dimension_b, dimension_c, dimension_d, dimension_e, dimension_f, dimension_g,
+      radius_top_corner, radius_bottom_corner, finished_size_max,
+      link_attachment, delivery_option, measurements
     } = req.body;
     
     const updateFields = [];
@@ -439,26 +434,91 @@ app.put('/api/orders/:id', async (req, res) => {
       values.push(customer_email);
     }
 
-    if (supplier_code !== undefined || link_attachment !== undefined || 
-        delivery_option !== undefined || measurements !== undefined) {
-      
+    if (order_date !== undefined) {
+      updateFields.push(`order_date = $${valueIndex++}`);
+      values.push(order_date);
+    }
+
+    if (supplier_code !== undefined) {
+      updateFields.push(`supplier_code = $${valueIndex++}`);
+      values.push(supplier_code);
+    }
+
+    if (product_sku !== undefined) {
+      updateFields.push(`product_sku = $${valueIndex++}`);
+      values.push(product_sku);
+    }
+
+    if (quantity !== undefined) {
+      updateFields.push(`quantity = $${valueIndex++}`);
+      values.push(quantity);
+    }
+
+    if (dimension_a !== undefined) {
+      updateFields.push(`dimension_a = $${valueIndex++}`);
+      values.push(dimension_a);
+    }
+
+    if (dimension_b !== undefined) {
+      updateFields.push(`dimension_b = $${valueIndex++}`);
+      values.push(dimension_b);
+    }
+
+    if (dimension_c !== undefined) {
+      updateFields.push(`dimension_c = $${valueIndex++}`);
+      values.push(dimension_c);
+    }
+
+    if (dimension_d !== undefined) {
+      updateFields.push(`dimension_d = $${valueIndex++}`);
+      values.push(dimension_d);
+    }
+
+    if (dimension_e !== undefined) {
+      updateFields.push(`dimension_e = $${valueIndex++}`);
+      values.push(dimension_e);
+    }
+
+    if (dimension_f !== undefined) {
+      updateFields.push(`dimension_f = $${valueIndex++}`);
+      values.push(dimension_f);
+    }
+
+    if (dimension_g !== undefined) {
+      updateFields.push(`dimension_g = $${valueIndex++}`);
+      values.push(dimension_g);
+    }
+
+    if (radius_top_corner !== undefined) {
+      updateFields.push(`radius_top_corner = $${valueIndex++}`);
+      values.push(radius_top_corner);
+    }
+
+    if (radius_bottom_corner !== undefined) {
+      updateFields.push(`radius_bottom_corner = $${valueIndex++}`);
+      values.push(radius_bottom_corner);
+    }
+
+    if (finished_size_max !== undefined) {
+      updateFields.push(`finished_size_max = $${valueIndex++}`);
+      values.push(finished_size_max);
+    }
+
+    if (link_attachment !== undefined) {
+      updateFields.push(`link_attachment = $${valueIndex++}`);
+      values.push(link_attachment);
+    }
+
+    if (delivery_option !== undefined) {
+      updateFields.push(`delivery_option = $${valueIndex++}`);
+      values.push(delivery_option);
+    }
+
+    if (measurements !== undefined) {
+      updateFields.push(`order_data = $${valueIndex++}`);
       const existingOrder = await pool.query('SELECT order_data FROM processed_orders WHERE id = $1', [id]);
       let orderData = existingOrder.rows[0]?.order_data || {};
-      
-      if (supplier_code !== undefined) {
-        orderData.supplierSpecification = supplier_code;
-      }
-      if (link_attachment !== undefined) {
-        orderData.linkAttachment = link_attachment;
-      }
-      if (delivery_option !== undefined) {
-        orderData.deliveryOption = delivery_option;
-      }
-      if (measurements !== undefined) {
-        orderData.measurements = measurements;
-      }
-      
-      updateFields.push(`order_data = $${valueIndex++}`);
+      orderData.measurements = measurements;
       values.push(JSON.stringify(orderData));
     }
     
