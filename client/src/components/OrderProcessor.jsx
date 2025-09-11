@@ -836,12 +836,21 @@ const OrderProcessor = () => {
                           className="w-full px-3 py-2 border rounded bg-slate-100 text-sm"
                         />
                       </div>
+                      
                       <div className="w-20">
                         <label className="block text-sm text-slate-600 mb-1">Qty</label>
                         <input
                           type="number"
                           value={selectedOrder.lineItems[0]?.quantity || 1}
-                          onChange={(e) => updateOrderField('quantity', parseInt(e.target.value))}
+                          onChange={(e) => {
+                            const newQuantity = parseInt(e.target.value) || 1;
+                            setSelectedOrder(prev => ({
+                              ...prev,
+                              lineItems: prev.lineItems.map((item, index) => 
+                                index === 0 ? { ...item, quantity: newQuantity } : item
+                              )
+                            }));
+                          }}
                           disabled={!editMode}
                           className="w-full px-2 py-2 border rounded disabled:bg-slate-100 text-center"
                           min="1"
