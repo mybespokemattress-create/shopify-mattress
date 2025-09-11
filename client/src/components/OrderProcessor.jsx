@@ -309,9 +309,13 @@ const OrderProcessor = () => {
   useEffect(() => {
     fetchOrders();
     checkStorageStatus();
-    const interval = setInterval(fetchOrders, 30000);
+    const interval = setInterval(() => {
+      if (!editMode) {
+        fetchOrders();
+      }
+    }, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [editMode]);
 
   const handleOrderSelect = (order) => {
     if (selectedOrder?.id === order.id) {
@@ -327,57 +331,58 @@ const OrderProcessor = () => {
   const handleEdit = () => setEditMode(true);
   
     const handleSave = async () => {
-    try {
-      const response = await fetch(`/api/orders/${selectedOrder.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          processing_status: selectedOrder.status === 'ready_to_send' ? 'processed' : 'received',
-          notes: selectedOrder.notes,
-          mattress_label: selectedOrder.mattressLabel,
-          order_number: selectedOrder.orderNumber,
-          customer_name: selectedOrder.customer.name,
-          customer_email: selectedOrder.customer.email,
-          order_date: selectedOrder.orderDate,
-          supplier_code: selectedOrder.supplierCode,
-          product_sku: selectedOrder.lineItems[0]?.sku,
-          quantity: selectedOrder.lineItems[0]?.quantity,
-          dimension_a: selectedOrder.lineItems[0]?.properties['Dimension A'],
-          dimension_b: selectedOrder.lineItems[0]?.properties['Dimension B'],
-          dimension_c: selectedOrder.lineItems[0]?.properties['Dimension C'],
-          dimension_d: selectedOrder.lineItems[0]?.properties['Dimension D'],
-          dimension_e: selectedOrder.lineItems[0]?.properties['Dimension E'],
-          dimension_f: selectedOrder.lineItems[0]?.properties['Dimension F'],
-          dimension_g: selectedOrder.lineItems[0]?.properties['Dimension G'],
-          radius_top_corner: selectedOrder.radiusTopCorner,
-          radius_bottom_corner: selectedOrder.radiusBottomCorner,
-          finished_size_max: selectedOrder.finishedSizeMax,
-          link_attachment: selectedOrder.linkAttachment,
-          delivery_option: selectedOrder.deliveryOption,
-          measurements: selectedOrder.lineItems[0]?.properties || {}
-        })
-      });
+  try {
+    const response = await fetch(`/api/orders/${selectedOrder.id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        processing_status: selectedOrder.status === 'ready_to_send' ? 'processed' : 'received',
+        notes: selectedOrder.notes,
+        mattress_label: selectedOrder.mattressLabel,
+        order_number: selectedOrder.orderNumber,
+        customer_name: selectedOrder.customer.name,
+        customer_email: selectedOrder.customer.email,
+        order_date: selectedOrder.orderDate,
+        supplier_code: selectedOrder.supplierCode,
+        product_sku: selectedOrder.lineItems[0]?.sku,
+        quantity: selectedOrder.lineItems[0]?.quantity,
+        dimension_a: selectedOrder.lineItems[0]?.properties['Dimension A'],
+        dimension_b: selectedOrder.lineItems[0]?.properties['Dimension B'],
+        dimension_c: selectedOrder.lineItems[0]?.properties['Dimension C'],
+        dimension_d: selectedOrder.lineItems[0]?.properties['Dimension D'],
+        dimension_e: selectedOrder.lineItems[0]?.properties['Dimension E'],
+        dimension_f: selectedOrder.lineItems[0]?.properties['Dimension F'],
+        dimension_g: selectedOrder.lineItems[0]?.properties['Dimension G'],
+        radius_top_corner: selectedOrder.radiusTopCorner,
+        radius_bottom_corner: selectedOrder.radiusBottomCorner,
+        finished_size_max: selectedOrder.finishedSizeMax,
+        link_attachment: selectedOrder.linkAttachment,
+        delivery_option: selectedOrder.deliveryOption,
+        measurements: selectedOrder.lineItems[0]?.properties || {}
+      })
+    });
 
-      if (!response.ok) {
-        throw new Error('Failed to update order');
-      }
+    const result = await response.json();
+    console.log('Save response:', result);
 
-      setOrders(orders.map(order => 
-        order.id === selectedOrder.id ? selectedOrder : order
-      ));
-      
-      // Update original data reference and clear flags
-      setOriginalOrderData({ ...selectedOrder });
-      setHasUnsavedChanges(false);
-      setEditMode(false);
-      
-    } catch (err) {
-      console.error('Error saving order:', err);
-      alert('Failed to save order changes');
+    if (!response.ok) {
+      throw new Error(`Server error: ${response.status}`);
     }
-  };
+
+    setOrders(orders.map(order => 
+      order.id === selectedOrder.id ? selectedOrder : order
+    ));
+    
+    setEditMode(false);
+    alert('Order saved successfully!');
+    
+  } catch (err) {
+    console.error('Error saving order:', err);
+    alert(`Failed to save order: ${err.message}`);
+  }
+};
 
   const handleCancel = () => {
     const originalOrder = orders.find(order => order.id === selectedOrder.id);
@@ -406,6 +411,10 @@ const OrderProcessor = () => {
       }))
     }));
   };
+
+  const updateAdditionalField = (field, value) => {
+  setSelectedOrder(prev => ({ ...prev, [field]: value }));
+};
 
   const generatePDF = async () => {
     try {
@@ -879,6 +888,8 @@ const OrderProcessor = () => {
                               <label className="block text-sm text-slate-600 mb-1">Radius of Top Corner</label>
                               <input
                                 type="text"
+                                value={selectedOrder.radiusTopCorner || ''}
+                                onChange={(e) => updateAdditionalField('radiusTopCorner', e.target.value)}
                                 disabled={!editMode}
                                 placeholder="Enter radius"
                                 className="w-full px-3 py-2 border rounded disabled:bg-slate-100"
@@ -888,6 +899,8 @@ const OrderProcessor = () => {
                               <label className="block text-sm text-slate-600 mb-1">Radius of Bottom Corner</label>
                               <input
                                 type="text"
+                                value={selectedOrder.radiusBottomCorner || ''}
+                                onChange={(e) => updateAdditionalField('radiusBottomCorner', e.target.value)}
                                 disabled={!editMode}
                                 placeholder="Enter radius"
                                 className="w-full px-3 py-2 border rounded disabled:bg-slate-100"
@@ -897,6 +910,8 @@ const OrderProcessor = () => {
                               <label className="block text-sm text-slate-600 mb-1">Finished Size Must Not Exceed</label>
                               <input
                                 type="text"
+                                value={selectedOrder.finishedSizeMax || ''}
+                                onChange={(e) => updateAdditionalField('finishedSizeMax', e.target.value)}
                                 disabled={!editMode}
                                 placeholder="Enter maximum size"
                                 className="w-full px-3 py-2 border rounded disabled:bg-slate-100"
