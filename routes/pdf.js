@@ -102,7 +102,7 @@ function generatePDFContent(doc, orderData) {
   doc.fontSize(11)
     .font('Helvetica')
     .fillColor('black')
-    .text(supplierCode, 45, supplierBoxY + 50, { width: 470, height: 15 });
+    .text(supplierCode, 45, supplierBoxY + 50, { width: 470, height: 30 });
 
   // Row 3: Link Attachment (full width) - 20px spacing
   doc.fontSize(10)
@@ -200,16 +200,6 @@ dimensions.forEach(dim => {
   rowY += 20;
 });
 
-// Add separator line for Additional Specifications
-rowY += 15;
-doc.lineWidth(1)
-   .strokeColor('black')
-   .moveTo(50, rowY)
-   .lineTo(200, rowY)
-   .stroke();
-
-rowY += 20;
-
 // Additional Specifications header
 doc.fontSize(11)
    .font('Helvetica-Bold')
@@ -231,10 +221,10 @@ doc.fontSize(10)
 
 rowY += 12;
 
-doc.fontSize(10)
+doc.fontSize(12)
    .font('Helvetica')
    .fillColor('black')
-   .text(radiusTopCorner, 60, rowY);
+   .text(radiusTopCorner, 50, rowY);
 
 rowY += 20;
 
@@ -249,7 +239,7 @@ rowY += 12;
 doc.fontSize(10)
    .font('Helvetica')
    .fillColor('black')
-   .text(radiusBottomCorner, 60, rowY);
+   .text(radiusBottomCorner, 50, rowY);
 
 rowY += 20;
 
@@ -264,7 +254,7 @@ rowY += 12;
 doc.fontSize(10)
    .font('Helvetica')
    .fillColor('black')
-   .text(finishedSizeMax, 60, rowY);
+   .text(finishedSizeMax, 50, rowY);
 
 rowY += 25;
 
