@@ -99,7 +99,7 @@ function generatePDFContent(doc, orderData) {
     .fillColor('black')
     .text('Supplier Code:', 45, supplierBoxY + 35);
 
-  doc.fontSize(9)
+  doc.fontSize(10)
     .font('Helvetica')
     .fillColor('black')
     .text(supplierCode, 45, supplierBoxY + 50, { width: 470, height: 20 });
