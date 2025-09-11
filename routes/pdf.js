@@ -226,30 +226,48 @@ function generatePDFContent(doc, orderData) {
   
   rowY += 20;
   
-  // Radius of Top Corner
+// Radius of Top Corner
+  doc.fontSize(9)
+     .font('Helvetica-Bold')
+     .fillColor('black')
+     .text('Radius of Top Corner', 45, rowY);
+  
+  rowY += 12;
+  
   doc.fontSize(9)
      .font('Helvetica')
      .fillColor('black')
-     .text('Radius of Top Corner', 45, rowY)
-     .text(orderData.radiusTopCorner || '-', 100, rowY);
+     .text(orderData.radiusTopCorner || '-', 55, rowY);
   
-  rowY += 14;
+  rowY += 18;
   
   // Radius of Bottom Corner
   doc.fontSize(9)
-     .font('Helvetica')
+     .font('Helvetica-Bold')
      .fillColor('black')
-     .text('Radius of Bottom Corner', 45, rowY)
-     .text(orderData.radiusBottomCorner || '-', 100, rowY);
+     .text('Radius of Bottom Corner', 45, rowY);
   
-  rowY += 14;
+  rowY += 12;
   
-  // Finished Size Must Not Exceed
   doc.fontSize(9)
      .font('Helvetica')
      .fillColor('black')
-     .text('Finished Size Must Not Exceed', 45, rowY)
-     .text(orderData.finishedSizeMax || '-', 100, rowY);
+     .text(orderData.radiusBottomCorner || '-', 55, rowY);
+  
+  rowY += 18;
+  
+  // Finished Size Must Not Exceed
+  doc.fontSize(9)
+     .font('Helvetica-Bold')
+     .fillColor('black')
+     .text('Finished Size Must Not Exceed', 45, rowY);
+  
+  rowY += 12;
+  
+  doc.fontSize(9)
+     .font('Helvetica')
+     .fillColor('black')
+     .text(orderData.finishedSizeMax || '-', 55, rowY);
   
   rowY += 20;
 
