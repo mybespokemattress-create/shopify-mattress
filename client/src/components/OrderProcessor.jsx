@@ -15,28 +15,10 @@ const OrderProcessor = () => {
   const [storageStatus, setStorageStatus] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
 
-  // NEW: Browser refresh protection state
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [originalOrderData, setOriginalOrderData] = useState(null);
-
   const getDiagramImageUrl = (diagramNumber) => {
     if (!diagramNumber) return null;
     return `/images/diagrams/Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`;
   };
-
-  // NEW: Browser refresh protection
-  useEffect(() => {
-    const handleBeforeUnload = (e) => {
-      if (editMode && hasUnsavedChanges) {
-        e.preventDefault();
-        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
-        return 'You have unsaved changes. Are you sure you want to leave?';
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [editMode, hasUnsavedChanges]);
 
   // Check storage status
   const checkStorageStatus = async () => {
@@ -331,48 +313,19 @@ const OrderProcessor = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // NEW: Helper function to detect changes
-  const detectChanges = (current, original) => {
-    if (!original) return false;
-    
-    const fieldsToCheck = [
-      'notes', 'orderNumber', 'orderDate', 'mattressLabel',
-      'customer.name', 'customer.email', 'supplierCode', 
-      'linkAttachment', 'deliveryOption'
-    ];
-    
-    return fieldsToCheck.some(field => {
-      if (field.includes('.')) {
-        const [parent, child] = field.split('.');
-        return current[parent]?.[child] !== original[parent]?.[child];
-      }
-      return current[field] !== original[field];
-    });
-  };
-
-  // MODIFIED: Enhanced order selection with original data storage
   const handleOrderSelect = (order) => {
     if (selectedOrder?.id === order.id) {
       setSelectedOrder(null);
       setEditMode(false);
-      setOriginalOrderData(null);
-      setHasUnsavedChanges(false);
     } else {
       setSelectedOrder({ ...order });
-      setOriginalOrderData({ ...order }); // Store original for comparison
       setEditMode(false);
-      setSelectedFile(null);
-      setHasUnsavedChanges(false);
+      setSelectedFile(null); // Clear any selected file
     }
   };
 
-  // MODIFIED: Reset unsaved changes flag
-  const handleEdit = () => {
-    setEditMode(true);
-    setHasUnsavedChanges(false);
-  };
+  const handleEdit = () => setEditMode(true);
   
-  // MODIFIED: Enhanced save with state management
   const handleSave = async () => {
     try {
       const response = await fetch(`/api/orders/${selectedOrder.id}`, {
@@ -394,10 +347,6 @@ const OrderProcessor = () => {
       setOrders(orders.map(order => 
         order.id === selectedOrder.id ? selectedOrder : order
       ));
-      
-      // Update original data reference and clear flags
-      setOriginalOrderData({ ...selectedOrder });
-      setHasUnsavedChanges(false);
       setEditMode(false);
       
     } catch (err) {
@@ -406,58 +355,32 @@ const OrderProcessor = () => {
     }
   };
 
-  // MODIFIED: Enhanced cancel with confirmation
   const handleCancel = () => {
-    if (hasUnsavedChanges) {
-      const confirmCancel = window.confirm('You have unsaved changes. Are you sure you want to cancel?');
-      if (!confirmCancel) {
-        return;
-      }
-    }
-    
-    // Restore from original data
-    const originalOrder = originalOrderData || orders.find(order => order.id === selectedOrder.id);
+    const originalOrder = orders.find(order => order.id === selectedOrder.id);
     setSelectedOrder({ ...originalOrder });
     setEditMode(false);
-    setSelectedFile(null);
-    setHasUnsavedChanges(false);
+    setSelectedFile(null); // Clear any selected file
   };
 
-  // MODIFIED: Update functions with change detection
   const updateOrderField = (field, value) => {
-    setSelectedOrder(prev => {
-      const updated = { ...prev, [field]: value };
-      const hasChanges = detectChanges(updated, originalOrderData);
-      setHasUnsavedChanges(hasChanges);
-      return updated;
-    });
+    setSelectedOrder(prev => ({ ...prev, [field]: value }));
   };
 
   const updateCustomerField = (field, value) => {
-    setSelectedOrder(prev => {
-      const updated = {
-        ...prev,
-        customer: { ...prev.customer, [field]: value }
-      };
-      const hasChanges = detectChanges(updated, originalOrderData);
-      setHasUnsavedChanges(hasChanges);
-      return updated;
-    });
+    setSelectedOrder(prev => ({
+      ...prev,
+      customer: { ...prev.customer, [field]: value }
+    }));
   };
 
   const updateMeasurement = (dimension, value) => {
-    setSelectedOrder(prev => {
-      const updated = {
-        ...prev,
-        lineItems: prev.lineItems.map(item => ({
-          ...item,
-          properties: { ...item.properties, [dimension]: value }
-        }))
-      };
-      const hasChanges = detectChanges(updated, originalOrderData);
-      setHasUnsavedChanges(hasChanges);
-      return updated;
-    });
+    setSelectedOrder(prev => ({
+      ...prev,
+      lineItems: prev.lineItems.map(item => ({
+        ...item,
+        properties: { ...item.properties, [dimension]: value }
+      }))
+    }));
   };
 
   const generatePDF = async () => {
@@ -578,13 +501,6 @@ const OrderProcessor = () => {
               <p className="text-slate-600 mt-1">
                 Review and process Shopify orders before sending to suppliers
               </p>
-              {/* NEW: Unsaved changes indicator */}
-              {editMode && hasUnsavedChanges && (
-                <div className="mt-2 flex items-center gap-2 text-amber-600">
-                  <AlertTriangle size={16} />
-                  <span className="text-sm font-medium">You have unsaved changes</span>
-                </div>
-              )}
               {storageStatus && storageStatus.percentage > 80 && (
                 <div className="mt-2 flex items-center gap-2 text-amber-600">
                   <AlertTriangle size={16} />
@@ -768,15 +684,10 @@ const OrderProcessor = () => {
                       <>
                         <button
                           onClick={handleSave}
-                          className={`px-4 py-2 text-white rounded flex items-center gap-2 ${
-                            hasUnsavedChanges 
-                              ? 'bg-green-600 hover:bg-green-700' 
-                              : 'bg-slate-400 cursor-not-allowed'
-                          }`}
-                          disabled={!hasUnsavedChanges}
+                          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-2"
                         >
                           <Save size={16} />
-                          Save{hasUnsavedChanges ? ' *' : ''}
+                          Save
                         </button>
                         <button
                           onClick={handleCancel}

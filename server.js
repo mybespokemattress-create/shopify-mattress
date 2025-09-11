@@ -386,9 +386,20 @@ app.get('/api/orders/:id', async (req, res) => {
 app.put('/api/orders/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { processing_status, notes, mattress_label, email_sent } = req.body;
+    const { 
+      processing_status, 
+      notes, 
+      mattress_label, 
+      email_sent,
+      order_number,
+      customer_name,
+      customer_email,
+      supplier_code,
+      link_attachment,
+      delivery_option,
+      measurements
+    } = req.body;
     
-    // Build dynamic update query based on provided fields
     const updateFields = [];
     const values = [];
     let valueIndex = 1;
@@ -408,17 +419,53 @@ app.put('/api/orders/:id', async (req, res) => {
       values.push(mattress_label);
     }
 
-    // ADD THIS BLOCK
     if (email_sent !== undefined) {
       updateFields.push(`email_sent = $${valueIndex++}`);
       values.push(email_sent);
+    }
+
+    if (order_number !== undefined) {
+      updateFields.push(`order_number = $${valueIndex++}`);
+      values.push(order_number);
+    }
+
+    if (customer_name !== undefined) {
+      updateFields.push(`customer_name = $${valueIndex++}`);
+      values.push(customer_name);
+    }
+
+    if (customer_email !== undefined) {
+      updateFields.push(`customer_email = $${valueIndex++}`);
+      values.push(customer_email);
+    }
+
+    if (supplier_code !== undefined || link_attachment !== undefined || 
+        delivery_option !== undefined || measurements !== undefined) {
+      
+      const existingOrder = await pool.query('SELECT order_data FROM processed_orders WHERE id = $1', [id]);
+      let orderData = existingOrder.rows[0]?.order_data || {};
+      
+      if (supplier_code !== undefined) {
+        orderData.supplierSpecification = supplier_code;
+      }
+      if (link_attachment !== undefined) {
+        orderData.linkAttachment = link_attachment;
+      }
+      if (delivery_option !== undefined) {
+        orderData.deliveryOption = delivery_option;
+      }
+      if (measurements !== undefined) {
+        orderData.measurements = measurements;
+      }
+      
+      updateFields.push(`order_data = $${valueIndex++}`);
+      values.push(JSON.stringify(orderData));
     }
     
     if (updateFields.length === 0) {
       return res.status(400).json({ error: 'No fields to update' });
     }
     
-    // Add updated_date and id to the query - FIXED COLUMN NAME
     updateFields.push('updated_date = NOW()');
     values.push(id);
     
