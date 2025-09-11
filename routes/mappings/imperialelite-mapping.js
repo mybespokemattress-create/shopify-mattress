@@ -53,13 +53,30 @@ const IMPERIALELITE_SPECS = {
 /**
  * Check if product is an Imperial Elite mattress
  */
-function isImperialEliteMattress(productTitle, handle = null) {
+function isImperialEliteMattress(productTitle, shopifySku = null, handle = null) {
+  // PRIMARY METHOD: Check SKU prefix
+  if (shopifySku) {
+    const skuLower = shopifySku.toLowerCase();
+    if (skuLower.startsWith('imperial')) {
+      console.log(`[Imperial Elite] Detected via SKU prefix: ${shopifySku}`);
+      return true;
+    }
+  }
+  
+  // FALLBACK METHOD: Check product title and handle
   const title = productTitle.toLowerCase();
   const handleText = handle ? handle.toLowerCase() : '';
   
-  return title.startsWith('imperial elite') || handleText.startsWith('imperial elite') ||
-         title.includes('imperialelite') || handleText.includes('imperialelite') ||
-         title.startsWith('imperial') || handleText.startsWith('imperial');
+  const titleMatch = title.startsWith('imperial elite') || handleText.startsWith('imperial elite') ||
+                    title.includes('imperialelite') || handleText.includes('imperialelite') ||
+                    title.startsWith('imperial') || handleText.startsWith('imperial');
+  
+  if (titleMatch) {
+    console.log(`[Imperial Elite] Detected via title/handle: ${productTitle}`);
+    return true;
+  }
+  
+  return false;
 }
 
 // ============================================================================
@@ -233,7 +250,7 @@ function mapImperialEliteMattress(productTitle, productVariant = null, productPr
   
   try {
     // 1. Verify this is an Imperial Elite mattress
-    if (!isImperialEliteMattress(productTitle)) {
+    if (!isImperialEliteMattress(productTitle, shopifySku)) {
       return {
         success: false,
         error: 'Product is not an Imperial Elite mattress',

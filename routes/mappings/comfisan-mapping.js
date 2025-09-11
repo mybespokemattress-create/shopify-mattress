@@ -93,12 +93,29 @@ const COMFISAN_SPECS = {
 /**
  * Check if product is a Comfisan mattress
  */
-function isComfisanMattress(productTitle, handle = null) {
+function isComfisanMattress(productTitle, shopifySku = null, handle = null) {
+  // PRIMARY METHOD: Check SKU prefix
+  if (shopifySku) {
+    const skuLower = shopifySku.toLowerCase();
+    if (skuLower.startsWith('comfi')) {
+      console.log(`[Comfisan] Detected via SKU prefix: ${shopifySku}`);
+      return true;
+    }
+  }
+  
+  // FALLBACK METHOD: Check product title and handle
   const title = productTitle.toLowerCase();
   const handleText = handle ? handle.toLowerCase() : '';
   
-  return title.startsWith('comfisan') || handleText.startsWith('comfisan') ||
-         title.includes('comfi') || handleText.includes('comfi');
+  const titleMatch = title.startsWith('comfisan') || handleText.startsWith('comfisan') ||
+                    title.includes('comfi') || handleText.includes('comfi');
+  
+  if (titleMatch) {
+    console.log(`[Comfisan] Detected via title/handle: ${productTitle}`);
+    return true;
+  }
+  
+  return false;
 }
 
 // ============================================================================
@@ -268,7 +285,7 @@ function mapComfisanMattress(productTitle, productVariant = null, productPropert
   
   try {
     // 1. Verify this is a Comfisan mattress
-    if (!isComfisanMattress(productTitle)) {
+    if (!isComfisanMattress(productTitle, shopifySku)) {
       return {
         success: false,
         error: 'Product is not a Comfisan mattress',

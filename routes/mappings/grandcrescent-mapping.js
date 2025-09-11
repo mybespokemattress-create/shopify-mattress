@@ -60,13 +60,30 @@ const GRANDCRESCENT_SPECS = {
 /**
  * Check if product is a Grand Crescent mattress
  */
-function isGrandCrescentMattress(productTitle, handle = null) {
+function isGrandCrescentMattress(productTitle, shopifySku = null, handle = null) {
+  // PRIMARY METHOD: Check SKU prefix
+  if (shopifySku) {
+    const skuLower = shopifySku.toLowerCase();
+    if (skuLower.startsWith('grand')) {
+      console.log(`[Grand Crescent] Detected via SKU prefix: ${shopifySku}`);
+      return true;
+    }
+  }
+  
+  // FALLBACK METHOD: Check product title and handle
   const title = productTitle.toLowerCase();
   const handleText = handle ? handle.toLowerCase() : '';
   
-  return title.startsWith('grand crescent') || handleText.startsWith('grand crescent') ||
-         title.includes('grandcrescent') || handleText.includes('grandcrescent') ||
-         title.startsWith('grand') || handleText.startsWith('grand');
+  const titleMatch = title.startsWith('grand crescent') || handleText.startsWith('grand crescent') ||
+                    title.includes('grandcrescent') || handleText.includes('grandcrescent') ||
+                    title.startsWith('grand') || handleText.startsWith('grand');
+  
+  if (titleMatch) {
+    console.log(`[Grand Crescent] Detected via title/handle: ${productTitle}`);
+    return true;
+  }
+  
+  return false;
 }
 
 // ============================================================================
@@ -229,7 +246,7 @@ function mapGrandCrescentMattress(productTitle, productVariant = null, productPr
   
   try {
     // 1. Verify this is a Grand Crescent mattress
-    if (!isGrandCrescentMattress(productTitle)) {
+    if (!isGrandCrescentMattress(productTitle, shopifySku)) {
       return {
         success: false,
         error: 'Product is not a Grand Crescent mattress',
