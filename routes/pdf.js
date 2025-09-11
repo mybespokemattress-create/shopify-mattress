@@ -38,38 +38,28 @@ function imageExists(imagePath) {
 function generatePDFContent(doc, orderData) {
   // === HEADER SECTION ===
   doc.fontSize(18)
-     .font('Helvetica-Bold')
-     .fillColor('black')
-     .text('My Bespoke Order Ltd', 40, 40);
+    .font('Helvetica-Bold')
+    .fillColor('black')
+    .text('My Bespoke Order Ltd', 40, 40);
 
   doc.fontSize(11)
-     .font('Helvetica')
-     .fillColor('black')
-     .text('Purchase Order & Manufacturing Specification', 40, 62);
+    .font('Helvetica')
+    .fillColor('black')
+    .text('Purchase Order & Manufacturing Specification', 40, 62);
 
   doc.fontSize(11)
-     .font('Helvetica')
-     .fillColor('black')
-     .text(`Order: ${orderData.orderNumber}`, 40, 78);
+    .font('Helvetica')
+    .fillColor('black')
+    .text(`Order: ${orderData.orderNumber}`, 40, 78)
+    .text(`Date: ${orderData.orderDate}`, 400, 78);
 
   // Horizontal line under header
   doc.strokeColor('black')
-     .moveTo(40, 105)
-     .lineTo(555, 105)
-     .stroke();
+    .moveTo(40, 105)
+    .lineTo(555, 105)
+    .stroke();
 
-  // === ORDER INFORMATION BOX ===
   let yPos = 120;
-
-  // Order Information Box (full width)
-  const orderBoxY = drawCleanBox(doc, 40, yPos, 515, 50, 'Order Information');
-  doc.fontSize(9)
-     .font('Helvetica')
-     .fillColor('black')
-     .text(`Order Number: ${orderData.orderNumber}`, 45, orderBoxY)
-     .text(`Date: ${orderData.orderDate}`, 300, orderBoxY);
-
-  yPos += 65;
 
   // === SUPPLIER SPECIFICATION SECTION ===
   doc.fontSize(12)
