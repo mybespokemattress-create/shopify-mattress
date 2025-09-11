@@ -326,7 +326,7 @@ const OrderProcessor = () => {
 
   const handleEdit = () => setEditMode(true);
   
-  const handleSave = async () => {
+    const handleSave = async () => {
     try {
       const response = await fetch(`/api/orders/${selectedOrder.id}`, {
         method: 'PUT',
@@ -336,9 +336,28 @@ const OrderProcessor = () => {
         body: JSON.stringify({
           processing_status: selectedOrder.status === 'ready_to_send' ? 'processed' : 'received',
           notes: selectedOrder.notes,
-          mattress_label: selectedOrder.mattressLabel
+          mattress_label: selectedOrder.mattressLabel,
+          order_number: selectedOrder.orderNumber,
+          customer_name: selectedOrder.customer.name,
+          customer_email: selectedOrder.customer.email,
+          order_date: selectedOrder.orderDate,
+          supplier_code: selectedOrder.supplierCode,
+          product_sku: selectedOrder.lineItems[0]?.sku,
+          quantity: selectedOrder.lineItems[0]?.quantity,
+          dimension_a: selectedOrder.lineItems[0]?.properties['Dimension A'],
+          dimension_b: selectedOrder.lineItems[0]?.properties['Dimension B'],
+          dimension_c: selectedOrder.lineItems[0]?.properties['Dimension C'],
+          dimension_d: selectedOrder.lineItems[0]?.properties['Dimension D'],
+          dimension_e: selectedOrder.lineItems[0]?.properties['Dimension E'],
+          dimension_f: selectedOrder.lineItems[0]?.properties['Dimension F'],
+          dimension_g: selectedOrder.lineItems[0]?.properties['Dimension G'],
+          radius_top_corner: selectedOrder.radiusTopCorner,
+          radius_bottom_corner: selectedOrder.radiusBottomCorner,
+          finished_size_max: selectedOrder.finishedSizeMax,
+          link_attachment: selectedOrder.linkAttachment,
+          delivery_option: selectedOrder.deliveryOption,
+          measurements: selectedOrder.lineItems[0]?.properties || {}
         })
-      });
 
       if (!response.ok) {
         throw new Error('Failed to update order');
@@ -347,6 +366,10 @@ const OrderProcessor = () => {
       setOrders(orders.map(order => 
         order.id === selectedOrder.id ? selectedOrder : order
       ));
+      
+      // Update original data reference and clear flags
+      setOriginalOrderData({ ...selectedOrder });
+      setHasUnsavedChanges(false);
       setEditMode(false);
       
     } catch (err) {
