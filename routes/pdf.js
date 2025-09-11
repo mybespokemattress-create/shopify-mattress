@@ -129,12 +129,12 @@ function generatePDFContent(doc, orderData) {
   doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
-    .text('Mattress Label:', 45, supplierBoxY + 110);
+    .text('Mattress Label:', 45, supplierBoxY + 105);
 
   doc.fontSize(9)
     .font('Helvetica')
     .fillColor('black')
-    .text(orderData.mattressLabel || 'Caravan Mattresses', 45, supplierBoxY + 125);
+    .text(orderData.mattressLabel || 'Caravan Mattresses', 45, supplierBoxY + 120);
 
   yPos += 155;
 
@@ -361,14 +361,14 @@ function generatePDFContent(doc, orderData) {
 
     yPos += 20;
 
-    const notesBoxY = drawCleanBox(doc, 40, yPos, 515, 50);
+    const notesBoxY = drawCleanBox(doc, 40, yPos, 515, 35);
 
     doc.fontSize(9)
        .font('Helvetica')
        .fillColor('black')
        .text(orderData.notes, 45, notesBoxY, { width: 505, height: 40 });
 
-    yPos += 65;
+    yPos += 50;
   }
 
   // === FOOTER SECTION ===
