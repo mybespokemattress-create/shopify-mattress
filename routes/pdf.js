@@ -72,9 +72,6 @@ function generatePDFContent(doc, orderData) {
   // Supplier Code Box
   const supplierBoxY = drawCleanBox(doc, 40, yPos, 515, 140);
 
-  // Supplier Code Box
-const supplierBoxY = drawCleanBox(doc, 40, yPos, 515, 140);
-
   // Extract supplier code from React data
   console.log('PDF DEBUG - orderData.supplierCode:', orderData.supplierCode);
   let supplierCode = orderData.supplierCode || 'No supplier mapping found - check SKU processing';
