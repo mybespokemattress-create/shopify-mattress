@@ -146,23 +146,8 @@ function generatePDFContent(doc, orderData) {
 
   yPos += 20;
 
-  // Left side - Dimensions Table (redesigned for factory readability)
+  // Left side - Dimensions Table (compact but readable)
 const dimBoxY = drawCleanBox(doc, 40, yPos, 180, 350, 'Dimensions');
-
-// Table headers (much larger and more spaced)
-doc.fontSize(12)
-   .font('Helvetica-Bold')
-   .fillColor('black')
-   .text('Dim', 50, dimBoxY + 10)
-   .text('Value', 120, dimBoxY + 10);
-
-// Header underline (thicker)
-doc.lineWidth(1.5)
-   .strokeColor('black')
-   .moveTo(50, dimBoxY + 25)
-   .lineTo(210, dimBoxY + 25)
-   .stroke()
-   .lineWidth(1); // Reset line width
 
 // Extract measurements from React data
 let measurements = {};
@@ -183,9 +168,9 @@ if (orderData.lineItems && orderData.lineItems[0] && orderData.lineItems[0].prop
 
 console.log('🔍 Final measurements object:', measurements);
 
-// Dimension rows A-G (much larger and more spaced)
+// Dimension rows A-G (no headers, just data)
 const dimensions = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
-let rowY = dimBoxY + 40;
+let rowY = dimBoxY + 15;
 let hasValidMeasurements = false;
 
 dimensions.forEach(dim => {
@@ -202,56 +187,56 @@ dimensions.forEach(dim => {
     }
   }
 
-  doc.fontSize(11)
+  doc.fontSize(12)
      .font('Helvetica-Bold')
      .fillColor('black')
      .text(dim, 50, rowY);
   
-  doc.fontSize(11)
+  doc.fontSize(12)
      .font('Helvetica')
      .fillColor('black')
-     .text(valueText, 120, rowY);
+     .text(valueText, 90, rowY);
 
-  rowY += 22; // Much more spacing
+  rowY += 20;
 });
 
-// Add separator line for Additional Specifications (more space)
+// Add separator line for Additional Specifications
 rowY += 15;
 doc.lineWidth(1)
    .strokeColor('black')
    .moveTo(50, rowY)
-   .lineTo(210, rowY)
+   .lineTo(200, rowY)
    .stroke();
 
 rowY += 20;
 
-// Additional Specifications header (larger)
+// Additional Specifications header
 doc.fontSize(11)
    .font('Helvetica-Bold')
    .fillColor('black')
    .text('Additional Specifications', 50, rowY);
 
-rowY += 25;
+rowY += 20;
 
 // Safety check for Additional Specifications data
 const radiusTopCorner = (orderData.radiusTopCorner && orderData.radiusTopCorner.trim()) ? orderData.radiusTopCorner : '-';
 const radiusBottomCorner = (orderData.radiusBottomCorner && orderData.radiusBottomCorner.trim()) ? orderData.radiusBottomCorner : '-';
 const finishedSizeMax = (orderData.finishedSizeMax && orderData.finishedSizeMax.trim()) ? orderData.finishedSizeMax : '-';
 
-// Radius of Top Corner (larger and more spaced)
+// Radius of Top Corner
 doc.fontSize(10)
    .font('Helvetica-Bold')
    .fillColor('black')
    .text('Radius of Top Corner', 50, rowY);
 
-rowY += 15;
+rowY += 12;
 
 doc.fontSize(10)
    .font('Helvetica')
    .fillColor('black')
    .text(radiusTopCorner, 60, rowY);
 
-rowY += 25;
+rowY += 20;
 
 // Radius of Bottom Corner
 doc.fontSize(10)
@@ -259,14 +244,14 @@ doc.fontSize(10)
    .fillColor('black')
    .text('Radius of Bottom Corner', 50, rowY);
 
-rowY += 15;
+rowY += 12;
 
 doc.fontSize(10)
    .font('Helvetica')
    .fillColor('black')
    .text(radiusBottomCorner, 60, rowY);
 
-rowY += 25;
+rowY += 20;
 
 // Finished Size Must Not Exceed
 doc.fontSize(10)
@@ -274,20 +259,20 @@ doc.fontSize(10)
    .fillColor('black')
    .text('Finished Size Must Not Exceed', 50, rowY);
 
-rowY += 15;
+rowY += 12;
 
 doc.fontSize(10)
    .font('Helvetica')
    .fillColor('black')
    .text(finishedSizeMax, 60, rowY);
 
-rowY += 20;
+rowY += 25;
 
-// Status at bottom (properly positioned)
+// Status at bottom
 doc.fontSize(9)
    .font('Helvetica-Oblique')
    .fillColor('black')
-   .text(`Status: ${hasValidMeasurements ? 'Verified' : 'Not verified'}`, 50, rowY + 10);
+   .text(`Status: ${hasValidMeasurements ? 'Verified' : 'Not verified'}`, 50, rowY);
 
   // Right side - Shape Diagram with Custom Diagram Priority (MUCH LARGER)
   const diagramBoxY = drawCleanBox(doc, 235, yPos, 320, 350, 'Shape Diagram');
