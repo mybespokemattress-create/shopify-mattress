@@ -358,6 +358,7 @@ const OrderProcessor = () => {
           delivery_option: selectedOrder.deliveryOption,
           measurements: selectedOrder.lineItems[0]?.properties || {}
         })
+      });
 
       if (!response.ok) {
         throw new Error('Failed to update order');
