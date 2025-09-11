@@ -72,6 +72,9 @@ function generatePDFContent(doc, orderData) {
   // Supplier Code Box
   const supplierBoxY = drawCleanBox(doc, 40, yPos, 515, 140);
 
+  // Supplier Code Box
+const supplierBoxY = drawCleanBox(doc, 40, yPos, 515, 140);
+
   // Extract supplier code from React data
   console.log('PDF DEBUG - orderData.supplierCode:', orderData.supplierCode);
   let supplierCode = orderData.supplierCode || 'No supplier mapping found - check SKU processing';
@@ -93,39 +96,29 @@ function generatePDFContent(doc, orderData) {
     .fillColor('black')
     .text(orderData.lineItems?.[0]?.quantity || '1', 45, supplierBoxY + 15);
 
-  // Row 2: Supplier Code (full width)
+  // Row 2: Supplier Code (full width) - 20px spacing
   doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
     .text('Supplier Code:', 45, supplierBoxY + 35);
 
-  doc.fontSize(10)
+  doc.fontSize(9)
     .font('Helvetica')
     .fillColor('black')
-    .text(supplierCode, 45, supplierBoxY + 50, { width: 470, height: 20 });
+    .text(supplierCode, 45, supplierBoxY + 50, { width: 470, height: 15 });
 
-  // Row 3: Link Attachment (left) + Delivery (right)
+  // Row 3: Link Attachment (full width) - 20px spacing
   doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
-    .text('Link Attachment:', 45, supplierBoxY + 75);
+    .text('Link Attachment:', 45, supplierBoxY + 70);
 
   doc.fontSize(9)
     .font('Helvetica')
     .fillColor('black')
-    .text(linkAttachment, 45, supplierBoxY + 90);
+    .text(linkAttachment, 45, supplierBoxY + 85);
 
-  doc.fontSize(10)
-    .font('Helvetica-Bold')
-    .fillColor('black')
-    .text('Delivery:', 300, supplierBoxY + 75);
-
-  doc.fontSize(9)
-    .font('Helvetica')
-    .fillColor('black')
-    .text(orderData.deliveryOption || 'Rolled and Boxed', 300, supplierBoxY + 90);
-
-  // Row 4: Mattress Label (full width)
+  // Row 4: Mattress Label (left) + Delivery (right) - 20px spacing
   doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
@@ -135,6 +128,16 @@ function generatePDFContent(doc, orderData) {
     .font('Helvetica')
     .fillColor('black')
     .text(orderData.mattressLabel || 'Caravan Mattresses', 45, supplierBoxY + 120);
+
+  doc.fontSize(10)
+    .font('Helvetica-Bold')
+    .fillColor('black')
+    .text('Delivery:', 300, supplierBoxY + 105);
+
+  doc.fontSize(9)
+    .font('Helvetica')
+    .fillColor('black')
+    .text(orderData.deliveryOption || 'Rolled and Boxed', 300, supplierBoxY + 120);
 
   yPos += 155;
 
