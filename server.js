@@ -590,7 +590,31 @@ app.get('/api/orders/search/:query', async (req, res) => {
         processing_status,
         notes,
         mattress_label,
-        created_date
+        order_data,
+        extracted_measurements,
+        line_items,
+        created_date,
+        updated_date,
+        email_sent,
+        has_custom_diagram,
+        custom_diagram_url,
+        diagram_upload_date,
+        order_date,
+        supplier_code,
+        product_sku,
+        quantity,
+        dimension_a,
+        dimension_b,
+        dimension_c,
+        dimension_d,
+        dimension_e,
+        dimension_f,
+        dimension_g,
+        radius_top_corner,
+        radius_bottom_corner,
+        finished_size_max,
+        link_attachment,
+        delivery_option
       FROM processed_orders 
       WHERE 
         order_number ILIKE $1 OR
