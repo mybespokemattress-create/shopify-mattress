@@ -51,7 +51,7 @@ function generatePDFContent(doc, orderData) {
     .font('Helvetica')
     .fillColor('black')
     .text(`Order: ${orderData.orderNumber}`, 40, 78)
-    .text(`Date: ${orderData.orderDate}`, 400, 78);
+    .text(`Date: ${orderData.orderDate}`, 555, 78);
 
   // Horizontal line under header
   doc.strokeColor('black')
@@ -72,61 +72,55 @@ function generatePDFContent(doc, orderData) {
   // Supplier Code Box
   const supplierBoxY = drawCleanBox(doc, 40, yPos, 515, 110);
 
-  // Extract supplier code from React data
-  console.log('PDF DEBUG - orderData.supplierCode:', orderData.supplierCode);
-  let supplierCode = orderData.supplierCode || 'No supplier mapping found - check SKU processing';
-  const lineItems = orderData.lineItems || [];
-
   // Extract link attachment from React data  
-  let linkAttachment = orderData.linkAttachment || 'One Piece Mattress No Link Required';
+    let linkAttachment = orderData.linkAttachment || 'One Piece Mattress No Link Required';
 
-  console.log('🔍 Final link attachment:', linkAttachment);
+    console.log('🔍 Final link attachment:', linkAttachment);
 
-  // Quantity (top left)
-  doc.fontSize(10)
-    .font('Helvetica-Bold')
-    .fillColor('black')
-    .text('Quantity:', 45, supplierBoxY);
+    // Row 1: Quantity (left only)
+    doc.fontSize(10)
+      .font('Helvetica-Bold')
+      .fillColor('black')
+      .text('Quantity:', 45, supplierBoxY);
 
-  doc.fontSize(9)
-    .font('Helvetica')
-    .fillColor('black')
-    .text(orderData.lineItems?.[0]?.quantity || '1', 45, supplierBoxY + 15);
+    doc.fontSize(9)
+      .font('Helvetica')
+      .fillColor('black')
+      .text(orderData.lineItems?.[0]?.quantity || '1', 45, supplierBoxY + 15);
 
-  // Link Attachment (top right)
-  doc.fontSize(10)
-    .font('Helvetica-Bold')
-    .fillColor('black')
-    .text('Link Attachment:', 300, supplierBoxY);
+    // Row 2: Supplier Code (full width)
+    doc.fontSize(10)
+      .font('Helvetica-Bold')
+      .fillColor('black')
+      .text('Supplier Code:', 45, supplierBoxY + 35);
 
-  doc.fontSize(9)
-    .font('Helvetica')
-    .fillColor('black')
-    .text(linkAttachment, 300, supplierBoxY + 15);
+    doc.fontSize(9)
+      .font('Helvetica')
+      .fillColor('black')
+      .text(supplierCode, 45, supplierBoxY + 50, { width: 470, height: 20 });
 
-  // Supplier Code (full width)
-  doc.fontSize(10)
-    .font('Helvetica-Bold')
-    .fillColor('black')
-    .text('Supplier Code:', 45, supplierBoxY + 35);
+    // Row 3: Link Attachment (left) + Delivery (right)
+    doc.fontSize(10)
+      .font('Helvetica-Bold')
+      .fillColor('black')
+      .text('Link Attachment:', 45, supplierBoxY + 75);
 
-  doc.fontSize(9)
-    .font('Helvetica')
-    .fillColor('black')
-    .text(supplierCode, 45, supplierBoxY + 50, { width: 470, height: 20 });
+    doc.fontSize(9)
+      .font('Helvetica')
+      .fillColor('black')
+      .text(linkAttachment, 45, supplierBoxY + 90);
 
-  // Delivery (new line below supplier code)
-  doc.fontSize(10)
-    .font('Helvetica-Bold')
-    .fillColor('black')
-    .text('Delivery:', 45, supplierBoxY + 75);
+    doc.fontSize(10)
+      .font('Helvetica-Bold')
+      .fillColor('black')
+      .text('Delivery:', 300, supplierBoxY + 75);
 
-  doc.fontSize(9)
-    .font('Helvetica')
-    .fillColor('black')
-    .text(orderData.deliveryOption || 'Rolled and Boxed', 45, supplierBoxY + 90);
+    doc.fontSize(9)
+      .font('Helvetica')
+      .fillColor('black')
+      .text(orderData.deliveryOption || 'Rolled and Boxed', 300, supplierBoxY + 90);
 
-  yPos += 125;
+    yPos += 125;
 
   // === MEASUREMENTS & SHAPE DIAGRAM SECTION ===
   doc.fontSize(12)
