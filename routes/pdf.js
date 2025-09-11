@@ -72,7 +72,12 @@ function generatePDFContent(doc, orderData) {
   // Supplier Code Box
   const supplierBoxY = drawCleanBox(doc, 40, yPos, 515, 110);
 
-  // Extract link attachment from React data  
+  // Extract supplier code from React data
+    console.log('PDF DEBUG - orderData.supplierCode:', orderData.supplierCode);
+    let supplierCode = orderData.supplierCode || 'No supplier mapping found - check SKU processing';
+    const lineItems = orderData.lineItems || [];
+
+    // Extract link attachment from React data  
     let linkAttachment = orderData.linkAttachment || 'One Piece Mattress No Link Required';
 
     console.log('🔍 Final link attachment:', linkAttachment);
