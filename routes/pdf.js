@@ -83,7 +83,7 @@ function generatePDFContent(doc, orderData) {
   const supplierBoxY = drawCleanBox(doc, 40, yPos, 515, 70);
 
   // Extract supplier code from React data
-  let supplierCode = orderData.supplierCode || 'Not mapped';
+  let supplierCode = orderData.supplierCode || 'No supplier mapping found - check SKU processing';
   const lineItems = orderData.lineItems || [];
 
   if (lineItems && lineItems[0] && lineItems[0].sku) {
