@@ -600,7 +600,6 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
                         quantity: product.quantity,
                         price: lineItem.price,
                         properties: lineItem.properties,
-                        supplier_code: product.supplierSpecification ? 'COOLPLUS' : null,
                         specification: product.supplierSpecification || null,
                         mapped: !!product.supplierSpecification
                     }],
@@ -837,6 +836,347 @@ router.get('/test', (req, res) => {
         stores: Object.keys(req.app.locals.storeConfigs),
         timestamp: new Date().toISOString()
     });
+});
+
+// Add this to your existing webhook router (routes/webhooks.js)
+// Insert after your existing routes, before module.exports
+
+// ============================================================================
+// FIRMNESS OVERRIDE SYSTEM
+// ============================================================================
+
+// Firmness mapping configurations for all mattress types
+const FIRMNESS_MAPPINGS = {
+  'Novo': {
+    name: 'Novolatex',
+    depths: ['6"', '8"', '10"'],
+    firmness: ['Medium', 'Medium Firm Orthopaedic', 'Hard'],
+    combinations: 9
+  },
+  'Comfi': {
+    name: 'Comfisan',
+    depths: ['6"', '8"', '10"'],
+    firmness: ['Medium-firm', 'Firm Orthopaedic', 'Hard'],
+    combinations: 9
+  },
+  'Grand': {
+    name: 'Grand Crescent',
+    depths: ['8"', '10"'],
+    firmness: ['Medium', 'Firm Orthopaedic'],
+    combinations: 4
+  },
+  'Imperial': {
+    name: 'Imperial Elite',
+    depths: ['10"'],
+    firmness: ['Medium', 'Firm Orthopaedic', 'Hard'],
+    combinations: 3
+  },
+  'Essential': {
+    name: 'Essential',
+    depths: ['2"', '3"', '4"', '6"', '8"', '10"'],
+    firmness: ['Medium-Firm'],
+    combinations: 6
+  },
+  'Coolt': {
+    name: 'Coolplus Topper',
+    depths: ['2"', '3"'],
+    firmness: ['Medium'],
+    combinations: 2
+  },
+  'Cool': {
+    name: 'Coolplus Mattress',
+    depths: ['6"', '8"', '10"'],
+    firmness: ['Medium firm', 'Firm Orthopaedic', 'Hard'],
+    combinations: 9
+  },
+  'Body': {
+    name: 'Bodyshape',
+    depths: ['6"', '8"', '10"'],
+    firmness: ['Medium', 'Firm Orthopaedic', 'Hard'],
+    combinations: 9
+  },
+  'Bodyt': {
+    name: 'Bodyshape Topper',
+    depths: ['1"', '2"', '3"', '4"', '5"'],
+    firmness: ['Soft'],
+    combinations: 5
+  }
+};
+
+// Detect if order needs firmness override
+function needsFirmnessOverride(order) {
+  // Check if supplier code indicates mapping issue
+  const supplierCode = order.supplier_code || order.line_items?.[0]?.specification || '';
+  
+  return supplierCode.includes('MAPPING_REQUIRED') || 
+         supplierCode.includes('DEFAULT') || 
+         supplierCode === '' ||
+         supplierCode === 'Mapping required';
+}
+
+// Detect SKU prefix from order
+function detectSKUPrefix(order) {
+  const sku = order.line_items?.[0]?.sku || '';
+  const prefixes = Object.keys(FIRMNESS_MAPPINGS);
+  
+  return prefixes.find(prefix => sku.startsWith(prefix)) || null;
+}
+
+// Get available firmness options for a mattress type
+router.get('/orders/:orderId/firmness-options', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    
+    // Get order from database
+    const query = `SELECT * FROM processed_orders WHERE id = $1`;
+    const result = await req.app.locals.db.query(query, [orderId]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+    
+    const order = result.rows[0];
+    const skuPrefix = detectSKUPrefix(order);
+    
+    if (!skuPrefix) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Cannot detect mattress type from SKU' 
+      });
+    }
+    
+    const mapping = FIRMNESS_MAPPINGS[skuPrefix];
+    if (!mapping) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `No firmness mapping available for ${skuPrefix}` 
+      });
+    }
+    
+    // Generate all combinations
+    const options = [];
+    mapping.depths.forEach(depth => {
+      mapping.firmness.forEach(firmness => {
+        options.push({
+          value: `${depth}-${firmness}`,
+          label: `${depth} - ${firmness}`,
+          depth: depth,
+          firmness: firmness
+        });
+      });
+    });
+    
+    res.json({
+      success: true,
+      mattressType: mapping.name,
+      skuPrefix: skuPrefix,
+      options: options,
+      needsOverride: needsFirmnessOverride(order)
+    });
+    
+  } catch (error) {
+    console.error('Error getting firmness options:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Apply firmness override
+router.post('/orders/:orderId/override-firmness', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { depth, firmness, skuPrefix } = req.body;
+    
+    console.log(`[Override] Applying firmness override for order ${orderId}: ${depth} - ${firmness}`);
+    
+    // Get order from database
+    const query = `SELECT * FROM processed_orders WHERE id = $1`;
+    const result = await req.app.locals.db.query(query, [orderId]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+    
+    const order = result.rows[0];
+    
+    // Validate SKU prefix matches
+    const detectedPrefix = detectSKUPrefix(order);
+    if (detectedPrefix !== skuPrefix) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `SKU prefix mismatch. Expected ${detectedPrefix}, got ${skuPrefix}` 
+      });
+    }
+    
+    // Validate depth/firmness combination exists
+    const mapping = FIRMNESS_MAPPINGS[skuPrefix];
+    if (!mapping.depths.includes(depth) || !mapping.firmness.includes(firmness)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `Invalid combination: ${depth} - ${firmness} for ${mapping.name}` 
+      });
+    }
+    
+    // Use existing mapping system to regenerate supplier code
+    const { mapProduct } = require('./product-mapping');
+    
+    // Create override properties array
+    const overrideProperties = [
+      { name: 'Firmness', value: firmness }
+    ];
+    
+    // Get product title from line items
+    const lineItems = order.line_items || [];
+    const productTitle = lineItems[0]?.title || mapping.name;
+    
+    console.log(`[Override] Re-mapping product: ${productTitle} with firmness: ${firmness}`);
+    
+    // Re-map with override data
+    const mappingResult = mapProduct(
+      productTitle,
+      { title: `${depth} - ${firmness}` }, // productVariant
+      overrideProperties, // productProperties
+      lineItems[0]?.sku // shopifySku
+    );
+    
+    if (!mappingResult.success) {
+      console.error(`[Override] Mapping failed:`, mappingResult.error);
+      return res.status(400).json({
+        success: false,
+        error: `Failed to generate supplier specification: ${mappingResult.error}`
+      });
+    }
+    
+    const newSupplierCode = mappingResult.specification.fullSpecification;
+    console.log(`[Override] New supplier code: ${newSupplierCode}`);
+    
+    // Update database with new supplier code and override tracking
+    const updateQuery = `
+      UPDATE processed_orders
+      SET 
+        supplier_code = $1,
+        line_items = CASE 
+          WHEN line_items IS NOT NULL AND jsonb_array_length(line_items) > 0 
+          THEN jsonb_set(line_items, '{0,specification}', $2::jsonb)
+          ELSE line_items
+        END,
+        firmness_override_applied = true,
+        override_timestamp = NOW(),
+        override_depth = $3,
+        override_firmness = $4,
+        updated_at = NOW()
+      WHERE id = $5
+      RETURNING *;
+    `;
+    
+    const updateResult = await req.app.locals.db.query(updateQuery, [
+      newSupplierCode,
+      JSON.stringify(newSupplierCode),
+      depth,
+      firmness,
+      orderId
+    ]);
+    
+    if (updateResult.rows.length === 0) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to update order in database'
+      });
+    }
+    
+    console.log(`[Override] Successfully updated order ${orderId}`);
+    
+    res.json({
+      success: true,
+      orderId: orderId,
+      mattressType: mapping.name,
+      depth: depth,
+      firmness: firmness,
+      newSupplierCode: newSupplierCode,
+      overrideApplied: true,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('[Override] Error applying firmness override:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+// Get override status for an order
+router.get('/orders/:orderId/override-status', async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    
+    const query = `
+      SELECT 
+        id, 
+        supplier_code, 
+        firmness_override_applied,
+        override_timestamp,
+        override_depth,
+        override_firmness,
+        line_items
+      FROM processed_orders
+      WHERE id = $1
+    `;
+    const result = await req.app.locals.db.query(query, [orderId]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+    
+    const order = result.rows[0];
+    const skuPrefix = detectSKUPrefix(order);
+    const needsOverride = needsFirmnessOverride(order);
+    
+    res.json({
+      success: true,
+      orderId: orderId,
+      needsOverride: needsOverride,
+      overrideApplied: order.firmness_override_applied || false,
+      overrideTimestamp: order.override_timestamp,
+      currentSupplierCode: order.supplier_code,
+      skuPrefix: skuPrefix,
+      mattressType: skuPrefix ? FIRMNESS_MAPPINGS[skuPrefix]?.name : null,
+      appliedOverride: order.firmness_override_applied ? {
+        depth: order.override_depth,
+        firmness: order.override_firmness
+      } : null
+    });
+    
+  } catch (error) {
+    console.error('Error checking override status:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Add database columns if they don't exist (run this once)
+router.post('/admin/setup-override-columns', async (req, res) => {
+  try {
+    const alterQueries = [
+    `ALTER TABLE processed_orders ADD COLUMN IF NOT EXISTS firmness_override_applied BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE processed_orders ADD COLUMN IF NOT EXISTS override_timestamp TIMESTAMP`,
+    `ALTER TABLE processed_orders ADD COLUMN IF NOT EXISTS override_depth TEXT`,
+    `ALTER TABLE processed_orders ADD COLUMN IF NOT EXISTS override_firmness TEXT`
+    ];
+    
+    for (const query of alterQueries) {
+      await req.app.locals.db.query(query);
+    }
+    
+    res.json({ 
+      success: true, 
+      message: 'Override columns added successfully' 
+    });
+    
+  } catch (error) {
+    console.error('Error setting up override columns:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 module.exports = router;

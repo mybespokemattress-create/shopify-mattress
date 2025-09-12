@@ -1,5 +1,332 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Mail, Edit3, Save, X, Upload, Trash2, AlertTriangle } from 'lucide-react';
+import { Download, Mail, Edit3, Save, X, Upload, Trash2, AlertTriangle, RefreshCw } from 'lucide-react';
+
+
+// Add these imports to your OrderProcessor.js (after existing imports)
+import { AlertTriangle, RefreshCw } from 'lucide-react';
+
+// Add this component definition before your main OrderProcessor component
+const FirmnessOverrideSection = ({ 
+  selectedOrder, 
+  onSupplierCodeUpdate, 
+  editMode 
+}) => {
+  const [overrideData, setOverrideData] = useState({
+    needsOverride: false,
+    options: [],
+    mattressType: null,
+    skuPrefix: null,
+    loading: false
+  });
+  
+  const [selectedOverride, setSelectedOverride] = useState('');
+  const [applying, setApplying] = useState(false);
+  const [overrideStatus, setOverrideStatus] = useState(null);
+
+  // Check if order needs override when selectedOrder changes
+  useEffect(() => {
+    if (selectedOrder?.id) {
+      checkOverrideStatus();
+    } else {
+      setOverrideData({ needsOverride: false, options: [], mattressType: null, skuPrefix: null, loading: false });
+      setOverrideStatus(null);
+    }
+  }, [selectedOrder?.id]);
+
+  const checkOverrideStatus = async () => {
+    if (!selectedOrder?.id) return;
+    
+    setOverrideData(prev => ({ ...prev, loading: true }));
+    
+    try {
+      // Check current override status
+      const statusResponse = await fetch(`/api/orders/${selectedOrder.id}/override-status`);
+      if (!statusResponse.ok) throw new Error('Failed to check override status');
+      
+      const status = await statusResponse.json();
+      setOverrideStatus(status);
+      
+      if (status.needsOverride && status.skuPrefix) {
+        // Get available firmness options
+        const optionsResponse = await fetch(`/api/orders/${selectedOrder.id}/firmness-options`);
+        if (!optionsResponse.ok) throw new Error('Failed to get firmness options');
+        
+        const optionsData = await optionsResponse.json();
+        setOverrideData({
+          needsOverride: true,
+          options: optionsData.options,
+          mattressType: optionsData.mattressType,
+          skuPrefix: optionsData.skuPrefix,
+          loading: false
+        });
+      } else {
+        setOverrideData({
+          needsOverride: false,
+          options: [],
+          mattressType: status.mattressType,
+          skuPrefix: status.skuPrefix,
+          loading: false
+        });
+      }
+    } catch (error) {
+      console.error('Error checking override status:', error);
+      setOverrideData(prev => ({ ...prev, loading: false }));
+    }
+  };
+
+  const applyOverride = async () => {
+    if (!selectedOverride || !overrideData.skuPrefix) return;
+    
+    const [depth, firmness] = selectedOverride.split(' - ');
+    
+    setApplying(true);
+    
+    try {
+      const response = await fetch(`/api/orders/${selectedOrder.id}/override-firmness`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          depth: depth,
+          firmness: firmness,
+          skuPrefix: overrideData.skuPrefix
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Override failed');
+      }
+      
+      const result = await response.json();
+      
+      // Update the supplier code in the parent component
+      onSupplierCodeUpdate(result.newSupplierCode);
+      
+      // Update our local state
+      setOverrideData(prev => ({ ...prev, needsOverride: false }));
+      setOverrideStatus(prev => ({ 
+        ...prev, 
+        needsOverride: false, 
+        overrideApplied: true,
+        appliedOverride: { depth, firmness }
+      }));
+      setSelectedOverride('');
+      
+      alert(`Firmness override applied successfully!\nNew supplier code: ${result.newSupplierCode.substring(0, 50)}...`);
+      
+    } catch (error) {
+      console.error('Error applying override:', error);
+      alert(`Failed to apply override: ${error.message}`);
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  // Don't render if no order selected
+  if (!selectedOrder) return null;
+
+  // Loading state
+  if (overrideData.loading) {
+    return (
+      <div className="border rounded-lg p-4 bg-blue-50">
+        <div className="flex items-center gap-2 mb-2">
+          <RefreshCw className="h-4 w-4 animate-spin text-blue-600" />
+          <h3 className="font-semibold text-blue-900">Checking Firmness Status...</h3>
+        </div>
+      </div>
+    );
+  }
+
+  // Order doesn't need override
+  if (!overrideData.needsOverride && overrideStatus) {
+    if (overrideStatus.overrideApplied) {
+      return (
+        <div className="border rounded-lg p-4 bg-green-50">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="h-2 w-2 bg-green-500 rounded-full"></div>
+            <h3 className="font-semibold text-green-900">Firmness Override Applied</h3>
+          </div>
+          <div className="text-sm text-green-700">
+            Applied: <strong>{overrideStatus.appliedOverride?.depth} - {overrideStatus.appliedOverride?.firmness}</strong>
+            <br />
+            <span className="text-xs text-green-600">
+              {overrideStatus.overrideTimestamp && new Date(overrideStatus.overrideTimestamp).toLocaleString()}
+            </span>
+          </div>
+        </div>
+      );
+    } else {
+      return (
+        <div className="border rounded-lg p-4 bg-slate-50">
+          <div className="flex items-center gap-2">
+            <div className="h-2 w-2 bg-green-500 rounded-full"></div>
+            <h3 className="font-semibold text-slate-700">Supplier Code OK</h3>
+          </div>
+          <div className="text-sm text-slate-600 mt-1">
+            {overrideData.mattressType ? `${overrideData.mattressType} detected` : 'No firmness override required'}
+          </div>
+        </div>
+      );
+    }
+  }
+
+  // Order needs override
+  if (overrideData.needsOverride) {
+    return (
+      <div className="border rounded-lg p-4 bg-yellow-50 border-yellow-200">
+        <div className="flex items-center gap-2 mb-3">
+          <AlertTriangle className="h-5 w-5 text-yellow-600" />
+          <h3 className="font-semibold text-yellow-900">Firmness Override Required</h3>
+        </div>
+        
+        <div className="text-sm text-yellow-800 mb-3">
+          This order was created manually and requires firmness selection for <strong>{overrideData.mattressType}</strong>.
+        </div>
+        
+        {editMode ? (
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-yellow-900 mb-2">
+                Select Depth & Firmness:
+              </label>
+              <select
+                value={selectedOverride}
+                onChange={(e) => setSelectedOverride(e.target.value)}
+                className="w-full p-3 border border-yellow-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 bg-white"
+              >
+                <option value="">-- Select depth and firmness --</option>
+                {overrideData.options.map((option) => (
+                  <option key={option.value} value={option.label}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={checkOverrideStatus}
+                className="px-3 py-2 text-sm border border-yellow-300 rounded text-yellow-700 hover:bg-yellow-100"
+              >
+                Refresh
+              </button>
+              <button
+                onClick={applyOverride}
+                disabled={!selectedOverride || applying}
+                className={`px-4 py-2 text-sm rounded text-white font-medium ${
+                  selectedOverride && !applying
+                    ? 'bg-yellow-600 hover:bg-yellow-700' 
+                    : 'bg-gray-400 cursor-not-allowed'
+                }`}
+              >
+                {applying ? 'Applying...' : 'Apply Override'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="text-sm text-yellow-700">
+            Switch to edit mode to apply firmness override.
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return null;
+};
+
+// Add this function to your OrderProcessor component (inside the component, after existing functions)
+const handleSupplierCodeUpdate = (newSupplierCode) => {
+  setSelectedOrder(prev => ({ ...prev, supplierCode: newSupplierCode }));
+  
+  // Also update the orders list
+  setOrders(orders.map(order => 
+    order.id === selectedOrder.id 
+      ? { ...order, supplierCode: newSupplierCode } 
+      : order
+  ));
+};
+
+// INTEGRATION INSTRUCTIONS:
+// 1. Add the FirmnessOverrideSection component above your OrderProcessor component
+// 2. Add the handleSupplierCodeUpdate function inside your OrderProcessor component
+// 3. Add the FirmnessOverrideSection to your JSX in the "Product Information" section
+
+// Replace your existing "Product Information" section with this updated version:
+const ProductInformationSection = ({ selectedOrder, editMode, updateOrderField, setSelectedOrder, orders, setOrders }) => (
+  <div className="border rounded-lg p-4">
+    <h3 className="font-semibold mb-3">Product Information</h3>
+    
+    {/* Add the Firmness Override Section here */}
+    <div className="mb-4">
+      <FirmnessOverrideSection 
+        selectedOrder={selectedOrder}
+        onSupplierCodeUpdate={(newCode) => {
+          setSelectedOrder(prev => ({ ...prev, supplierCode: newCode }));
+          setOrders(orders.map(order => 
+            order.id === selectedOrder.id 
+              ? { ...order, supplierCode: newCode } 
+              : order
+          ));
+        }}
+        editMode={editMode}
+      />
+    </div>
+    
+    {/* Existing supplier code textarea */}
+    <div className="mb-4">
+      <label className="block text-sm text-slate-600 mb-1">Supplier Code</label>
+      <textarea
+        value={selectedOrder.supplierCode}
+        onChange={(e) => updateOrderField('supplierCode', e.target.value)}
+        disabled={!editMode}
+        rows={2}
+        className="w-full px-3 py-2 border rounded disabled:bg-slate-100 font-mono text-sm resize-none"
+      />
+    </div>
+    
+    {/* Existing SKU and Quantity fields */}
+    <div className="flex gap-4">
+      <div className="flex-1">
+        <label className="block text-sm text-slate-600 mb-1">Product SKU</label>
+        <input
+          type="text"
+          value={selectedOrder.lineItems[0]?.sku || 'Unknown SKU'}
+          disabled
+          className="w-full px-3 py-2 border rounded bg-slate-100 text-sm"
+        />
+      </div>
+      
+      <div className="w-20">
+        <label className="block text-sm text-slate-600 mb-1">Qty</label>
+        <input
+          type="number"
+          value={selectedOrder.lineItems[0]?.quantity || 1}
+          onChange={(e) => {
+            const newQuantity = parseInt(e.target.value) || 1;
+            setSelectedOrder(prev => ({
+              ...prev,
+              lineItems: prev.lineItems.map((item, index) => 
+                index === 0 ? { ...item, quantity: newQuantity } : item
+              )
+            }));
+          }}
+          disabled={!editMode}
+          className="w-full px-2 py-2 border rounded disabled:bg-slate-100 text-center"
+          min="1"
+          max="99"
+        />
+      </div>
+    </div>
+    
+    {selectedOrder.supplierName && (
+      <div className="mt-3 text-sm text-slate-600">
+        Assigned to: <span className="font-medium">{selectedOrder.supplierName}</span>
+      </div>
+    )}
+  </div>
+);
+
 
 const OrderProcessor = () => {
   const [orders, setOrders] = useState([]);
