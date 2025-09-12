@@ -59,7 +59,9 @@ app.locals.storeConfigs = {
 };
 
 // IMPORTANT: Webhook routes BEFORE JSON middleware
-app.use('/webhook', require('./routes/webhooks'));
+const webhookRoutes = require('./routes/webhooks');
+app.use('/webhook', webhookRoutes);
+app.use('/api', webhookRoutes);  // Mount same routes at /api for firmness override endpoints
 
 // Middleware (after webhook routes)
 app.use(express.json({ limit: '10mb' }));
