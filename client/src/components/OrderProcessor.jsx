@@ -608,9 +608,7 @@ const OrderProcessor = () => {
                           {order.supplierName && (
                             <div className="text-slate-500 text-xs mt-1">→ {order.supplierName}</div>
                           )}
-                          <div className="text-slate-500 text-xs mt-1">
-                            {order.mattressLabel}
-                          </div>
+
                         </div>
                         <div>
                           <span className={`px-2 py-1 rounded text-xs ${
