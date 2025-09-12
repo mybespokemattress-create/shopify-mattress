@@ -593,14 +593,6 @@ else if (apiOrder.order_number?.includes('CARA')) store = 'CARA';
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
                             <span className="font-semibold text-sm">{order.orderNumber}</span>
-                            <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
-                              order.store === 'MOTO' ? 'bg-purple-100 text-purple-700' :
-                              order.store === 'MYBE' ? 'bg-green-100 text-green-700' :
-                              order.store === 'CARA' ? 'bg-orange-100 text-orange-700' :
-                              'bg-slate-100 text-slate-700'
-                            }`}>
-                              {order.store}
-                            </span>
                             {order.diagramNumber && (
                               <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
                                 Shape {order.diagramNumber}
@@ -622,9 +614,6 @@ else if (apiOrder.order_number?.includes('CARA')) store = 'CARA';
                           {order.supplierName && (
                             <div className="text-slate-500 text-xs mt-1">→ {order.supplierName}</div>
                           )}
-                          <div className="text-slate-500 text-xs mt-1">
-                            {order.mattressLabel}
-                          </div>
                         </div>
                         <div>
                           <span className={`px-2 py-1 rounded text-xs ${
