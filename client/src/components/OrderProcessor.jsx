@@ -9,7 +9,6 @@ const OrderProcessor = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // New state for diagram upload
   const [uploadingDiagram, setUploadingDiagram] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [storageStatus, setStorageStatus] = useState(null);
@@ -20,7 +19,6 @@ const OrderProcessor = () => {
     return `/images/diagrams/Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`;
   };
 
-  // Check storage status ok
   const checkStorageStatus = async () => {
     try {
       const response = await fetch('/api/diagrams/storage-status');
@@ -33,12 +31,10 @@ const OrderProcessor = () => {
     }
   };
 
-  // Handle file selection
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
     if (file) {
-      // Validate file size and type on frontend
-      const maxSize = 5 * 1024 * 1024; // 5MB
+      const maxSize = 5 * 1024 * 1024;
       const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
       
       if (file.size > maxSize) {
@@ -55,7 +51,6 @@ const OrderProcessor = () => {
     }
   };
 
-  // Upload diagram
   const handleDiagramUpload = async () => {
     if (!selectedFile) return;
     
@@ -78,7 +73,6 @@ const OrderProcessor = () => {
       
       const result = await response.json();
       
-      // Update selected order with new diagram info
       setSelectedOrder(prev => ({
         ...prev,
         has_custom_diagram: true,
@@ -86,14 +80,12 @@ const OrderProcessor = () => {
         custom_diagram_filename: result.filename
       }));
       
-      // Update orders list
       setOrders(orders.map(order => 
         order.id === selectedOrder.id 
           ? { ...order, has_custom_diagram: true, custom_diagram_url: result.url }
           : order
       ));
       
-      // Update storage status
       if (result.storage) {
         setStorageStatus(result.storage);
       }
@@ -110,7 +102,6 @@ const OrderProcessor = () => {
     }
   };
 
-  // Remove diagram
   const handleDiagramRemove = async () => {
     if (!confirm('Are you sure you want to remove this custom diagram?')) {
       return;
@@ -125,7 +116,6 @@ const OrderProcessor = () => {
         throw new Error('Failed to remove diagram');
       }
       
-      // Update selected order
       setSelectedOrder(prev => ({
         ...prev,
         has_custom_diagram: false,
@@ -133,7 +123,6 @@ const OrderProcessor = () => {
         custom_diagram_filename: null
       }));
       
-      // Update orders list
       setOrders(orders.map(order => 
         order.id === selectedOrder.id 
           ? { ...order, has_custom_diagram: false, custom_diagram_url: null }
@@ -149,8 +138,8 @@ const OrderProcessor = () => {
   };
 
   const transformApiOrder = (apiOrder) => {
-  const orderData = apiOrder.order_data || {};
-    
+    const orderData = apiOrder.order_data || {};
+      
     let diagramNumber = null;
     const lineItems = apiOrder.order_data?.order_data?.line_items;
     if (lineItems && lineItems[0] && lineItems[0].properties) {
@@ -189,12 +178,10 @@ const OrderProcessor = () => {
     const dimensions = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
     
     dimensions.forEach(dim => {
-      // First try to get from saved database columns
       const savedDimension = apiOrder[`dimension_${dim.toLowerCase()}`];
       if (savedDimension) {
         properties[`Dimension ${dim}`] = savedDimension;
       } else {
-        // Fall back to original measurements extraction
         const measurement = measurements[dim];
         if (measurement) {
           if (typeof measurement === 'object' && 'value' in measurement) {
@@ -210,8 +197,6 @@ const OrderProcessor = () => {
         }
       }
     });
-
-    const finalSupplierCode = apiOrder.line_items?.[0]?.specification || orderData.supplierSpecification || '';
 
     return {
       id: apiOrder.id.toString(),
@@ -243,7 +228,6 @@ const OrderProcessor = () => {
       rawMeasurements: measurements,
       notes: apiOrder.notes || '',
       mattressLabel: apiOrder.mattress_label || 'CaravanMattresses',
-      // Add custom diagram fields
       has_custom_diagram: apiOrder.has_custom_diagram || false,
       custom_diagram_url: apiOrder.custom_diagram_url || null,
       custom_diagram_filename: apiOrder.custom_diagram_url ? apiOrder.custom_diagram_url.split('/').pop() : null
@@ -291,71 +275,70 @@ const OrderProcessor = () => {
     } else {
       setSelectedOrder({ ...order });
       setEditMode(false);
-      setSelectedFile(null); // Clear any selected file
+      setSelectedFile(null);
     }
   };
 
   const handleEdit = () => setEditMode(true);
   
-    const handleSave = async () => {
-  try {
-    const response = await fetch(`/api/orders/${selectedOrder.id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        processing_status: selectedOrder.status === 'ready_to_send' ? 'processed' : 'received',
-        notes: selectedOrder.notes,
-        mattress_label: selectedOrder.mattressLabel,
-        order_number: selectedOrder.orderNumber,
-        customer_name: selectedOrder.customer.name,
-        customer_email: selectedOrder.customer.email,
-        order_date: selectedOrder.orderDate,
-        supplier_code: selectedOrder.supplierCode,
-        product_sku: selectedOrder.lineItems[0]?.sku,
-        quantity: selectedOrder.lineItems[0]?.quantity,
-        dimension_a: selectedOrder.lineItems[0]?.properties['Dimension A'],
-        dimension_b: selectedOrder.lineItems[0]?.properties['Dimension B'],
-        dimension_c: selectedOrder.lineItems[0]?.properties['Dimension C'],
-        dimension_d: selectedOrder.lineItems[0]?.properties['Dimension D'],
-        dimension_e: selectedOrder.lineItems[0]?.properties['Dimension E'],
-        dimension_f: selectedOrder.lineItems[0]?.properties['Dimension F'],
-        dimension_g: selectedOrder.lineItems[0]?.properties['Dimension G'],
-        radius_top_corner: selectedOrder.radiusTopCorner,
-        radius_bottom_corner: selectedOrder.radiusBottomCorner,
-        finished_size_max: selectedOrder.finishedSizeMax,
-        link_attachment: selectedOrder.linkAttachment,
-        delivery_option: selectedOrder.deliveryOption,
-        measurements: selectedOrder.lineItems[0]?.properties || {}
-      })
-    });
+  const handleSave = async () => {
+    try {
+      const response = await fetch(`/api/orders/${selectedOrder.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          processing_status: selectedOrder.status === 'ready_to_send' ? 'processed' : 'received',
+          notes: selectedOrder.notes,
+          mattress_label: selectedOrder.mattressLabel,
+          order_number: selectedOrder.orderNumber,
+          customer_name: selectedOrder.customer.name,
+          customer_email: selectedOrder.customer.email,
+          order_date: selectedOrder.orderDate,
+          supplier_code: selectedOrder.supplierCode,
+          product_sku: selectedOrder.lineItems[0]?.sku,
+          quantity: selectedOrder.lineItems[0]?.quantity,
+          dimension_a: selectedOrder.lineItems[0]?.properties['Dimension A'],
+          dimension_b: selectedOrder.lineItems[0]?.properties['Dimension B'],
+          dimension_c: selectedOrder.lineItems[0]?.properties['Dimension C'],
+          dimension_d: selectedOrder.lineItems[0]?.properties['Dimension D'],
+          dimension_e: selectedOrder.lineItems[0]?.properties['Dimension E'],
+          dimension_f: selectedOrder.lineItems[0]?.properties['Dimension F'],
+          dimension_g: selectedOrder.lineItems[0]?.properties['Dimension G'],
+          radius_top_corner: selectedOrder.radiusTopCorner,
+          radius_bottom_corner: selectedOrder.radiusBottomCorner,
+          finished_size_max: selectedOrder.finishedSizeMax,
+          link_attachment: selectedOrder.linkAttachment,
+          delivery_option: selectedOrder.deliveryOption,
+          measurements: selectedOrder.lineItems[0]?.properties || {}
+        })
+      });
 
-    const result = await response.json();
-    console.log('Save response:', result);
+      const result = await response.json();
 
-    if (!response.ok) {
-      throw new Error(`Server error: ${response.status}`);
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      setOrders(orders.map(order => 
+        order.id === selectedOrder.id ? selectedOrder : order
+      ));
+      
+      setEditMode(false);
+      alert('Order saved successfully!');
+      
+    } catch (err) {
+      console.error('Error saving order:', err);
+      alert(`Failed to save order: ${err.message}`);
     }
-
-    setOrders(orders.map(order => 
-      order.id === selectedOrder.id ? selectedOrder : order
-    ));
-    
-    setEditMode(false);
-    alert('Order saved successfully!');
-    
-  } catch (err) {
-    console.error('Error saving order:', err);
-    alert(`Failed to save order: ${err.message}`);
-  }
-};
+  };
 
   const handleCancel = () => {
     const originalOrder = orders.find(order => order.id === selectedOrder.id);
     setSelectedOrder({ ...originalOrder });
     setEditMode(false);
-    setSelectedFile(null); // Clear any selected file
+    setSelectedFile(null);
   };
 
   const updateOrderField = (field, value) => {
@@ -380,13 +363,11 @@ const OrderProcessor = () => {
   };
 
   const updateAdditionalField = (field, value) => {
-  setSelectedOrder(prev => ({ ...prev, [field]: value }));
-};
+    setSelectedOrder(prev => ({ ...prev, [field]: value }));
+  };
 
   const generatePDF = async () => {
     try {
-      console.log('Generating PDF for order:', selectedOrder.orderNumber);
-      
       const response = await fetch('/api/pdf/generate', {
         method: 'POST',
         headers: {
@@ -417,45 +398,31 @@ const OrderProcessor = () => {
     }
   };
 
-    const getSupplierEmail = (supplierName) => {
-        const supplierEmails = {
-            'Southern Production': 'mbm@southernfoam.co.uk',
-            'Mattressshire Production': 'mattressshire.wmltd@gmail.com'
-        };
-        
-        return supplierEmails[supplierName] || 'angelo@mybespokemattress.com';
-        };
+  const getSupplierEmail = (supplierName) => {
+    const supplierEmails = {
+      'Southern Production': 'mbm@southernfoam.co.uk',
+      'Mattressshire Production': 'mattressshire.wmltd@gmail.com'
+    };
+    
+    return supplierEmails[supplierName] || 'angelo@mybespokemattress.com';
+  };
 
-        const openZohoMail = () => {
-            console.log('Supplier name:', selectedOrder.supplierName);
-            const supplierEmail = getSupplierEmail(selectedOrder.supplierName);
-            const subject = `Purchase Order ${selectedOrder.orderNumber} - ${selectedOrder.customer.name}`;
-            
-            // Official Zoho compose URL
-            window.open('https://mail.zoho.eu/zm/#compose', '_blank');
-            
-            // Create alert with email details to copy
-            setTimeout(() => {
-                alert(`Zoho Mail opened. Please copy these details:\n\nTO: ${supplierEmail}\nSUBJECT: ${subject}\n\nThen attach the downloaded PDF and send.`);
-            }, 1000);
-        };
-
-        const markOrderAsSent = async () => {
-          const response = await fetch(`/api/orders/${selectedOrder.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email_sent: true })
-          });
-          
-          if (response.ok) {
-            setOrders(orders.map(order => 
-              order.id === selectedOrder.id ? { ...order, emailSent: true } : order
-            ));
-            setSelectedOrder(prev => ({ ...prev, emailSent: true }));
-          } else {
-            alert(`API Error: ${response.status}`);
-          }
-        };
+  const markOrderAsSent = async () => {
+    const response = await fetch(`/api/orders/${selectedOrder.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email_sent: true })
+    });
+    
+    if (response.ok) {
+      setOrders(orders.map(order => 
+        order.id === selectedOrder.id ? { ...order, emailSent: true } : order
+      ));
+      setSelectedOrder(prev => ({ ...prev, emailSent: true }));
+    } else {
+      alert(`API Error: ${response.status}`);
+    }
+  };
 
   const filteredOrders = orders.filter(order =>
     order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -626,15 +593,13 @@ const OrderProcessor = () => {
                         <button
                         onClick={async () => {
                             try {
-                                // 1. Download PDF locally
                                 await generatePDF();
                                 
-                                // 2. Send test email automatically
                                 const emailResponse = await fetch('/api/email/send', {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
-                                        to: 'angelo@mybespokemattress.com',  // Your test email
+                                        to: 'angelo@mybespokemattress.com',
                                         subject: `Purchase Order ${selectedOrder.orderNumber} - ${selectedOrder.customer.name}`,
                                         body: `
                                             <h2>New Purchase Order</h2>
@@ -647,13 +612,12 @@ const OrderProcessor = () => {
                                             <p>Kind regards,<br>My Bespoke Order Ltd</p>
                                         `,
                                         orderId: selectedOrder.id,
-                                        orderData: selectedOrder  // ADD THIS LINE
+                                        orderData: selectedOrder
                                     })
                                 });
 
                                 if (!emailResponse.ok) throw new Error('Email sending failed');
                                 
-                                // 3. Mark as sent only if successful
                                 await markOrderAsSent();
                                 alert('PDF downloaded and email sent successfully!');
                                 
@@ -759,7 +723,6 @@ const OrderProcessor = () => {
                   <div className="border rounded-lg p-4">
                     <h3 className="font-semibold mb-3">Product Information</h3>
                     
-                    {/* Supplier Code - Full width, multi-line */}
                     <div className="mb-4">
                       <label className="block text-sm text-slate-600 mb-1">Supplier Code</label>
                       <textarea
@@ -771,7 +734,6 @@ const OrderProcessor = () => {
                       />
                     </div>
                     
-                    {/* SKU and Quantity on same line below */}
                     <div className="flex gap-4">
                       <div className="flex-1">
                         <label className="block text-sm text-slate-600 mb-1">Product SKU</label>
@@ -956,7 +918,6 @@ const OrderProcessor = () => {
                           )}
                         </div>
                         
-                        {/* Enhanced Upload Interface */}
                         {editMode && (
                           <div className="mt-4 border-t pt-4">
                             <h5 className="text-sm font-medium mb-2">Upload Custom Diagram</h5>
