@@ -149,21 +149,6 @@ const OrderProcessor = () => {
   };
 
   const transformApiOrder = (apiOrder) => {
-  // ADD THIS DEBUG BLOCK RIGHT HERE - AT THE START OF THE FUNCTION
-    console.group('🔍 Coolplus Debug - Order:', apiOrder.order_number);
-    console.log('Full apiOrder object:', apiOrder);
-    console.log('line_items exists?', !!apiOrder.line_items);
-    console.log('line_items content:', apiOrder.line_items);
-    if (apiOrder.line_items && apiOrder.line_items[0]) {
-      console.log('First line item:', apiOrder.line_items[0]);
-      console.log('Specification field:', apiOrder.line_items[0].specification);
-      console.log('Type of specification:', typeof apiOrder.line_items[0].specification);
-    }
-    console.log('order_data:', apiOrder.order_data);
-    console.log('order_data.supplierSpecification:', apiOrder.order_data?.supplierSpecification);
-    console.groupEnd();
-    // END OF DEBUG BLOCK
-
   const orderData = apiOrder.order_data || {};
     
     let diagramNumber = null;
@@ -226,9 +211,7 @@ const OrderProcessor = () => {
       }
     });
 
-      // ADD THIS DEBUG LINE RIGHT BEFORE THE RETURN
     const finalSupplierCode = apiOrder.line_items?.[0]?.specification || orderData.supplierSpecification || '';
-    console.log('📌 Final supplierCode being set:', finalSupplierCode);
 
     return {
       id: apiOrder.id.toString(),
@@ -278,18 +261,6 @@ const OrderProcessor = () => {
       }
       
       const apiResponse = await response.json();
-
-      // ADD THIS DEBUG BLOCK HERE
-      console.group('🌐 API Response Debug');
-      console.log('Full API response:', apiResponse);
-      console.log('Number of orders:', apiResponse.orders?.length);
-      if (apiResponse.orders && apiResponse.orders[0]) {
-        console.log('First order from API:', apiResponse.orders[0]);
-        console.log('First order line_items:', apiResponse.orders[0].line_items);
-      }
-      console.groupEnd();
-      // END OF DEBUG BLOCK
-
       const ordersArray = apiResponse.orders || [];
       const transformedOrders = ordersArray.map(transformApiOrder);
       setOrders(transformedOrders);
