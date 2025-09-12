@@ -199,13 +199,7 @@ const OrderProcessor = () => {
       }
     }
 
-let store = 'UNKNOWN';
-if (apiOrder.order_number?.includes('MOTO')) store = 'MOTO';
-else if (apiOrder.order_number?.includes('MYBE') || apiOrder.order_number?.includes('BESP')) store = 'MYBE'; 
-else if (apiOrder.order_number?.includes('CARA')) store = 'CARA';
-
     const measurements = apiOrder.order_data?.order_data?.extracted_measurements?.[0]?.measurements || {};
-    
     const properties = {};
     const dimensions = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
     
@@ -238,7 +232,6 @@ else if (apiOrder.order_number?.includes('CARA')) store = 'CARA';
 
     return {
       id: apiOrder.id.toString(),
-      store: store,
       orderNumber: apiOrder.order_number || 'Unknown',
       customer: {
         name: apiOrder.customer_name || 'Unknown Customer',
