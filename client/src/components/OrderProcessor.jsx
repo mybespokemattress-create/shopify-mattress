@@ -201,9 +201,8 @@ const OrderProcessor = () => {
 
 let store = 'UNKNOWN';
 if (apiOrder.order_number?.includes('MOTO')) store = 'MOTO';
-else if (apiOrder.order_number?.includes('MYBE')) store = 'MYBE'; 
+else if (apiOrder.order_number?.includes('MYBE') || apiOrder.order_number?.includes('BESP')) store = 'MYBE'; 
 else if (apiOrder.order_number?.includes('CARA')) store = 'CARA';
-else if (apiOrder.order_number?.includes('BESP')) store = 'MYBE';
 
     const measurements = apiOrder.order_data?.order_data?.extracted_measurements?.[0]?.measurements || {};
     
