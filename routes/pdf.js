@@ -97,17 +97,6 @@ function generatePDFContent(doc, orderData) {
     .fillColor('black')
     .text(orderData.lineItems?.[0]?.quantity || '1', leftMargin + 50, supplierBoxY + 5);
 
-  // Row 1: Quantity on same line - professional positioning
-  doc.fontSize(10)
-    .font('Helvetica-Bold')
-    .fillColor('black')
-    .text('Quantity:', leftMargin, supplierBoxY + 5);
-
-  doc.fontSize(10)
-    .font('Helvetica')
-    .fillColor('black')
-    .text(orderData.lineItems?.[0]?.quantity || '1', leftMargin + 50, supplierBoxY + 5);
-
   // Row 2: Supplier Code with maximum width usage
   doc.fontSize(10)
     .font('Helvetica-Bold')
@@ -119,7 +108,7 @@ function generatePDFContent(doc, orderData) {
     .fillColor('black')
     .text(supplierCode, leftMargin, supplierBoxY + 45, { 
       width: boxWidth,
-      height: 40,
+      height: 50,
       lineGap: 3,
       align: 'justify'  // This will stretch text to fill the width
     });
@@ -139,7 +128,7 @@ function generatePDFContent(doc, orderData) {
     .text(linkAttachment, leftMargin, bottomY + 12, { width: 140 });
 
   // Mattress Label - MOVED FURTHER RIGHT as requested
-  const centreX = 250; // Moved right from 222.5px
+  const centreX = 270; // Moved right from 222.5px
   doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
@@ -226,7 +215,7 @@ function generatePDFContent(doc, orderData) {
       .fillColor('black')
       .text(valueText, 85, rowY);
 
-    rowY += 16;  // FINALIZED TIGHT spacing between dimensions
+    rowY += 30;  // FINALIZED TIGHT spacing between dimensions
   });
 
   // Move Additional Specifications UP - FINALIZED spacing
