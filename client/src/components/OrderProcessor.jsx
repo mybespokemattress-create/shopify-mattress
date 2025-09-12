@@ -149,7 +149,7 @@ const OrderProcessor = () => {
   };
 
   const transformApiOrder = (apiOrder) => {
-  // ADD THIS DEBUG BLOCK RIGHT HERE - AT THE START OF THE FUNCTION
+    // ADD THIS DEBUG BLOCK RIGHT HERE - AT THE START OF THE FUNCTION
     console.group('🔍 Coolplus Debug - Order:', apiOrder.order_number);
     console.log('Full apiOrder object:', apiOrder);
     console.log('line_items exists?', !!apiOrder.line_items);
@@ -164,8 +164,8 @@ const OrderProcessor = () => {
     console.groupEnd();
     // END OF DEBUG BLOCK
 
-  const orderData = apiOrder.order_data || {};
-    
+    const orderData = apiOrder.order_data || {};
+      
     let diagramNumber = null;
     const lineItems = apiOrder.order_data?.order_data?.line_items;
     if (lineItems && lineItems[0] && lineItems[0].properties) {
@@ -199,11 +199,6 @@ const OrderProcessor = () => {
       }
     }
 
-let store = 'UNKNOWN';
-if (apiOrder.order_number?.includes('MOTO')) store = 'MOTO';
-else if (apiOrder.order_number?.includes('MYBE') || apiOrder.order_number?.includes('BESP')) store = 'MYBE'; 
-else if (apiOrder.order_number?.includes('CARA')) store = 'CARA';
-
     const measurements = apiOrder.order_data?.order_data?.extracted_measurements?.[0]?.measurements || {};
     
     const properties = {};
@@ -232,13 +227,12 @@ else if (apiOrder.order_number?.includes('CARA')) store = 'CARA';
       }
     });
 
-      // ADD THIS DEBUG LINE RIGHT BEFORE THE RETURN
+    // ADD THIS DEBUG LINE RIGHT BEFORE THE RETURN
     const finalSupplierCode = apiOrder.line_items?.[0]?.specification || orderData.supplierSpecification || '';
     console.log('📌 Final supplierCode being set:', finalSupplierCode);
 
     return {
       id: apiOrder.id.toString(),
-      store: store,
       orderNumber: apiOrder.order_number || 'Unknown',
       customer: {
         name: apiOrder.customer_name || 'Unknown Customer',
@@ -333,59 +327,59 @@ else if (apiOrder.order_number?.includes('CARA')) store = 'CARA';
 
   const handleEdit = () => setEditMode(true);
   
-    const handleSave = async () => {
-  try {
-    const response = await fetch(`/api/orders/${selectedOrder.id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        processing_status: selectedOrder.status === 'ready_to_send' ? 'processed' : 'received',
-        notes: selectedOrder.notes,
-        mattress_label: selectedOrder.mattressLabel,
-        order_number: selectedOrder.orderNumber,
-        customer_name: selectedOrder.customer.name,
-        customer_email: selectedOrder.customer.email,
-        order_date: selectedOrder.orderDate,
-        supplier_code: selectedOrder.supplierCode,
-        product_sku: selectedOrder.lineItems[0]?.sku,
-        quantity: selectedOrder.lineItems[0]?.quantity,
-        dimension_a: selectedOrder.lineItems[0]?.properties['Dimension A'],
-        dimension_b: selectedOrder.lineItems[0]?.properties['Dimension B'],
-        dimension_c: selectedOrder.lineItems[0]?.properties['Dimension C'],
-        dimension_d: selectedOrder.lineItems[0]?.properties['Dimension D'],
-        dimension_e: selectedOrder.lineItems[0]?.properties['Dimension E'],
-        dimension_f: selectedOrder.lineItems[0]?.properties['Dimension F'],
-        dimension_g: selectedOrder.lineItems[0]?.properties['Dimension G'],
-        radius_top_corner: selectedOrder.radiusTopCorner,
-        radius_bottom_corner: selectedOrder.radiusBottomCorner,
-        finished_size_max: selectedOrder.finishedSizeMax,
-        link_attachment: selectedOrder.linkAttachment,
-        delivery_option: selectedOrder.deliveryOption,
-        measurements: selectedOrder.lineItems[0]?.properties || {}
-      })
-    });
+  const handleSave = async () => {
+    try {
+      const response = await fetch(`/api/orders/${selectedOrder.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          processing_status: selectedOrder.status === 'ready_to_send' ? 'processed' : 'received',
+          notes: selectedOrder.notes,
+          mattress_label: selectedOrder.mattressLabel,
+          order_number: selectedOrder.orderNumber,
+          customer_name: selectedOrder.customer.name,
+          customer_email: selectedOrder.customer.email,
+          order_date: selectedOrder.orderDate,
+          supplier_code: selectedOrder.supplierCode,
+          product_sku: selectedOrder.lineItems[0]?.sku,
+          quantity: selectedOrder.lineItems[0]?.quantity,
+          dimension_a: selectedOrder.lineItems[0]?.properties['Dimension A'],
+          dimension_b: selectedOrder.lineItems[0]?.properties['Dimension B'],
+          dimension_c: selectedOrder.lineItems[0]?.properties['Dimension C'],
+          dimension_d: selectedOrder.lineItems[0]?.properties['Dimension D'],
+          dimension_e: selectedOrder.lineItems[0]?.properties['Dimension E'],
+          dimension_f: selectedOrder.lineItems[0]?.properties['Dimension F'],
+          dimension_g: selectedOrder.lineItems[0]?.properties['Dimension G'],
+          radius_top_corner: selectedOrder.radiusTopCorner,
+          radius_bottom_corner: selectedOrder.radiusBottomCorner,
+          finished_size_max: selectedOrder.finishedSizeMax,
+          link_attachment: selectedOrder.linkAttachment,
+          delivery_option: selectedOrder.deliveryOption,
+          measurements: selectedOrder.lineItems[0]?.properties || {}
+        })
+      });
 
-    const result = await response.json();
-    console.log('Save response:', result);
+      const result = await response.json();
+      console.log('Save response:', result);
 
-    if (!response.ok) {
-      throw new Error(`Server error: ${response.status}`);
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      setOrders(orders.map(order => 
+        order.id === selectedOrder.id ? selectedOrder : order
+      ));
+      
+      setEditMode(false);
+      alert('Order saved successfully!');
+      
+    } catch (err) {
+      console.error('Error saving order:', err);
+      alert(`Failed to save order: ${err.message}`);
     }
-
-    setOrders(orders.map(order => 
-      order.id === selectedOrder.id ? selectedOrder : order
-    ));
-    
-    setEditMode(false);
-    alert('Order saved successfully!');
-    
-  } catch (err) {
-    console.error('Error saving order:', err);
-    alert(`Failed to save order: ${err.message}`);
-  }
-};
+  };
 
   const handleCancel = () => {
     const originalOrder = orders.find(order => order.id === selectedOrder.id);
@@ -416,8 +410,8 @@ else if (apiOrder.order_number?.includes('CARA')) store = 'CARA';
   };
 
   const updateAdditionalField = (field, value) => {
-  setSelectedOrder(prev => ({ ...prev, [field]: value }));
-};
+    setSelectedOrder(prev => ({ ...prev, [field]: value }));
+  };
 
   const generatePDF = async () => {
     try {
@@ -453,45 +447,45 @@ else if (apiOrder.order_number?.includes('CARA')) store = 'CARA';
     }
   };
 
-    const getSupplierEmail = (supplierName) => {
-        const supplierEmails = {
-            'Southern Production': 'mbm@southernfoam.co.uk',
-            'Mattressshire Production': 'mattressshire.wmltd@gmail.com'
-        };
-        
-        return supplierEmails[supplierName] || 'angelo@mybespokemattress.com';
-        };
+  const getSupplierEmail = (supplierName) => {
+    const supplierEmails = {
+      'Southern Production': 'mbm@southernfoam.co.uk',
+      'Mattressshire Production': 'mattressshire.wmltd@gmail.com'
+    };
+    
+    return supplierEmails[supplierName] || 'angelo@mybespokemattress.com';
+  };
 
-        const openZohoMail = () => {
-            console.log('Supplier name:', selectedOrder.supplierName);
-            const supplierEmail = getSupplierEmail(selectedOrder.supplierName);
-            const subject = `Purchase Order ${selectedOrder.orderNumber} - ${selectedOrder.customer.name}`;
-            
-            // Official Zoho compose URL
-            window.open('https://mail.zoho.eu/zm/#compose', '_blank');
-            
-            // Create alert with email details to copy
-            setTimeout(() => {
-                alert(`Zoho Mail opened. Please copy these details:\n\nTO: ${supplierEmail}\nSUBJECT: ${subject}\n\nThen attach the downloaded PDF and send.`);
-            }, 1000);
-        };
+  const openZohoMail = () => {
+    console.log('Supplier name:', selectedOrder.supplierName);
+    const supplierEmail = getSupplierEmail(selectedOrder.supplierName);
+    const subject = `Purchase Order ${selectedOrder.orderNumber} - ${selectedOrder.customer.name}`;
+    
+    // Official Zoho compose URL
+    window.open('https://mail.zoho.eu/zm/#compose', '_blank');
+    
+    // Create alert with email details to copy
+    setTimeout(() => {
+      alert(`Zoho Mail opened. Please copy these details:\n\nTO: ${supplierEmail}\nSUBJECT: ${subject}\n\nThen attach the downloaded PDF and send.`);
+    }, 1000);
+  };
 
-        const markOrderAsSent = async () => {
-          const response = await fetch(`/api/orders/${selectedOrder.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email_sent: true })
-          });
-          
-          if (response.ok) {
-            setOrders(orders.map(order => 
-              order.id === selectedOrder.id ? { ...order, emailSent: true } : order
-            ));
-            setSelectedOrder(prev => ({ ...prev, emailSent: true }));
-          } else {
-            alert(`API Error: ${response.status}`);
-          }
-        };
+  const markOrderAsSent = async () => {
+    const response = await fetch(`/api/orders/${selectedOrder.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email_sent: true })
+    });
+    
+    if (response.ok) {
+      setOrders(orders.map(order => 
+        order.id === selectedOrder.id ? { ...order, emailSent: true } : order
+      ));
+      setSelectedOrder(prev => ({ ...prev, emailSent: true }));
+    } else {
+      alert(`API Error: ${response.status}`);
+    }
+  };
 
   const filteredOrders = orders.filter(order =>
     order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -593,14 +587,6 @@ else if (apiOrder.order_number?.includes('CARA')) store = 'CARA';
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
                             <span className="font-semibold text-sm">{order.orderNumber}</span>
-                            <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
-                              order.store === 'MOTO' ? 'bg-purple-100 text-purple-700' :
-                              order.store === 'MYBE' ? 'bg-green-100 text-green-700' :
-                              order.store === 'CARA' ? 'bg-orange-100 text-orange-700' :
-                              'bg-slate-100 text-slate-700'
-                            }`}>
-                              {order.store}
-                            </span>
                             {order.diagramNumber && (
                               <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
                                 Shape {order.diagramNumber}
