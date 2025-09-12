@@ -108,7 +108,7 @@ function generatePDFContent(doc, orderData) {
     .fillColor('black')
     .text(orderData.lineItems?.[0]?.quantity || '1', leftMargin + 50, supplierBoxY + 5);
 
-  // Row 2: Supplier Code with proper spacing - 25px after quantity
+  // Row 2: Supplier Code with maximum width usage
   doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
@@ -118,9 +118,10 @@ function generatePDFContent(doc, orderData) {
     .font('Helvetica')
     .fillColor('black')
     .text(supplierCode, leftMargin, supplierBoxY + 45, { 
-      width: boxWidth, 
-      height: 35,
-      lineGap: 2
+      width: boxWidth,
+      height: 40,
+      lineGap: 3,
+      align: 'justify'  // This will stretch text to fill the width
     });
 
   // Bottom row - properly centered Mattress Label as discussed
@@ -137,10 +138,8 @@ function generatePDFContent(doc, orderData) {
     .fillColor('black')
     .text(linkAttachment, leftMargin, bottomY + 12, { width: 140 });
 
-  // Mattress Label - PROPERLY CENTRED in 515px box
-  const boxCentre = 257.5; // Half of 515px box width  
-  const textWidth = 70; // Approximate width of "Mattress Label:" text
-  const centreX = boxCentre - (textWidth / 2); // 257.5 - 35 = 222.5px
+  // Mattress Label - MOVED FURTHER RIGHT as requested
+  const centreX = 250; // Moved right from 222.5px
   doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
