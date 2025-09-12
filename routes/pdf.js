@@ -108,7 +108,7 @@ function generatePDFContent(doc, orderData) {
   doc.fontSize(10)
     .font('Helvetica')
     .fillColor('black')
-    .text(supplierCode, supplierLeftMargin, supplierBoxY + 45, { 
+    .text(supplierCode, supplierLeftMargin, supplierBoxY + 55, { 
       width: 465,          // Updated to match new left margin
       height: 40,               
       lineGap: 3,              
