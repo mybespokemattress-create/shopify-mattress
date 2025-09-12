@@ -199,17 +199,11 @@ const OrderProcessor = () => {
       }
     }
 
-    let store = 'UNKNOWN';
-    if (apiOrder.mattress_label === 'Motorhome Mattresses') store = 'MOTO';
-    else if (apiOrder.mattress_label === 'My Bespoke Mattresses') store = 'MYBE';
-    else if (apiOrder.mattress_label === 'Caravan Mattresses') store = 'CARA';
-    else if (apiOrder.mattress_label === 'MotorhomeMattresses') store = 'MOTO';
-    else if (apiOrder.mattress_label === 'MyBespokeMattresses') store = 'MYBE';
-    else if (apiOrder.mattress_label === 'CaravanMattresses') store = 'CARA';
-    else if (apiOrder.order_number?.includes('MOTO')) store = 'MOTO';
-    else if (apiOrder.order_number?.includes('MYBE')) store = 'MYBE'; 
-    else if (apiOrder.order_number?.includes('CARA')) store = 'CARA';
-    else if (apiOrder.order_number?.includes('BESP')) store = 'MYBE';
+let store = 'UNKNOWN';
+if (apiOrder.order_number?.includes('MOTO')) store = 'MOTO';
+else if (apiOrder.order_number?.includes('MYBE')) store = 'MYBE'; 
+else if (apiOrder.order_number?.includes('CARA')) store = 'CARA';
+else if (apiOrder.order_number?.includes('BESP')) store = 'MYBE';
 
     const measurements = apiOrder.order_data?.order_data?.extracted_measurements?.[0]?.measurements || {};
     
