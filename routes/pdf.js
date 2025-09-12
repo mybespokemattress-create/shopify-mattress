@@ -146,125 +146,126 @@ function generatePDFContent(doc, orderData) {
 
   yPos += 20;
 
-  // Left side - Dimensions Table (compact but readable)
-const dimBoxY = drawCleanBox(doc, 40, yPos, 180, 350, 'Dimensions');
+  // Replace the dimensions section in your routes/pdf.js file (around lines 140-200)
+  // This matches the approved draft design with proper spacing
 
-// Extract measurements from React data
-let measurements = {};
+  // Left side - Dimensions Table (improved layout with proper spacing)
+  const dimBoxY = drawCleanBox(doc, 40, yPos, 180, 350, 'Dimensions');
 
-console.log('🔍 Extracting measurements from React data...');
+  // Extract measurements from React data
+  let measurements = {};
 
-// Get measurements from React component data
-if (orderData.lineItems && orderData.lineItems[0] && orderData.lineItems[0].properties) {
-  const props = orderData.lineItems[0].properties;
-  ['A', 'B', 'C', 'D', 'E', 'F', 'G'].forEach(dim => {
-    const value = props[`Dimension ${dim}`];
-    if (value && value.trim()) {
-      measurements[dim] = { value: value, unit: 'cm' };
-      console.log(`🔍 Found ${dim}: ${value}`);
-    }
-  });
-}
+  console.log('🔍 Extracting measurements from React data...');
 
-console.log('🔍 Final measurements object:', measurements);
-
-// Dimension rows A-G (no headers, just data)
-const dimensions = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
-let rowY = dimBoxY + 15;
-let hasValidMeasurements = false;
-
-dimensions.forEach(dim => {
-  const measurement = measurements[dim];
-  let valueText = '-';
-
-  if (measurement) {
-    if (typeof measurement === 'object' && 'value' in measurement) {
-        valueText = measurement.value;
-        hasValidMeasurements = true;
-    } else if (typeof measurement === 'string' && measurement.trim()) {
-        valueText = String(measurement);
-        hasValidMeasurements = true;
-    }
+  // Get measurements from React component data
+  if (orderData.lineItems && orderData.lineItems[0] && orderData.lineItems[0].properties) {
+    const props = orderData.lineItems[0].properties;
+    ['A', 'B', 'C', 'D', 'E', 'F', 'G'].forEach(dim => {
+      const value = props[`Dimension ${dim}`];
+      if (value && value.trim()) {
+        measurements[dim] = { value: value, unit: 'cm' };
+        console.log(`🔍 Found ${dim}: ${value}`);
+      }
+    });
   }
 
-  doc.fontSize(12)
-     .font('Helvetica-Bold')
-     .fillColor('black')
-     .text(dim, 50, rowY);
-  
-  doc.fontSize(12)
-     .font('Helvetica')
-     .fillColor('black')
-     .text(valueText, 90, rowY);
+  console.log('🔍 Final measurements object:', measurements);
 
-  rowY += 20;
-});
+  // Dimension rows A-G with improved content layout
+  const dimensions = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+  let rowY = dimBoxY + 5;  // Start position
+  let hasValidMeasurements = false;
 
-// Additional Specifications header
-doc.fontSize(11)
-   .font('Helvetica-Bold')
-   .fillColor('black')
-   .text('Additional Specifications', 50, rowY);
+  dimensions.forEach(dim => {
+    const measurement = measurements[dim];
+    let valueText = '-';
 
-rowY += 20;
+    if (measurement) {
+      if (typeof measurement === 'object' && 'value' in measurement) {
+          valueText = measurement.value + ' cm';
+          hasValidMeasurements = true;
+      } else if (typeof measurement === 'string' && measurement.trim()) {
+          valueText = String(measurement) + ' cm';
+          hasValidMeasurements = true;
+      }
+    }
 
-// Safety check for Additional Specifications data
-const radiusTopCorner = (orderData.radiusTopCorner && orderData.radiusTopCorner.trim()) ? orderData.radiusTopCorner : '-';
-const radiusBottomCorner = (orderData.radiusBottomCorner && orderData.radiusBottomCorner.trim()) ? orderData.radiusBottomCorner : '-';
-const finishedSizeMax = (orderData.finishedSizeMax && orderData.finishedSizeMax.trim()) ? orderData.finishedSizeMax : '-';
+    // Dimension letter and value on same line, properly spaced
+    doc.fontSize(12)
+      .font('Helvetica-Bold')
+      .fillColor('black')
+      .text(dim, 50, rowY);
+    
+    doc.fontSize(12)
+      .font('Helvetica')
+      .fillColor('black')
+      .text(valueText, 85, rowY);  // Positioned right after the letter
 
-// Radius of Top Corner
-doc.fontSize(10)
-   .font('Helvetica-Bold')
-   .fillColor('black')
-   .text('Radius of Top Corner', 50, rowY);
+    rowY += 16;  // Tight spacing between dimension rows
+  });
 
-rowY += 12;
+  // Additional Specifications header - compact spacing
+  rowY += 8;
+  doc.fontSize(11)
+    .font('Helvetica-Bold')
+    .fillColor('black')
+    .text('Additional Specifications', 50, rowY);
 
-doc.fontSize(12)
-   .font('Helvetica')
-   .fillColor('black')
-   .text(radiusTopCorner, 50, rowY);
+  rowY += 15;
 
-rowY += 20;
+  // Safety check for Additional Specifications data
+  const radiusTopCorner = (orderData.radiusTopCorner && orderData.radiusTopCorner.trim()) ? orderData.radiusTopCorner : 'Test';
+  const radiusBottomCorner = (orderData.radiusBottomCorner && orderData.radiusBottomCorner.trim()) ? orderData.radiusBottomCorner : 'Test';
+  const finishedSizeMax = (orderData.finishedSizeMax && orderData.finishedSizeMax.trim()) ? orderData.finishedSizeMax : 'Test';
 
-// Radius of Bottom Corner
-doc.fontSize(10)
-   .font('Helvetica-Bold')
-   .fillColor('black')
-   .text('Radius of Bottom Corner', 50, rowY);
+  // Radius of Top Corner - compact layout
+  doc.fontSize(9)
+    .font('Helvetica-Bold')
+    .fillColor('black')
+    .text('Radius of Top Corner', 50, rowY);
 
-rowY += 12;
+  doc.fontSize(10)
+    .font('Helvetica')
+    .fillColor('black')
+    .text(radiusTopCorner, 50, rowY + 12, { width: 120 });
 
-doc.fontSize(10)
-   .font('Helvetica')
-   .fillColor('black')
-   .text(radiusBottomCorner, 50, rowY);
+  rowY += 22;  // Tighter spacing between specifications
 
-rowY += 20;
+  // Radius of Bottom Corner - compact layout  
+  doc.fontSize(9)
+    .font('Helvetica-Bold')
+    .fillColor('black')
+    .text('Radius of Bottom Corner', 50, rowY);
 
-// Finished Size Must Not Exceed
-doc.fontSize(10)
-   .font('Helvetica-Bold')
-   .fillColor('black')
-   .text('Finished Size Must Not Exceed', 50, rowY);
+  doc.fontSize(10)
+    .font('Helvetica')
+    .fillColor('black')
+    .text(radiusBottomCorner, 50, rowY + 12, { width: 120 });
 
-rowY += 12;
+  rowY += 22;  // Tighter spacing between specifications
 
-doc.fontSize(10)
-   .font('Helvetica')
-   .fillColor('black')
-   .text(finishedSizeMax, 50, rowY);
+  // Finished Size Must Not Exceed - compact with text wrapping
+  doc.fontSize(9)
+    .font('Helvetica-Bold')
+    .fillColor('black')
+    .text('Finished Size Must Not Exceed', 50, rowY, { width: 120 });
 
-rowY += 25;
+  doc.fontSize(10)
+    .font('Helvetica')
+    .fillColor('black')
+    .text(finishedSizeMax, 50, rowY + 12, { width: 120 });
 
-// Status at bottom
-doc.fontSize(9)
-   .font('Helvetica-Oblique')
-   .fillColor('black')
-   .text(`Status: ${hasValidMeasurements ? 'Verified' : 'Not verified'}`, 50, rowY);
+  // Calculate status position - ensure it's 20px from bottom of box
+  const boxBottom = dimBoxY + 330; // 350px box height - 20px padding
+  const statusY = boxBottom - 20;   // 20px from bottom
 
-  // Right side - Shape Diagram with Custom Diagram Priority (MUCH LARGER)
+  // Status positioned properly at bottom with good spacing
+  doc.fontSize(9)
+    .font('Helvetica-Oblique')
+    .fillColor('black')
+    .text(`Status: ${hasValidMeasurements ? 'Verified' : 'Not verified'}`, 50, statusY);
+
+  // Right side - Shape Diagram (keep existing positioning)
   const diagramBoxY = drawCleanBox(doc, 235, yPos, 320, 350, 'Shape Diagram');
 
   // Check for custom diagram first
