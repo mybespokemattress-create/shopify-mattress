@@ -140,7 +140,7 @@ function generatePDFContent(doc, orderData) {
     .text(orderData.mattressLabel || 'Caravan Mattresses', centreX, bottomY + 12, { width: 120 });
 
   // Delivery - Far right section 
-  const farRightX = leftMargin + 380;
+  const farRightX = supplierLeftMargin + 375;  // Updated to use consistent left margin base
   doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
@@ -227,7 +227,7 @@ function generatePDFContent(doc, orderData) {
     .fillColor('black')
     .text('Additional Specifications', 50, rowY);
 
-  rowY += 20;
+  rowY += 35;  // Increased gap from 20 to 35 for better spacing
 
   // Safety check for Additional Specifications data
   const radiusTopCorner = (orderData.radiusTopCorner && orderData.radiusTopCorner.trim()) ? orderData.radiusTopCorner : 'Test';
