@@ -1,727 +1,553 @@
-require('dotenv').config();
-console.log('✓ Environment variables loaded');
+console.log('📄 PDF ROUTES FILE LOADED - routes/pdf.js');
+
 const express = require('express');
-console.log('✓ Express loaded');
+const PDFDocument = require('pdfkit');
+const fs = require('fs');
 const path = require('path');
-console.log('✓ Path loaded');
-const crypto = require('crypto');
-console.log('✓ Crypto loaded');
-const { Pool } = require('pg');
-console.log('✓ PostgreSQL Pool loaded');
-const axios = require('axios');
-console.log('✓ Axios loaded');
+const router = express.Router();
 
-// Import PDF routes
-console.log('Attempting to load PDF routes...');
-const pdfRoutes = require('./routes/pdf');
-console.log('✓ PDF routes loaded successfully');
-const zohoAuthRoutes = require('./routes/zoho-auth');
-console.log('✓ Zoho auth routes loaded successfully');
-const emailRoutes = require('./routes/email');
-console.log('✓ Email routes loaded successfully');
-console.log('Loading diagram routes...');
-const diagramRoutes = require('./routes/diagrams');
-console.log('✓ Diagram routes loaded successfully');
-console.log('Loading product mapping routes...');
-const productMappingRoutes = require('./routes/product-mapping');
-console.log('✓ Product mapping routes loaded successfully');
+console.log('📄 PDF dependencies loaded successfully');
 
-const app = express();
-console.log('✓ Express app created');
-const port = process.env.PORT || 8080;
-console.log('✓ Port configured:', port);
-
-// Database configuration
-const dbConfig = {
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-};
-
-const pool = new Pool(dbConfig);
-
-// Make database available to routes
-app.locals.db = pool;
-
-// FIXED: Configure store settings to match actual Railway variable assignments
-app.locals.storeConfigs = {
-  'uxyxaq-pu.myshopify.com': {
-    name: 'Motorhome Mattresses', 
-    webhookSecret: process.env.STORE1_WEBHOOK_SECRET || 'default-secret'
-  },
-  'mattressmade.myshopify.com': {
-    name: 'My Bespoke Mattresses',
-    webhookSecret: process.env.STORE2_WEBHOOK_SECRET || 'default-secret'
-  },
-  'd587eb.myshopify.com': {
-    name: 'Caravan Mattresses',
-    webhookSecret: process.env.STORE3_WEBHOOK_SECRET || 'default-secret'
+// Helper function to draw clean bordered boxes
+function drawCleanBox(doc, x, y, width, height, title = null) {
+  // Draw border
+  doc.rect(x, y, width, height).stroke();
+  
+  // Add title if provided
+  if (title) {
+    doc.fontSize(10)
+       .font('Helvetica-Bold')
+       .fillColor('black')
+       .text(title, x + 5, y + 5);
+    return y + 20; // Return content start position
   }
-};
+  
+  return y + 5;
+}
 
-// IMPORTANT: Webhook routes BEFORE JSON middleware
-app.use('/webhook', require('./routes/webhooks'));
+// Helper function to check if image exists
+function imageExists(imagePath) {
+  try {
+    return fs.existsSync(imagePath);
+  } catch (error) {
+    return false;
+  }
+}
 
-// Middleware (after webhook routes)
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Function to generate PDF content (shared logic)
+function generatePDFContent(doc, orderData) {
+  // === HEADER SECTION ===
+  doc.fontSize(18)
+    .font('Helvetica-Bold')
+    .fillColor('black')
+    .text('My Bespoke Order Ltd', 40, 40);
 
-// IMPORTANT: Mount API routes BEFORE static files
-app.use('/api/pdf', pdfRoutes);
-app.use('/auth/zoho', zohoAuthRoutes);
-app.use('/api/email', emailRoutes);
-app.use('/api/diagrams', diagramRoutes);
-app.use('/api/mapping', productMappingRoutes.router);
+  doc.fontSize(11)
+    .font('Helvetica')
+    .fillColor('black')
+    .text('Purchase Order & Manufacturing Specification', 40, 62);
 
-// ADD THIS DEBUG ROUTE HERE:
-app.get('/debug-test', (req, res) => {
-  res.json({ 
-    message: 'Debug route works!',
-    timestamp: new Date(),
-    routes_loaded: 'yes'
+  doc.fontSize(11)
+    .font('Helvetica')
+    .fillColor('black')
+    .text(`Order: ${orderData.orderNumber}`, 40, 78)
+    .text(`Date: ${orderData.orderDate}`, 450, 78);
+
+  // Horizontal line under header
+  doc.strokeColor('black')
+    .moveTo(40, 105)
+    .lineTo(555, 105)
+    .stroke();
+
+  let yPos = 120;
+
+  // === SUPPLIER SPECIFICATION SECTION ===
+  doc.fontSize(12)
+     .font('Helvetica-Bold')
+     .fillColor('black')
+     .text('Supplier Specification', 40, yPos);
+
+  yPos += 20;
+
+  // Extract supplier code from React data
+  console.log('PDF DEBUG - orderData.supplierCode:', orderData.supplierCode);
+  let supplierCode = orderData.supplierCode || 'No supplier mapping found - check SKU processing';
+  const lineItems = orderData.lineItems || [];
+
+  // Extract link attachment from React data  
+  let linkAttachment = orderData.linkAttachment || 'One Piece Mattress No Link Required';
+
+  console.log('🔍 Final link attachment:', linkAttachment);
+
+  // Supplier Code Box with professional spacing
+  const supplierBoxY = drawCleanBox(doc, 40, yPos, 515, 140);
+
+  // Define consistent positioning constants
+  const leftMargin = 45;    // Consistent left margin for all elements
+  const boxWidth = 470;     // Available width for content
+
+  // Row 1: Quantity on same line - professional positioning
+  doc.fontSize(10)
+    .font('Helvetica-Bold')
+    .fillColor('black')
+    .text('Quantity:', leftMargin, supplierBoxY + 5);
+
+  doc.fontSize(10)
+    .font('Helvetica')
+    .fillColor('black')
+    .text(orderData.lineItems?.[0]?.quantity || '1', leftMargin + 50, supplierBoxY + 5);
+
+  // Row 2: Supplier Code with proper spacing - 25px after quantity
+  doc.fontSize(10)
+    .font('Helvetica-Bold')
+    .fillColor('black')
+    .text('Supplier Code:', leftMargin, supplierBoxY + 30);
+
+  doc.fontSize(10)
+    .font('Helvetica')
+    .fillColor('black')
+    .text(supplierCode, leftMargin, supplierBoxY + 45, { 
+      width: boxWidth, 
+      height: 35,
+      lineGap: 2
+    });
+
+  // Bottom row - recalculated for proper centering and positioning
+  const bottomY = supplierBoxY + 95;
+  const totalBoxWidth = 470;  // Usable width inside box
+  
+  // Link Attachment - Left section (narrower)
+  const linkWidth = 140;
+  doc.fontSize(10)
+    .font('Helvetica-Bold')
+    .fillColor('black')
+    .text('Link Attachment:', leftMargin, bottomY);
+
+  doc.fontSize(9)
+    .font('Helvetica')
+    .fillColor('black')
+    .text(linkAttachment, leftMargin, bottomY + 12, { width: linkWidth });
+
+  // Mattress Label - Center section (properly centered)
+  const centerStart = leftMargin + 150;  // Start further right for centering
+  const centerWidth = 140;
+  doc.fontSize(10)
+    .font('Helvetica-Bold')
+    .fillColor('black')
+    .text('Mattress Label:', centerStart, bottomY);
+
+  doc.fontSize(9)
+    .font('Helvetica')
+    .fillColor('black')
+    .text(orderData.mattressLabel || 'Caravan Mattresses', centerStart, bottomY + 12, { width: centerWidth });
+
+  // Delivery - Right section (pushed further right)
+  const rightStart = leftMargin + 300;  // Much further right
+  const rightWidth = 120;
+  doc.fontSize(10)
+    .font('Helvetica-Bold')
+    .fillColor('black')
+    .text('Delivery:', rightStart, bottomY);
+
+  doc.fontSize(9)
+    .font('Helvetica')
+    .fillColor('black')
+    .text(orderData.deliveryOption || 'Rolled and Boxed', rightStart, bottomY + 12, { width: rightWidth });
+
+  yPos += 155;
+
+  // === MEASUREMENTS & SHAPE DIAGRAM SECTION ===
+  doc.fontSize(12)
+     .font('Helvetica-Bold')
+     .fillColor('black')
+     .text('Measurements & Shape Diagram', 40, yPos);
+
+  yPos += 20;
+
+  // Left side - Dimensions Table (improved layout with proper spacing)
+  const dimBoxY = drawCleanBox(doc, 40, yPos, 180, 350, 'Dimensions');
+
+  // Extract measurements from React data
+  let measurements = {};
+
+  console.log('🔍 Extracting measurements from React data...');
+
+  // Get measurements from React component data
+  if (orderData.lineItems && orderData.lineItems[0] && orderData.lineItems[0].properties) {
+    const props = orderData.lineItems[0].properties;
+    ['A', 'B', 'C', 'D', 'E', 'F', 'G'].forEach(dim => {
+      const value = props[`Dimension ${dim}`];
+      if (value && value.trim()) {
+        measurements[dim] = { value: value, unit: 'cm' };
+        console.log(`🔍 Found ${dim}: ${value}`);
+      }
+    });
+  }
+
+  console.log('🔍 Final measurements object:', measurements);
+
+  // Dimension rows A-G with proper spacing distribution
+  const dimensions = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+  let rowY = dimBoxY + 15;  // Start with proper top margin
+  let hasValidMeasurements = false;
+
+  dimensions.forEach(dim => {
+    const measurement = measurements[dim];
+    let valueText = '-';
+
+    if (measurement) {
+      if (typeof measurement === 'object' && 'value' in measurement) {
+          // DON'T add cm - it's already in the value
+          valueText = measurement.value;
+          hasValidMeasurements = true;
+      } else if (typeof measurement === 'string' && measurement.trim()) {
+          // DON'T add cm - it's already in the value
+          valueText = String(measurement);
+          hasValidMeasurements = true;
+      }
+    }
+
+    // Dimension letter and value with consistent spacing
+    doc.fontSize(12)
+      .font('Helvetica-Bold')
+      .fillColor('black')
+      .text(dim, 50, rowY);
+    
+    doc.fontSize(12)
+      .font('Helvetica')
+      .fillColor('black')
+      .text(valueText, 85, rowY);
+
+    rowY += 16;  // Consistent spacing between dimensions
+  });
+
+  // Move Additional Specifications UP - much closer to dimension G
+  rowY += 15;
+
+  // Additional Specifications header
+  doc.fontSize(11)
+    .font('Helvetica-Bold')
+    .fillColor('black')
+    .text('Additional Specifications', 50, rowY);
+
+  rowY += 20;
+
+  // Safety check for Additional Specifications data
+  const radiusTopCorner = (orderData.radiusTopCorner && orderData.radiusTopCorner.trim()) ? orderData.radiusTopCorner : 'Test';
+  const radiusBottomCorner = (orderData.radiusBottomCorner && orderData.radiusBottomCorner.trim()) ? orderData.radiusBottomCorner : 'Test';
+  const finishedSizeMax = (orderData.finishedSizeMax && orderData.finishedSizeMax.trim()) ? orderData.finishedSizeMax : 'Test';
+
+  // Radius of Top Corner
+  doc.fontSize(10)
+    .font('Helvetica-Bold')
+    .fillColor('black')
+    .text('Radius of Top Corner', 50, rowY);
+
+  rowY += 15;
+
+  doc.fontSize(10)
+    .font('Helvetica')
+    .fillColor('black')
+    .text(radiusTopCorner, 50, rowY);
+
+  rowY += 22;
+
+  // Radius of Bottom Corner  
+  doc.fontSize(10)
+    .font('Helvetica-Bold')
+    .fillColor('black')
+    .text('Radius of Bottom Corner', 50, rowY);
+
+  rowY += 15;
+
+  doc.fontSize(10)
+    .font('Helvetica')
+    .fillColor('black')
+    .text(radiusBottomCorner, 50, rowY);
+
+  rowY += 22;
+
+  // Max Overall Size - cleaner label
+  doc.fontSize(10)
+    .font('Helvetica-Bold')
+    .fillColor('black')
+    .text('Max Overall Size', 50, rowY);
+
+  rowY += 15;
+
+  doc.fontSize(10)
+    .font('Helvetica')
+    .fillColor('black')
+    .text(finishedSizeMax, 50, rowY);
+
+  // Right side - Shape Diagram 
+  const diagramBoxY = drawCleanBox(doc, 235, yPos, 320, 350, 'Shape Diagram');
+
+  // Check for custom diagram first
+  let imageLoaded = false;
+  
+  console.log('🔍 Checking for custom diagram...');
+  console.log('🔍 Order has_custom_diagram:', orderData.has_custom_diagram);
+  console.log('🔍 Order custom_diagram_url:', orderData.custom_diagram_url);
+
+  // PRIORITY 1: Custom uploaded diagram
+  if (orderData.has_custom_diagram && orderData.custom_diagram_url) {
+    const customDiagramPath = path.join(__dirname, '..', orderData.custom_diagram_url);
+    console.log('🔍 Trying custom diagram path:', customDiagramPath);
+    
+    if (imageExists(customDiagramPath)) {
+      try {
+        console.log('🔍 Custom diagram found! Loading:', customDiagramPath);
+        
+        // Add custom diagram label
+        doc.fontSize(9)
+           .font('Helvetica-Bold')
+           .fillColor('black')
+           .text('Custom Diagram', 240, diagramBoxY);
+
+        // Add image with MUCH LARGER sizing and positioning
+        const imageWidth = 305;  // Almost full width of box
+        const imageHeight = 300; // Much taller
+        const imageX = 242;      // Centered in box
+        const imageY = diagramBoxY + 20;
+
+        doc.image(customDiagramPath, imageX, imageY, {
+          width: imageWidth,
+          height: imageHeight,
+          fit: [imageWidth, imageHeight],
+          align: 'center'
+        });
+        
+        imageLoaded = true;
+        console.log('🔍 Custom diagram loaded successfully');
+        
+        // Add filename at bottom (positioned for larger box)
+        const filename = orderData.custom_diagram_url.split('/').pop();
+        doc.fontSize(8)
+           .font('Helvetica')
+           .fillColor('gray')
+           .text(`File: ${filename}`, 245, diagramBoxY + 310);
+           
+      } catch (imageError) {
+        console.log('🔍 Custom diagram load error:', imageError.message);
+      }
+    } else {
+      console.log('🔍 Custom diagram file not found at path:', customDiagramPath);
+    }
+  }
+
+  // PRIORITY 2: Standard Shopify diagram (fallback)
+  if (!imageLoaded) {
+    // Extract diagram number from React data
+    let diagramNumber = orderData.diagramNumber || orderData.shapeNumber;
+
+    console.log('🔍 No custom diagram, attempting standard diagram...');
+    console.log('🔍 Diagram number from React:', diagramNumber);
+
+    if (diagramNumber) {
+      doc.fontSize(9)
+         .font('Helvetica')
+         .fillColor('black')
+         .text(`Standard Diagram: ${diagramNumber}`, 240, diagramBoxY);
+
+      // Try multiple possible image paths for Shopify diagrams
+      const imagePaths = [
+        path.join(__dirname, '..', 'public', 'images', 'diagrams', `Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`),
+        path.join(__dirname, '..', 'client', 'public', 'images', 'diagrams', `Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`),
+        path.join(__dirname, '..', 'images', 'diagrams', `Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`),
+        `/images/diagrams/Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`
+      ];
+
+      for (const imagePath of imagePaths) {
+        console.log('🔍 Trying standard image path:', imagePath);
+        if (imageExists(imagePath)) {
+          try {
+            console.log('🔍 Standard image found! Loading:', imagePath);
+            // Add image with MUCH LARGER sizing and positioning
+            const imageWidth = 305;  // Almost full width of box
+            const imageHeight = 300; // Much taller
+            const imageX = 242;      // Centered in box
+            const imageY = diagramBoxY + 20;
+
+            doc.image(imagePath, imageX, imageY, {
+              width: imageWidth,
+              height: imageHeight,
+              fit: [imageWidth, imageHeight],
+              align: 'center'
+            });
+            imageLoaded = true;
+            console.log('🔍 Standard image loaded successfully');
+            break;
+          } catch (imageError) {
+            console.log('🔍 Standard image load error for path:', imagePath, imageError.message);
+            continue;
+          }
+        } else {
+          console.log('🔍 Standard image not found at path:', imagePath);
+        }
+      }
+    }
+  }
+
+  // PRIORITY 3: No diagram available (fallback message)
+  if (!imageLoaded) {
+    console.log('🔍 No diagrams found, showing placeholder');
+    
+    if (orderData.has_custom_diagram) {
+      // Custom diagram was expected but failed to load
+      doc.fontSize(9)
+         .fillColor('red')
+         .text('Custom Diagram Upload Failed', 245, diagramBoxY + 60)
+         .fillColor('black')
+         .text('Please check file availability', 245, diagramBoxY + 80);
+    } else if (orderData.diagramNumber) {
+      // Standard diagram was expected but failed to load
+      doc.fontSize(9)
+         .fillColor('black')
+         .text(`[Diagram ${orderData.diagramNumber} - Image not available]`, 245, diagramBoxY + 60)
+         .text('Please refer to technical specifications', 245, diagramBoxY + 80);
+    } else {
+      // No diagram specified
+      doc.fontSize(9)
+         .fillColor('black')
+         .text('No diagram specified', 245, diagramBoxY + 60)
+         .text('Manual order - refer to customer notes', 245, diagramBoxY + 80);
+    }
+  }
+
+  yPos += 365; // Updated for larger diagram section
+
+  // === CUSTOMER NOTES SECTION (if present) ===
+  if (orderData.notes && orderData.notes.trim()) {
+    doc.fontSize(12)
+       .font('Helvetica-Bold')
+       .fillColor('black')
+       .text('Customer Notes', 40, yPos);
+
+    yPos += 20;
+
+    const notesBoxY = drawCleanBox(doc, 40, yPos, 515, 35);
+
+    doc.fontSize(9)
+       .font('Helvetica')
+       .fillColor('black')
+       .text(orderData.notes, 45, notesBoxY, { width: 505, height: 40 });
+
+    yPos += 50;
+  }
+
+  // === FOOTER SECTION ===
+  // Ensure footer is at bottom of page
+  if (yPos < 750) {
+    yPos = 750;
+  }
+
+  // Horizontal line above footer
+  doc.strokeColor('black')
+     .moveTo(40, yPos)
+     .lineTo(555, yPos)
+     .stroke();
+
+  yPos += 10;
+
+  // Footer information - BLACK AND WHITE FOR PRINTING
+  doc.fontSize(8)
+     .font('Helvetica')
+     .fillColor('black')
+     .text(`Generated: ${new Date().toLocaleDateString('en-GB')}, ${new Date().toLocaleTimeString('en-GB')}`, 40, yPos)
+     .text('My Bespoke Order Ltd | Tel: 0121 663 6299, WhatsApp us at 07769 431 970 Messages only - **Calls not accepted**', 40, yPos + 10)
+     .text('This document contains all specifications required for manufacturing.', 40, yPos + 20);
+}
+
+// Professional PDF route for React component
+router.post('/generate', async (req, res) => {
+  console.log('🔍 PDF ROUTE: POST /generate - PROFESSIONAL PDF GENERATION');
+  console.log('🔍 Order data from React:', req.body.order?.orderNumber);
+  
+  try {
+    const { order } = req.body;
+    
+    if (!order) {
+      return res.status(400).json({ error: 'Order data required' });
+    }
+    
+    console.log('🔍 Generating PROFESSIONAL PDF for:', order.orderNumber);
+    
+    // Create PDF with A4 dimensions
+    const doc = new PDFDocument({
+      margin: 40,
+      size: 'A4'
+    });
+    
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="purchase-order-${order.orderNumber}.pdf"`);
+    
+    doc.pipe(res);
+    
+    // Generate PDF content
+    generatePDFContent(doc, order);
+    
+    // Finalize PDF
+    doc.end();
+    
+  } catch (error) {
+    console.error('PDF generation error:', error);
+    res.status(500).json({ error: 'PDF generation failed', details: error.message });
+  }
+});
+
+// Export function for email attachment generation
+async function generatePurchaseOrderPDF(orderData) {
+  return new Promise((resolve, reject) => {
+    try {
+      console.log('🔧 Generating PDF buffer for email attachment...');
+      
+      // Create PDF with A4 dimensions
+      const doc = new PDFDocument({
+        margin: 40,
+        size: 'A4'
+      });
+
+      // Collect PDF buffer
+      const buffers = [];
+      doc.on('data', buffers.push.bind(buffers));
+      doc.on('end', () => {
+        const pdfBuffer = Buffer.concat(buffers);
+        console.log('🔧 PDF buffer generated successfully, size:', pdfBuffer.length);
+        resolve(pdfBuffer);
+      });
+
+      // Generate PDF content using shared function
+      generatePDFContent(doc, orderData);
+
+      // Finalize PDF
+      doc.end();
+
+    } catch (error) {
+      console.error('PDF generation error for email:', error);
+      reject(error);
+    }
+  });
+}
+
+// Test routes
+router.get('/test', (req, res) => {
+  console.log('📄 PDF test endpoint called');
+  res.json({
+    success: true,
+    message: 'Professional PDF layout ready - with email function export',
+    endpoints: [
+      'POST /api/pdf/generate - Generate PDF from React component data'
+    ],
+    functions: [
+      'generatePurchaseOrderPDF - For email attachments'
+    ],
+    timestamp: new Date().toISOString()
   });
 });
 
-// Serve static files from React build - FIXED PATH
-app.use(express.static(path.join(__dirname, 'client/build')));
-// Serve uploaded files
-app.use('/uploads', express.static('uploads'));
+console.log('📄 PDF routes registered: POST /generate + email function export');
 
-// CORS headers for development
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  if (req.method === 'OPTIONS') {
-    res.sendStatus(200);
-  } else {
-    next();
-  }
-});
-
-// Health check endpoint
-app.get('/api/health', async (req, res) => {
-  try {
-    const dbResult = await pool.query('SELECT NOW()');
-    res.json({
-      status: 'healthy',
-      timestamp: new Date().toISOString(),
-      database: 'connected',
-      server: 'operational'
-    });
-  } catch (error) {
-    res.status(503).json({
-      status: 'unhealthy',
-      timestamp: new Date().toISOString(),
-      database: 'disconnected',
-      error: error.message
-    });
-  }
-});
-
-// Helper function to extract customer notes from Shopify order
-function extractCustomerNotes(order) {
-  // Check multiple possible locations for customer notes
-  const noteLocations = [
-    order.note,
-    order.notes,
-    order.customer_note,
-    order.buyer_accepts_marketing && order.note_attributes?.find(attr => attr.name === 'note')?.value,
-    order.line_items?.[0]?.properties?.find(prop => prop.name === 'note' || prop.name === 'Notes')?.value
-  ];
-
-  // Return the first non-empty note found
-  for (const note of noteLocations) {
-    if (note && typeof note === 'string' && note.trim().length > 0) {
-      return note.trim();
-    }
-  }
-
-  return '';
-}
-
-// Helper function to determine mattress label from store domain
-function getMattressLabelFromStore(order) {
-  try {
-    // Extract shop domain from order data
-    const shopDomain = order.shop_domain || order.gateway || '';
-    
-    if (shopDomain.includes('caravan')) {
-      return 'CaravanMattresses';
-    } else if (shopDomain.includes('motorhome')) {
-      return 'MotorhomeMattresses';
-    } else if (shopDomain.includes('bespoke')) {
-      return 'MyBespokeMattresses';
-    }
-
-    // Default fallback
-    return 'CaravanMattresses';
-  } catch (error) {
-    console.error('Error determining mattress label:', error);
-    return 'CaravanMattresses';
-  }
-}
-
-// Enhanced Process Shopify order function with product mapping
-async function processShopifyOrder(order) {
-  try {
-    console.log(`Processing order: ${order.order_number}`);
-    
-    // Extract customer notes and mattress label
-    const customerNotes = extractCustomerNotes(order);
-    const mattressLabel = getMattressLabelFromStore(order);
-    
-    console.log(`Extracted notes: ${customerNotes ? 'Yes' : 'None'}`);
-    console.log(`Mattress label: ${mattressLabel}`);
-    
-    // Process each line item with product mapping
-    const processedItems = [];
-    
-    for (const item of order.line_items) {
-      console.log(`\nProcessing item: ${item.title}`);
-      
-      // Use the mapping system to get supplier specification
-      let supplierSpec = 'Mapping required';
-      let mappingConfidence = 0;
-      
-      try {
-        // Call the product mapping system
-        const { mapProduct } = require('./routes/product-mapping');
-        
-        const mappingResult = mapProduct(
-          item.title,
-          item.variant_title ? { title: item.variant_title } : null,
-          item.properties || null,
-          item.sku || null
-        );
-        
-        if (mappingResult.success && mappingResult.specification) {
-          supplierSpec = mappingResult.specification.fullSpecification;
-          mappingConfidence = mappingResult.confidence;
-          console.log(`✓ Mapped: ${supplierSpec}`);
-        } else {
-          console.log(`✗ Mapping failed: ${mappingResult.error}`);
-        }
-        
-      } catch (mappingError) {
-        console.error('Mapping system error:', mappingError);
-      }
-      
-      processedItems.push({
-        title: item.title,
-        sku: item.sku || 'N/A',
-        quantity: item.quantity,
-        price: item.price,
-        supplier_specification: supplierSpec,
-        mapping_confidence: mappingConfidence
-      });
-    }
-    
-    // Extract measurements from order
-    const extractedMeasurements = extractMeasurementsFromOrder(order);
-    
-    // Store order in database with processed items
-    const insertQuery = `
-      INSERT INTO processed_orders (
-        shopify_order_id,
-        order_number,
-        customer_name,
-        customer_email,
-        total_price,
-        order_data,
-        extracted_measurements,
-        line_items,
-        processing_status,
-        notes,
-        mattress_label,
-        created_date
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-      ON CONFLICT (shopify_order_id) 
-      DO UPDATE SET
-        order_data = EXCLUDED.order_data,
-        extracted_measurements = EXCLUDED.extracted_measurements,
-        line_items = EXCLUDED.line_items,
-        notes = EXCLUDED.notes,
-        mattress_label = EXCLUDED.mattress_label,
-        updated_date = NOW()
-    `;
-    
-    const customerName = order.customer ? 
-      `${order.customer.first_name} ${order.customer.last_name}` : 
-      order.billing_address?.name || 'Unknown';
-    
-    await pool.query(insertQuery, [
-      order.id,
-      order.order_number,
-      customerName,
-      order.customer?.email || order.email,
-      order.total_price,
-      JSON.stringify(order),
-      JSON.stringify(extractedMeasurements),
-      JSON.stringify(processedItems), // Store the processed items with specifications
-      'received',
-      customerNotes,
-      mattressLabel,
-      new Date(order.created_at)
-    ]);
-    
-    console.log(`Order ${order.order_number} stored successfully with ${processedItems.length} mapped items`);
-    
-  } catch (error) {
-    console.error('Error processing order:', error);
-    throw error;
-  }
-}
-
-// Extract measurements from order (implement your logic)
-function extractMeasurementsFromOrder(order) {
-  // This is a placeholder - implement your actual measurement extraction logic
-  const measurements = {};
-  
-  // Look for measurements in order notes, line items, or custom attributes
-  if (order.note) {
-    // Extract measurements from notes using regex or other methods
-    // Example: Look for patterns like "A: 200cm", "B: 150cm", etc.
-  }
-  
-  // Look in line item properties
-  if (order.line_items) {
-    order.line_items.forEach(item => {
-      if (item.properties) {
-        item.properties.forEach(prop => {
-          // Extract measurements from properties
-        });
-      }
-    });
-  }
-  
-  return measurements;
-}
-
-// Get all orders endpoint - FIXED COLUMN NAMES
-app.get('/api/orders', async (req, res) => {
-  try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const offset = (page - 1) * limit;
-    
-    const query = `
-      SELECT 
-        id,
-        order_number,
-        customer_name,
-        customer_email,
-        total_price,
-        processing_status,
-        notes,
-        mattress_label,
-        order_data,
-        extracted_measurements,
-        line_items,
-        created_date,
-        updated_date,
-        email_sent,
-        has_custom_diagram,
-        custom_diagram_url,
-        diagram_upload_date,
-        order_date,
-        supplier_code,
-        product_sku,
-        quantity,
-        dimension_a,
-        dimension_b,
-        dimension_c,
-        dimension_d,
-        dimension_e,
-        dimension_f,
-        dimension_g,
-        radius_top_corner,
-        radius_bottom_corner,
-        finished_size_max,
-        link_attachment,
-        delivery_option
-      FROM processed_orders 
-      ORDER BY created_date DESC 
-      LIMIT $1 OFFSET $2
-      `;
-    
-    const countQuery = 'SELECT COUNT(*) FROM processed_orders';
-    
-    const [ordersResult, countResult] = await Promise.all([
-      pool.query(query, [limit, offset]),
-      pool.query(countQuery)
-    ]);
-    
-    const totalOrders = parseInt(countResult.rows[0].count);
-    const totalPages = Math.ceil(totalOrders / limit);
-    
-    res.json({
-      orders: ordersResult.rows,
-      pagination: {
-        page,
-        limit,
-        totalOrders,
-        totalPages,
-        hasNext: page < totalPages,
-        hasPrev: page > 1
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching orders:', error);
-    res.status(500).json({ error: 'Failed to fetch orders' });
-  }
-});
-
-// Get single order endpoint
-app.get('/api/orders/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    const query = `
-      SELECT 
-        *,
-        order_data::json as order_data,
-        extracted_measurements::json as extracted_measurements
-      FROM processed_orders 
-      WHERE id = $1
-    `;
-    
-    const result = await pool.query(query, [id]);
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Order not found' });
-    }
-    
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error('Error fetching order:', error);
-    res.status(500).json({ error: 'Failed to fetch order' });
-  }
-});
-
-// Update order endpoint - handles both status and other fields - FIXED COLUMN NAMES
-app.put('/api/orders/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { 
-      processing_status, notes, mattress_label, email_sent,
-      order_number, customer_name, customer_email, order_date,
-      supplier_code, product_sku, quantity,
-      dimension_a, dimension_b, dimension_c, dimension_d, dimension_e, dimension_f, dimension_g,
-      radius_top_corner, radius_bottom_corner, finished_size_max,
-      link_attachment, delivery_option, measurements
-    } = req.body;
-    
-    const updateFields = [];
-    const values = [];
-    let valueIndex = 1;
-    
-    if (processing_status !== undefined) {
-      updateFields.push(`processing_status = $${valueIndex++}`);
-      values.push(processing_status);
-    }
-    
-    if (notes !== undefined) {
-      updateFields.push(`notes = $${valueIndex++}`);
-      values.push(notes);
-    }
-    
-    if (mattress_label !== undefined) {
-      updateFields.push(`mattress_label = $${valueIndex++}`);
-      values.push(mattress_label);
-    }
-
-    if (email_sent !== undefined) {
-      updateFields.push(`email_sent = $${valueIndex++}`);
-      values.push(email_sent);
-    }
-
-    if (order_number !== undefined) {
-      updateFields.push(`order_number = $${valueIndex++}`);
-      values.push(order_number);
-    }
-
-    if (customer_name !== undefined) {
-      updateFields.push(`customer_name = $${valueIndex++}`);
-      values.push(customer_name);
-    }
-
-    if (customer_email !== undefined) {
-      updateFields.push(`customer_email = $${valueIndex++}`);
-      values.push(customer_email);
-    }
-
-    if (order_date !== undefined) {
-      updateFields.push(`order_date = $${valueIndex++}`);
-      values.push(order_date);
-    }
-
-    if (supplier_code !== undefined) {
-      updateFields.push(`supplier_code = $${valueIndex++}`);
-      values.push(supplier_code);
-    }
-
-    if (product_sku !== undefined) {
-      updateFields.push(`product_sku = $${valueIndex++}`);
-      values.push(product_sku);
-    }
-
-    if (quantity !== undefined) {
-      updateFields.push(`quantity = $${valueIndex++}`);
-      values.push(quantity);
-    }
-
-    if (dimension_a !== undefined) {
-      updateFields.push(`dimension_a = $${valueIndex++}`);
-      values.push(dimension_a);
-    }
-
-    if (dimension_b !== undefined) {
-      updateFields.push(`dimension_b = $${valueIndex++}`);
-      values.push(dimension_b);
-    }
-
-    if (dimension_c !== undefined) {
-      updateFields.push(`dimension_c = $${valueIndex++}`);
-      values.push(dimension_c);
-    }
-
-    if (dimension_d !== undefined) {
-      updateFields.push(`dimension_d = $${valueIndex++}`);
-      values.push(dimension_d);
-    }
-
-    if (dimension_e !== undefined) {
-      updateFields.push(`dimension_e = $${valueIndex++}`);
-      values.push(dimension_e);
-    }
-
-    if (dimension_f !== undefined) {
-      updateFields.push(`dimension_f = $${valueIndex++}`);
-      values.push(dimension_f);
-    }
-
-    if (dimension_g !== undefined) {
-      updateFields.push(`dimension_g = $${valueIndex++}`);
-      values.push(dimension_g);
-    }
-
-    if (radius_top_corner !== undefined) {
-      updateFields.push(`radius_top_corner = $${valueIndex++}`);
-      values.push(radius_top_corner);
-    }
-
-    if (radius_bottom_corner !== undefined) {
-      updateFields.push(`radius_bottom_corner = $${valueIndex++}`);
-      values.push(radius_bottom_corner);
-    }
-
-    if (finished_size_max !== undefined) {
-      updateFields.push(`finished_size_max = $${valueIndex++}`);
-      values.push(finished_size_max);
-    }
-
-    if (link_attachment !== undefined) {
-      updateFields.push(`link_attachment = $${valueIndex++}`);
-      values.push(link_attachment);
-    }
-
-    if (delivery_option !== undefined) {
-      updateFields.push(`delivery_option = $${valueIndex++}`);
-      values.push(delivery_option);
-    }
-
-    if (measurements !== undefined) {
-      updateFields.push(`order_data = $${valueIndex++}`);
-      const existingOrder = await pool.query('SELECT order_data FROM processed_orders WHERE id = $1', [id]);
-      let orderData = existingOrder.rows[0]?.order_data || {};
-      orderData.measurements = measurements;
-      values.push(JSON.stringify(orderData));
-    }
-    
-    if (updateFields.length === 0) {
-      return res.status(400).json({ error: 'No fields to update' });
-    }
-    
-    updateFields.push('updated_date = NOW()');
-    values.push(id);
-    
-    const query = `
-      UPDATE processed_orders 
-      SET ${updateFields.join(', ')} 
-      WHERE id = $${valueIndex} 
-      RETURNING *
-    `;
-    
-    const result = await pool.query(query, values);
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Order not found' });
-    }
-    
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error('Error updating order:', error);
-    res.status(500).json({ error: 'Failed to update order' });
-  }
-});
-
-// Legacy status update endpoint for backwards compatibility - FIXED COLUMN NAMES
-app.put('/api/orders/:id/status', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-    
-    const query = `
-      UPDATE processed_orders 
-      SET processing_status = $1, updated_date = NOW() 
-      WHERE id = $2 
-      RETURNING *
-    `;
-    
-    const result = await pool.query(query, [status, id]);
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Order not found' });
-    }
-    
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error('Error updating order status:', error);
-    res.status(500).json({ error: 'Failed to update order status' });
-  }
-});
-
-// Search orders endpoint - FIXED COLUMN NAMES
-app.get('/api/orders/search/:query', async (req, res) => {
-  try {
-    const { query } = req.params;
-    
-    const searchQuery = `
-      SELECT 
-        id,
-        order_number,
-        customer_name,
-        customer_email,
-        total_price,
-        processing_status,
-        notes,
-        mattress_label,
-        order_data,
-        extracted_measurements,
-        line_items,
-        created_date,
-        updated_date,
-        email_sent,
-        has_custom_diagram,
-        custom_diagram_url,
-        diagram_upload_date,
-        order_date,
-        supplier_code,
-        product_sku,
-        quantity,
-        dimension_a,
-        dimension_b,
-        dimension_c,
-        dimension_d,
-        dimension_e,
-        dimension_f,
-        dimension_g,
-        radius_top_corner,
-        radius_bottom_corner,
-        finished_size_max,
-        link_attachment,
-        delivery_option
-      FROM processed_orders 
-      WHERE 
-        order_number ILIKE $1 OR
-        customer_name ILIKE $1 OR
-        customer_email ILIKE $1 OR
-        notes ILIKE $1
-      ORDER BY created_date DESC 
-      LIMIT 50
-    `;
-    
-    const result = await pool.query(searchQuery, [`%${query}%`]);
-    
-    res.json({
-      orders: result.rows,
-      count: result.rows.length
-    });
-  } catch (error) {
-    console.error('Error searching orders:', error);
-    res.status(500).json({ error: 'Search failed' });
-  }
-});
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-    const timestamp = new Date().toISOString();
-    console.error(`[${timestamp}] Error:`, err.message);
-    console.error(err.stack);
-
-    res.status(500).json({
-        error: 'Internal server error',
-        message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong',
-        timestamp
-    });
-});
-
-// Catch-all route for React app - MUST BE LAST
-app.get('*', (req, res) => {
-    const reactBuildPath = path.join(__dirname, 'client/build/index.html');
-    
-    if (require('fs').existsSync(reactBuildPath)) {
-        res.sendFile(reactBuildPath);
-    } else {
-        res.status(503).json({
-            error: 'React app not built',
-            message: 'Please run "npm run build" in the client directory',
-            timestamp: new Date().toISOString()
-        });
-    }
-});
-
-// Start server - using Pool connection
-async function startServer() {
-    try {
-        console.log('Starting server...');
-        
-        // Test database connection
-        console.log('Testing database connection...');
-        await pool.query('SELECT NOW()');
-        console.log('Database connection established successfully');
-
-        // Log configured webhook secrets for debugging
-        console.log('Webhook secrets configured:');
-        Object.entries(app.locals.storeConfigs).forEach(([domain, config]) => {
-            const secretType = config.webhookSecret === 'default-secret' ? 'DEFAULT' : 'CONFIGURED';
-            console.log(`  ${config.name} (${domain}): ${secretType}`);
-        });
-
-        console.log('Starting Express server...');
-        app.listen(port, () => {
-            console.log(`Server running on port ${port}`);
-            console.log(`React App: http://localhost:${port}/`);
-            console.log(`API Orders: http://localhost:${port}/api/orders`);
-            console.log(`Health Check: http://localhost:${port}/api/health`);
-            console.log(`PDF Generation: http://localhost:${port}/api/pdf/`);
-            console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-            console.log('✓ Customer notes and mattress label functionality enabled');
-            console.log('✓ All database column names fixed');
-            console.log('✓ Per-store webhook secrets configured');
-        });
-    } catch (error) {
-        console.error('Failed to start server:', error);
-        console.error('Error message:', error.message);
-        console.error('Error stack:', error.stack);
-        process.exit(1);
-    }
-}
-
-console.log('Calling startServer...');
-startServer();
-console.log('startServer called');
-
-module.exports = {
-  processShopifyOrder
-};
+// Export both the router and the function
+module.exports = router;
+module.exports.generatePurchaseOrderPDF = generatePurchaseOrderPDF;
