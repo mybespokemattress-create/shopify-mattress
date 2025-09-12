@@ -87,7 +87,7 @@ function generatePDFContent(doc, orderData) {
   const boxWidth = 465;             // Updated width (515px box - 50px margin = 465px available)
 
   // Row 1: Quantity on same line - CONSISTENT LEFT ALIGNMENT
-  const quantityY = supplierBoxY + 20;  // Same Y coordinate for both label and value
+  const quantityY = supplierBoxY + 10;  // Reduced gap from top of box
   
   doc.fontSize(10)
     .font('Helvetica-Bold')
@@ -232,9 +232,9 @@ function generatePDFContent(doc, orderData) {
   rowY += 35;  // Increased gap from 20 to 35 for better spacing
 
   // Safety check for Additional Specifications data
-  const radiusTopCorner = (orderData.radiusTopCorner && orderData.radiusTopCorner.trim()) ? orderData.radiusTopCorner : 'Test';
-  const radiusBottomCorner = (orderData.radiusBottomCorner && orderData.radiusBottomCorner.trim()) ? orderData.radiusBottomCorner : 'Test';
-  const finishedSizeMax = (orderData.finishedSizeMax && orderData.finishedSizeMax.trim()) ? orderData.finishedSizeMax : 'Test';
+  const radiusTopCorner = (orderData.radiusTopCorner && orderData.radiusTopCorner.trim()) ? orderData.radiusTopCorner : '';
+  const radiusBottomCorner = (orderData.radiusBottomCorner && orderData.radiusBottomCorner.trim()) ? orderData.radiusBottomCorner : '';
+  const finishedSizeMax = (orderData.finishedSizeMax && orderData.finishedSizeMax.trim()) ? orderData.finishedSizeMax : '';
 
   // Radius of Top Corner
   doc.fontSize(10)
