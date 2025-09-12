@@ -84,11 +84,14 @@ function generatePDFContent(doc, orderData) {
 
   // Define consistent positioning constants - MATCH DIMENSIONS BOX
   const supplierLeftMargin = 50;    // Same as dimensions box (50px from page edge = 10px from box edge)
-  const boxWidth = 465;             // Updated width (515px box - 50px margin = 465px available)
 
-  // Row 1: Quantity on same line - CONSISTENT LEFT ALIGNMENT
-  const quantityY = supplierBoxY + 10;  // Reduced gap from top of box
-  
+  // CONSISTENT SPACING SYSTEM FOR SUPPLIER BOX
+  const quantityY = supplierBoxY + 10;        // 10px from top of box
+  const supplierLabelY = quantityY + 25;      // 25px gap from quantity
+  const supplierValueY = supplierLabelY + 15; // 15px gap from supplier label
+  const bottomRowY = supplierValueY + 45;     // 45px gap from supplier value
+
+  // Row 1: Quantity on same line
   doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
@@ -99,59 +102,57 @@ function generatePDFContent(doc, orderData) {
     .fillColor('black')
     .text(orderData.lineItems?.[0]?.quantity || '1', supplierLeftMargin + 60, quantityY);
 
-  // Row 2: Supplier Code with CONSISTENT LEFT ALIGNMENT
+  // Row 2: Supplier Code with consistent spacing
   doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
-    .text('Supplier Code:', supplierLeftMargin, supplierBoxY + 30);
+    .text('Supplier Code:', supplierLeftMargin, supplierLabelY);
 
   doc.fontSize(10)
     .font('Helvetica')
     .fillColor('black')
-    .text(supplierCode, supplierLeftMargin, supplierBoxY + 55, { 
-      width: 465,          // Updated to match new left margin
-      height: 40,               
+    .text(supplierCode, supplierLeftMargin, supplierValueY, { 
+      width: 465,
+      height: 30,               
       lineGap: 3,              
       align: 'justify'         
     });
 
-  // Bottom row - properly centered Mattress Label as discussed
-  const bottomY = supplierBoxY + 95;
-  
-  // Link Attachment - Left section with CONSISTENT LEFT ALIGNMENT upload
+  // Bottom row - All with consistent 15px gaps between titles and descriptions
+  // Link Attachment - Left section
   doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
-    .text('Link Attachment:', supplierLeftMargin, bottomY);
+    .text('Link Attachment:', supplierLeftMargin, bottomRowY);
 
   doc.fontSize(9)
     .font('Helvetica')
     .fillColor('black')
-    .text(linkAttachment, supplierLeftMargin, bottomY + 12);
+    .text(linkAttachment, supplierLeftMargin, bottomRowY + 15);
 
-  // Mattress Label - MOVED FURTHER RIGHT as requested
-  const centreX = 280; // Moved right from 222.5px
+  // Mattress Label - Centre section
+  const centreX = 280;
   doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
-    .text('Mattress Label:', centreX, bottomY);
+    .text('Mattress Label:', centreX, bottomRowY);
 
   doc.fontSize(9)
     .font('Helvetica')
     .fillColor('black')
-    .text(orderData.mattressLabel || 'Caravan Mattresses', centreX, bottomY + 12, { width: 120 });
+    .text(orderData.mattressLabel || 'Caravan Mattresses', centreX, bottomRowY + 15, { width: 120 });
 
-  // Delivery - Far right section 
-  const farRightX = supplierLeftMargin + 375;  // Updated to use consistent left margin base
+  // Delivery - Right section
+  const farRightX = supplierLeftMargin + 375;
   doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
-    .text('Delivery:', farRightX, bottomY);
+    .text('Delivery:', farRightX, bottomRowY);
 
   doc.fontSize(9)
     .font('Helvetica')
     .fillColor('black')
-    .text(orderData.deliveryOption || 'Rolled and Boxed', farRightX, bottomY + 12, { width: 120 });
+    .text(orderData.deliveryOption || 'Rolled and Boxed', farRightX, bottomRowY + 15, { width: 120 });
 
   yPos += 155;
 
@@ -231,10 +232,10 @@ function generatePDFContent(doc, orderData) {
 
   rowY += 35;  // Increased gap from 20 to 35 for better spacing
 
-  // Safety check for Additional Specifications data
-  const radiusTopCorner = (orderData.radiusTopCorner && orderData.radiusTopCorner.trim()) ? orderData.radiusTopCorner : '';
-  const radiusBottomCorner = (orderData.radiusBottomCorner && orderData.radiusBottomCorner.trim()) ? orderData.radiusBottomCorner : '';
-  const finishedSizeMax = (orderData.finishedSizeMax && orderData.finishedSizeMax.trim()) ? orderData.finishedSizeMax : '';
+  // Safety check for Additional Specifications data - USE DASH PLACEHOLDER
+  const radiusTopCorner = (orderData.radiusTopCorner && orderData.radiusTopCorner.trim()) ? orderData.radiusTopCorner : '-';
+  const radiusBottomCorner = (orderData.radiusBottomCorner && orderData.radiusBottomCorner.trim()) ? orderData.radiusBottomCorner : '-';
+  const finishedSizeMax = (orderData.finishedSizeMax && orderData.finishedSizeMax.trim()) ? orderData.finishedSizeMax : '-';
 
   // Radius of Top Corner
   doc.fontSize(10)
