@@ -86,16 +86,6 @@ function generatePDFContent(doc, orderData) {
   const leftMargin = 45;    // Consistent left margin for all elements
   const boxWidth = 470;     // Available width for content
 
-  // Extract supplier code from React data
-  console.log('PDF DEBUG - orderData.supplierCode:', orderData.supplierCode);
-  let supplierCode = orderData.supplierCode || 'No supplier mapping found - check SKU processing';
-  const lineItems = orderData.lineItems || [];
-
-  // Extract link attachment from React data  
-  let linkAttachment = orderData.linkAttachment || 'One Piece Mattress No Link Required';
-
-  console.log('🔍 Final link attachment:', linkAttachment);
-
   // Row 1: Quantity on same line - professional positioning
   doc.fontSize(10)
     .font('Helvetica-Bold')
@@ -172,9 +162,6 @@ function generatePDFContent(doc, orderData) {
 
   yPos += 20;
 
-  // Replace the dimensions section in your routes/pdf.js file (around lines 140-200)
-  // PROPERLY FIXED VERSION - no double units, proper spacing distribution
-
   // Left side - Dimensions Table (improved layout with proper spacing)
   const dimBoxY = drawCleanBox(doc, 40, yPos, 180, 350, 'Dimensions');
 
@@ -229,11 +216,11 @@ function generatePDFContent(doc, orderData) {
       .fillColor('black')
       .text(valueText, 85, rowY);
 
-    rowY += 20;  // Consistent 20px spacing between dimensions
+    rowY += 16;  // Consistent spacing between dimensions
   });
 
-  // Space before Additional Specifications
-  rowY += 25;
+  // Move Additional Specifications UP - much closer to dimension G
+  rowY += 15;
 
   // Additional Specifications header
   doc.fontSize(11)
@@ -241,7 +228,7 @@ function generatePDFContent(doc, orderData) {
     .fillColor('black')
     .text('Additional Specifications', 50, rowY);
 
-  rowY += 25;
+  rowY += 20;
 
   // Safety check for Additional Specifications data
   const radiusTopCorner = (orderData.radiusTopCorner && orderData.radiusTopCorner.trim()) ? orderData.radiusTopCorner : 'Test';
@@ -261,7 +248,7 @@ function generatePDFContent(doc, orderData) {
     .fillColor('black')
     .text(radiusTopCorner, 50, rowY);
 
-  rowY += 25;
+  rowY += 22;
 
   // Radius of Bottom Corner  
   doc.fontSize(10)
@@ -276,7 +263,7 @@ function generatePDFContent(doc, orderData) {
     .fillColor('black')
     .text(radiusBottomCorner, 50, rowY);
 
-  rowY += 25;
+  rowY += 22;
 
   // Max Overall Size - cleaner label
   doc.fontSize(10)
@@ -291,9 +278,7 @@ function generatePDFContent(doc, orderData) {
     .fillColor('black')
     .text(finishedSizeMax, 50, rowY);
 
-  rowY += 30;  // Extra space before status to prevent crashing
-
-  // Right side - Shape Diagram (keep existing positioning)
+  // Right side - Shape Diagram 
   const diagramBoxY = drawCleanBox(doc, 235, yPos, 320, 350, 'Shape Diagram');
 
   // Check for custom diagram first
@@ -468,7 +453,7 @@ function generatePDFContent(doc, orderData) {
      .font('Helvetica')
      .fillColor('black')
      .text(`Generated: ${new Date().toLocaleDateString('en-GB')}, ${new Date().toLocaleTimeString('en-GB')}`, 40, yPos)
-     .text('My Bespoke Order Ltd | Tel: 0121 663 6299, WhatsApp us at 07769 431 970 Messages only - **Calls not accepted**d', 40, yPos + 10)
+     .text('My Bespoke Order Ltd | Tel: 0121 663 6299, WhatsApp us at 07769 431 970 Messages only - **Calls not accepted**', 40, yPos + 10)
      .text('This document contains all specifications required for manufacturing.', 40, yPos + 20);
 }
 
