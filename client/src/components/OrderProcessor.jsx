@@ -20,7 +20,7 @@ const OrderProcessor = () => {
     return `/images/diagrams/Shape_${diagramNumber}_Caravan_Mattress_Measuring_Diagram.jpg`;
   };
 
-  // Check storage status
+  // Check storage status ok
   const checkStorageStatus = async () => {
     try {
       const response = await fetch('/api/diagrams/storage-status');
