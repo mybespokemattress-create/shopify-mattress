@@ -147,7 +147,7 @@ function generatePDFContent(doc, orderData) {
   yPos += 20;
 
   // Replace the dimensions section in your routes/pdf.js file (around lines 140-200)
-  // This matches the approved draft design with proper spacing
+  // PROPERLY FIXED VERSION - no double units, proper spacing distribution
 
   // Left side - Dimensions Table (improved layout with proper spacing)
   const dimBoxY = drawCleanBox(doc, 40, yPos, 180, 350, 'Dimensions');
@@ -171,9 +171,9 @@ function generatePDFContent(doc, orderData) {
 
   console.log('🔍 Final measurements object:', measurements);
 
-  // Dimension rows A-G with improved content layout
+  // Dimension rows A-G with proper spacing distribution
   const dimensions = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
-  let rowY = dimBoxY + 5;  // Start position
+  let rowY = dimBoxY + 15;  // Start with proper top margin
   let hasValidMeasurements = false;
 
   dimensions.forEach(dim => {
@@ -182,15 +182,17 @@ function generatePDFContent(doc, orderData) {
 
     if (measurement) {
       if (typeof measurement === 'object' && 'value' in measurement) {
-          valueText = measurement.value + ' cm';
+          // DON'T add cm - it's already in the value
+          valueText = measurement.value;
           hasValidMeasurements = true;
       } else if (typeof measurement === 'string' && measurement.trim()) {
-          valueText = String(measurement) + ' cm';
+          // DON'T add cm - it's already in the value
+          valueText = String(measurement);
           hasValidMeasurements = true;
       }
     }
 
-    // Dimension letter and value on same line, properly spaced
+    // Dimension letter and value with consistent spacing
     doc.fontSize(12)
       .font('Helvetica-Bold')
       .fillColor('black')
@@ -199,71 +201,80 @@ function generatePDFContent(doc, orderData) {
     doc.fontSize(12)
       .font('Helvetica')
       .fillColor('black')
-      .text(valueText, 85, rowY);  // Positioned right after the letter
+      .text(valueText, 85, rowY);
 
-    rowY += 16;  // Tight spacing between dimension rows
+    rowY += 20;  // Consistent 20px spacing between dimensions
   });
 
-  // Additional Specifications header - compact spacing
-  rowY += 8;
+  // Space before Additional Specifications
+  rowY += 25;
+
+  // Additional Specifications header
   doc.fontSize(11)
     .font('Helvetica-Bold')
     .fillColor('black')
     .text('Additional Specifications', 50, rowY);
 
-  rowY += 15;
+  rowY += 25;
 
   // Safety check for Additional Specifications data
   const radiusTopCorner = (orderData.radiusTopCorner && orderData.radiusTopCorner.trim()) ? orderData.radiusTopCorner : 'Test';
   const radiusBottomCorner = (orderData.radiusBottomCorner && orderData.radiusBottomCorner.trim()) ? orderData.radiusBottomCorner : 'Test';
   const finishedSizeMax = (orderData.finishedSizeMax && orderData.finishedSizeMax.trim()) ? orderData.finishedSizeMax : 'Test';
 
-  // Radius of Top Corner - compact layout
-  doc.fontSize(9)
+  // Radius of Top Corner
+  doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
     .text('Radius of Top Corner', 50, rowY);
 
+  rowY += 15;
+
   doc.fontSize(10)
     .font('Helvetica')
     .fillColor('black')
-    .text(radiusTopCorner, 50, rowY + 12, { width: 120 });
+    .text(radiusTopCorner, 50, rowY);
 
-  rowY += 22;  // Tighter spacing between specifications
+  rowY += 25;
 
-  // Radius of Bottom Corner - compact layout  
-  doc.fontSize(9)
+  // Radius of Bottom Corner  
+  doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
     .text('Radius of Bottom Corner', 50, rowY);
 
+  rowY += 15;
+
   doc.fontSize(10)
     .font('Helvetica')
     .fillColor('black')
-    .text(radiusBottomCorner, 50, rowY + 12, { width: 120 });
+    .text(radiusBottomCorner, 50, rowY);
 
-  rowY += 22;  // Tighter spacing between specifications
+  rowY += 25;
 
-  // Finished Size Must Not Exceed - compact with text wrapping
-  doc.fontSize(9)
+  // Finished Size Must Not Exceed - NO text wrapping to prevent awkward breaks
+  doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
-    .text('Finished Size Must Not Exceed', 50, rowY, { width: 120 });
+    .text('Finished Size Must Not', 50, rowY);
+
+  doc.fontSize(10)
+    .font('Helvetica-Bold')
+    .fillColor('black')
+    .text('Exceed', 50, rowY + 12);
+
+  rowY += 27;
 
   doc.fontSize(10)
     .font('Helvetica')
     .fillColor('black')
-    .text(finishedSizeMax, 50, rowY + 12, { width: 120 });
+    .text(finishedSizeMax, 50, rowY);
 
-  // Calculate status position - ensure it's 20px from bottom of box
-  const boxBottom = dimBoxY + 330; // 350px box height - 20px padding
-  const statusY = boxBottom - 20;   // 20px from bottom
-
-  // Status positioned properly at bottom with good spacing
+  // Status positioned at bottom with proper margin
   doc.fontSize(9)
     .font('Helvetica-Oblique')
     .fillColor('black')
-    .text(`Status: ${hasValidMeasurements ? 'Verified' : 'Not verified'}`, 50, statusY);
+    .text(`Status: ${hasValidMeasurements ? 'Verified' : 'Not verified'}`, 50, dimBoxY + 315);
 
   // Right side - Shape Diagram (keep existing positioning)
   const diagramBoxY = drawCleanBox(doc, 235, yPos, 320, 350, 'Shape Diagram');
