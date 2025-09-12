@@ -82,59 +82,92 @@ function generatePDFContent(doc, orderData) {
 
   console.log('🔍 Final link attachment:', linkAttachment);
 
-  // Row 1: Quantity (left only)
+  // Replace this entire supplier box section in your routes/pdf.js file
+  // Find the section that starts with: const supplierBoxY = drawCleanBox(doc, 40, yPos, 515, 140);
+  // Replace everything from that line until the yPos += 155; line
+
+  // Supplier Code Box with professional spacing
+  const supplierBoxY = drawCleanBox(doc, 40, yPos, 515, 140);
+
+  // Define consistent positioning constants
+  const leftMargin = 45;    // Consistent left margin for all elements
+  const boxWidth = 470;     // Available width for content
+
+  // Extract supplier code from React data
+  console.log('PDF DEBUG - orderData.supplierCode:', orderData.supplierCode);
+  let supplierCode = orderData.supplierCode || 'No supplier mapping found - check SKU processing';
+  const lineItems = orderData.lineItems || [];
+
+  // Extract link attachment from React data  
+  let linkAttachment = orderData.linkAttachment || 'One Piece Mattress No Link Required';
+
+  console.log('🔍 Final link attachment:', linkAttachment);
+
+  // Row 1: Quantity on same line - professional positioning
   doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
-    .text('Quantity:', 45, supplierBoxY);
+    .text('Quantity:', leftMargin, supplierBoxY + 5);
+
+  doc.fontSize(10)
+    .font('Helvetica')
+    .fillColor('black')
+    .text(orderData.lineItems?.[0]?.quantity || '1', leftMargin + 50, supplierBoxY + 5);
+
+  // Row 2: Supplier Code with proper spacing - 25px after quantity
+  doc.fontSize(10)
+    .font('Helvetica-Bold')
+    .fillColor('black')
+    .text('Supplier Code:', leftMargin, supplierBoxY + 30);
+
+  doc.fontSize(10)
+    .font('Helvetica')
+    .fillColor('black')
+    .text(supplierCode, leftMargin, supplierBoxY + 45, { 
+      width: boxWidth, 
+      height: 35,
+      lineGap: 2
+    });
+
+  // Bottom row - precisely calculated positions for even distribution
+  const bottomY = supplierBoxY + 95;
+  const sectionWidth = 150; // Each section gets 150px width
+  const gapBetween = 10;    // 10px gap between sections
+
+  // Link Attachment - Left section
+  doc.fontSize(10)
+    .font('Helvetica-Bold')
+    .fillColor('black')
+    .text('Link Attachment:', leftMargin, bottomY);
 
   doc.fontSize(9)
     .font('Helvetica')
     .fillColor('black')
-    .text(orderData.lineItems?.[0]?.quantity || '1', 45, supplierBoxY + 15);
+    .text(linkAttachment, leftMargin, bottomY + 12, { width: sectionWidth });
 
-  // Row 2: Supplier Code (full width) - 20px spacing
-  doc.fontSize(12)
-    .font('Helvetica-Bold')
-    .fillColor('black')
-    .text('Supplier Code:', 45, supplierBoxY + 35);
-
-  doc.fontSize(11)
-    .font('Helvetica')
-    .fillColor('black')
-    .text(supplierCode, 45, supplierBoxY + 50, { width: 470, height: 30 });
-
-  // Row 3: Link Attachment (full width) - 20px spacing
+  // Mattress Label - Middle section
+  const middleX = leftMargin + sectionWidth + gapBetween;
   doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
-    .text('Link Attachment:', 45, supplierBoxY + 70);
+    .text('Mattress Label:', middleX, bottomY);
 
   doc.fontSize(9)
     .font('Helvetica')
     .fillColor('black')
-    .text(linkAttachment, 45, supplierBoxY + 85);
+    .text(orderData.mattressLabel || 'Caravan Mattresses', middleX, bottomY + 12, { width: sectionWidth });
 
-  // Row 4: Mattress Label (left) + Delivery (right) - 20px spacing
+  // Delivery - Right section
+  const rightX = middleX + sectionWidth + gapBetween;
   doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
-    .text('Mattress Label:', 45, supplierBoxY + 105);
+    .text('Delivery:', rightX, bottomY);
 
   doc.fontSize(9)
     .font('Helvetica')
     .fillColor('black')
-    .text(orderData.mattressLabel || 'Caravan Mattresses', 45, supplierBoxY + 120);
-
-  doc.fontSize(10)
-    .font('Helvetica-Bold')
-    .fillColor('black')
-    .text('Delivery:', 300, supplierBoxY + 105);
-
-  doc.fontSize(9)
-    .font('Helvetica')
-    .fillColor('black')
-    .text(orderData.deliveryOption || 'Rolled and Boxed', 300, supplierBoxY + 120);
+    .text(orderData.deliveryOption || 'Rolled and Boxed', rightX, bottomY + 12, { width: sectionWidth });
 
   yPos += 155;
 
