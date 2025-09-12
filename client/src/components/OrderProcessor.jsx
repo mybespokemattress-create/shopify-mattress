@@ -676,7 +676,7 @@ const OrderProcessor = () => {
                                             <p>Kind regards,<br>My Bespoke Order Ltd</p>
                                         `,
                                         orderId: selectedOrder.id,
-                                        orderData: selectedOrder  // ADD THIS LINE
+                                        orderData: selectedOrder  // ADD THIS LINE HERE OK
                                     })
                                 });
 
