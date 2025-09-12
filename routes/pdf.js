@@ -107,10 +107,10 @@ function generatePDFContent(doc, orderData) {
     .font('Helvetica')
     .fillColor('black')
     .text(supplierCode, leftMargin, supplierBoxY + 45, { 
-      width: boxWidth,
-      height: 50,
-      lineGap: 3,
-      align: 'justify'  // This will stretch text to fill the width
+      width: 470,          // <-- This should be 470px
+      height: 40,               // <-- Changed from 35 to 40
+      lineGap: 3,              // <-- Changed from 2 to 3
+      align: 'justify'         // <-- Added justify alignment
     });
 
   // Bottom row - properly centered Mattress Label as discussed
@@ -128,7 +128,7 @@ function generatePDFContent(doc, orderData) {
     .text(linkAttachment, leftMargin, bottomY + 12, { width: 140 });
 
   // Mattress Label - MOVED FURTHER RIGHT as requested
-  const centreX = 270; // Moved right from 222.5px
+  const centreX = 280; // Moved right from 222.5px
   doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
@@ -215,7 +215,7 @@ function generatePDFContent(doc, orderData) {
       .fillColor('black')
       .text(valueText, 85, rowY);
 
-    rowY += 30;  // FINALIZED TIGHT spacing between dimensions
+    rowY += 22;  // FINALIZED TIGHT spacing between dimensions
   });
 
   // Move Additional Specifications UP - FINALIZED spacing
