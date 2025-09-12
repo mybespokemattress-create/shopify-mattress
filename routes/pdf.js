@@ -82,50 +82,52 @@ function generatePDFContent(doc, orderData) {
   // Supplier Code Box with professional spacing
   const supplierBoxY = drawCleanBox(doc, 40, yPos, 515, 140);
 
-  // Define consistent positioning constants
-  const leftMargin = 45;    // Consistent left margin for all elements
-  const boxWidth = 470;     // Use maximum width (515px box - 45px margin = 470px available)
+  // Define consistent positioning constants - MATCH DIMENSIONS BOX
+  const supplierLeftMargin = 50;    // Same as dimensions box (50px from page edge = 10px from box edge)
+  const boxWidth = 465;             // Updated width (515px box - 50px margin = 465px available)
 
-  // Row 1: Quantity on same line - professional positioning
+  // Row 1: Quantity on same line - CONSISTENT LEFT ALIGNMENT
+  const quantityY = supplierBoxY + 20;  // Same Y coordinate for both label and value
+  
   doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
-    .text('Quantity:', leftMargin, supplierBoxY + 20);
+    .text('Quantity:', supplierLeftMargin, quantityY);
 
   doc.fontSize(10)
     .font('Helvetica')
     .fillColor('black')
-    .text(orderData.lineItems?.[0]?.quantity || '1', leftMargin + 50, supplierBoxY + 5);
+    .text(orderData.lineItems?.[0]?.quantity || '1', supplierLeftMargin + 60, quantityY);
 
-  // Row 2: Supplier Code with maximum width usage
+  // Row 2: Supplier Code with CONSISTENT LEFT ALIGNMENT
   doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
-    .text('Supplier Code:', leftMargin, supplierBoxY + 30);
+    .text('Supplier Code:', supplierLeftMargin, supplierBoxY + 30);
 
   doc.fontSize(10)
     .font('Helvetica')
     .fillColor('black')
-    .text(supplierCode, leftMargin, supplierBoxY + 45, { 
-      width: 470,          // <-- This should be 470px
-      height: 40,               // <-- Changed from 35 to 40
-      lineGap: 3,              // <-- Changed from 2 to 3
-      align: 'justify'         // <-- Added justify alignment
+    .text(supplierCode, supplierLeftMargin, supplierBoxY + 45, { 
+      width: 465,          // Updated to match new left margin
+      height: 40,               
+      lineGap: 3,              
+      align: 'justify'         
     });
 
   // Bottom row - properly centered Mattress Label as discussed
   const bottomY = supplierBoxY + 95;
   
-  // Link Attachment - Left section 
+  // Link Attachment - Left section with CONSISTENT LEFT ALIGNMENT
   doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
-    .text('Link Attachment:', leftMargin, bottomY);
+    .text('Link Attachment:', supplierLeftMargin, bottomY);
 
   doc.fontSize(9)
     .font('Helvetica')
     .fillColor('black')
-    .text(linkAttachment, leftMargin, bottomY + 12);
+    .text(linkAttachment, supplierLeftMargin, bottomY + 12);
 
   // Mattress Label - MOVED FURTHER RIGHT as requested
   const centreX = 280; // Moved right from 222.5px
