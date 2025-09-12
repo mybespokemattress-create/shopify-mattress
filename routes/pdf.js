@@ -86,7 +86,27 @@ function generatePDFContent(doc, orderData) {
   const leftMargin = 45;    // Consistent left margin for all elements
   const boxWidth = 470;     // Use maximum width (515px box - 45px margin = 470px available)
 
+  // Row 1: Quantity on same line - professional positioning
+  doc.fontSize(10)
+    .font('Helvetica-Bold')
+    .fillColor('black')
+    .text('Quantity:', leftMargin, supplierBoxY + 5);
 
+  doc.fontSize(10)
+    .font('Helvetica')
+    .fillColor('black')
+    .text(orderData.lineItems?.[0]?.quantity || '1', leftMargin + 50, supplierBoxY + 5);
+
+  // Row 1: Quantity on same line - professional positioning
+  doc.fontSize(10)
+    .font('Helvetica-Bold')
+    .fillColor('black')
+    .text('Quantity:', leftMargin, supplierBoxY + 5);
+
+  doc.fontSize(10)
+    .font('Helvetica')
+    .fillColor('black')
+    .text(orderData.lineItems?.[0]?.quantity || '1', leftMargin + 50, supplierBoxY + 5);
 
   // Row 2: Supplier Code with proper spacing - 25px after quantity
   doc.fontSize(10)
@@ -117,8 +137,8 @@ function generatePDFContent(doc, orderData) {
     .fillColor('black')
     .text(linkAttachment, leftMargin, bottomY + 12, { width: 140 });
 
-  // Mattress Label - DEAD CENTRE of the 515px box (257px from left edge)
-  const deadCentreX = 197; // Calculated for dead centre positioning
+  // Mattress Label - DEAD CENTRE of the 515px box 
+  const deadCentreX = 257 - 70; // True centre minus text width offset
   doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
@@ -129,8 +149,8 @@ function generatePDFContent(doc, orderData) {
     .fillColor('black')
     .text(orderData.mattressLabel || 'Caravan Mattresses', deadCentreX, bottomY + 12, { width: 120 });
 
-  // Delivery - Far right section (pushed further right as discussed)
-  const farRightX = leftMargin + 350;
+  // Delivery - Far right section 
+  const farRightX = leftMargin + 380;
   doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
