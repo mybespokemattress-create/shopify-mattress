@@ -267,12 +267,6 @@ function generatePDFContent(doc, orderData) {
 
   rowY += 30;  // Extra space before status to prevent crashing
 
-  // Status positioned with proper breathing room
-  doc.fontSize(9)
-    .font('Helvetica-Oblique')
-    .fillColor('black')
-    .text(`Status: ${hasValidMeasurements ? 'Verified' : 'Not verified'}`, 50, rowY);
-
   // Right side - Shape Diagram (keep existing positioning)
   const diagramBoxY = drawCleanBox(doc, 235, yPos, 320, 350, 'Shape Diagram');
 
