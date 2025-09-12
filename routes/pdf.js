@@ -252,29 +252,26 @@ function generatePDFContent(doc, orderData) {
 
   rowY += 25;
 
-  // Finished Size Must Not Exceed - NO text wrapping to prevent awkward breaks
+  // Max Overall Size - cleaner label
   doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
-    .text('Finished Size Must Not', 50, rowY);
+    .text('Max Overall Size', 50, rowY);
 
-  doc.fontSize(10)
-    .font('Helvetica-Bold')
-    .fillColor('black')
-    .text('Exceed', 50, rowY + 12);
-
-  rowY += 27;
+  rowY += 15;
 
   doc.fontSize(10)
     .font('Helvetica')
     .fillColor('black')
     .text(finishedSizeMax, 50, rowY);
 
-  // Status positioned at bottom with proper margin
+  rowY += 30;  // Extra space before status to prevent crashing
+
+  // Status positioned with proper breathing room
   doc.fontSize(9)
     .font('Helvetica-Oblique')
     .fillColor('black')
-    .text(`Status: ${hasValidMeasurements ? 'Verified' : 'Not verified'}`, 50, dimBoxY + 315);
+    .text(`Status: ${hasValidMeasurements ? 'Verified' : 'Not verified'}`, 50, rowY);
 
   // Right side - Shape Diagram (keep existing positioning)
   const diagramBoxY = drawCleanBox(doc, 235, yPos, 320, 350, 'Shape Diagram');
