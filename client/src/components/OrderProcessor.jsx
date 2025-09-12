@@ -36,6 +36,7 @@ const FirmnessOverrideSection = ({
     setOverrideData(prev => ({ ...prev, loading: true }));
     
     try {
+
       // Get available firmness options (this will work for any mattress)
       const optionsResponse = await fetch(`/api/orders/${selectedOrder.id}/firmness-options`);
       if (!optionsResponse.ok) throw new Error('Failed to get firmness options');
@@ -983,26 +984,21 @@ const OrderProcessor = () => {
 
                   <div className="border rounded-lg p-4">
                     <h3 className="font-semibold mb-3">Product Information</h3>
-                    <div className="border rounded-lg p-4">
-                    <h3 className="font-semibold mb-3">Product Information</h3>
                     
                     {/* ADD THIS FIRMNESS OVERRIDE SECTION HERE */}
                     <FirmnessOverrideSection 
-                        selectedOrder={selectedOrder}
-                        onSupplierCodeUpdate={(newCode) => {
+                      selectedOrder={selectedOrder}
+                      onSupplierCodeUpdate={(newCode) => {
                         setSelectedOrder(prev => ({ ...prev, supplierCode: newCode }));
                         setOrders(orders.map(order => 
-                            order.id === selectedOrder.id 
+                          order.id === selectedOrder.id 
                             ? { ...order, supplierCode: newCode } 
                             : order
                         ));
-                        }}
-                        editMode={editMode}
+                      }}
+                      editMode={editMode}
                     />
                     
-                    {/* Supplier Code - Full width, multi-line */}
-                    <div className="mb-4">
-                        <label className="block text-sm text-slate-600 mb-1">Supplier Code</label>
                     {/* Supplier Code - Full width, multi-line */}
                     <div className="mb-4">
                       <label className="block text-sm text-slate-600 mb-1">Supplier Code</label>
