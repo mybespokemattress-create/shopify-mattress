@@ -112,12 +112,12 @@ function generatePDFContent(doc, orderData) {
       lineGap: 2
     });
 
-  // Bottom row - precisely calculated positions for even distribution
+  // Bottom row - recalculated for proper centering and positioning
   const bottomY = supplierBoxY + 95;
-  const sectionWidth = 150; // Each section gets 150px width
-  const gapBetween = 10;    // 10px gap between sections
-
-  // Link Attachment - Left section
+  const totalBoxWidth = 470;  // Usable width inside box
+  
+  // Link Attachment - Left section (narrower)
+  const linkWidth = 140;
   doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
@@ -126,31 +126,33 @@ function generatePDFContent(doc, orderData) {
   doc.fontSize(9)
     .font('Helvetica')
     .fillColor('black')
-    .text(linkAttachment, leftMargin, bottomY + 12, { width: sectionWidth });
+    .text(linkAttachment, leftMargin, bottomY + 12, { width: linkWidth });
 
-  // Mattress Label - Middle section
-  const middleX = leftMargin + sectionWidth + gapBetween;
+  // Mattress Label - Center section (properly centered)
+  const centerStart = leftMargin + 150;  // Start further right for centering
+  const centerWidth = 140;
   doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
-    .text('Mattress Label:', middleX, bottomY);
+    .text('Mattress Label:', centerStart, bottomY);
 
   doc.fontSize(9)
     .font('Helvetica')
     .fillColor('black')
-    .text(orderData.mattressLabel || 'Caravan Mattresses', middleX, bottomY + 12, { width: sectionWidth });
+    .text(orderData.mattressLabel || 'Caravan Mattresses', centerStart, bottomY + 12, { width: centerWidth });
 
-  // Delivery - Right section
-  const rightX = middleX + sectionWidth + gapBetween;
+  // Delivery - Right section (pushed further right)
+  const rightStart = leftMargin + 300;  // Much further right
+  const rightWidth = 120;
   doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
-    .text('Delivery:', rightX, bottomY);
+    .text('Delivery:', rightStart, bottomY);
 
   doc.fontSize(9)
     .font('Helvetica')
     .fillColor('black')
-    .text(orderData.deliveryOption || 'Rolled and Boxed', rightX, bottomY + 12, { width: sectionWidth });
+    .text(orderData.deliveryOption || 'Rolled and Boxed', rightStart, bottomY + 12, { width: rightWidth });
 
   yPos += 155;
 
