@@ -84,7 +84,7 @@ function generatePDFContent(doc, orderData) {
 
   // Define consistent positioning constants
   const leftMargin = 45;    // Consistent left margin for all elements
-  const boxWidth = 470;     // Available width for content
+  const boxWidth = 470;     // Use maximum width (515px box - 45px margin = 470px available)
 
   // Row 1: Quantity on same line - professional positioning
   doc.fontSize(10)
@@ -127,7 +127,7 @@ function generatePDFContent(doc, orderData) {
     .text(linkAttachment, leftMargin, bottomY + 12, { width: 140 });
 
   // Mattress Label - DEAD CENTRE of the 515px box (257px from left edge)
-  const deadCentreX = 257 - 60; // Account for text width to center the text itself
+  const deadCentreX = 197; // Calculated for dead centre positioning
   doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
@@ -160,7 +160,7 @@ function generatePDFContent(doc, orderData) {
 
   yPos += 20;
 
-  // Left side - Dimensions Table (improved layout with proper spacing)
+  // Left side - Dimensions Table (FINALIZED LAYOUT)
   const dimBoxY = drawCleanBox(doc, 40, yPos, 180, 350, 'Dimensions');
 
   // Extract measurements from React data
@@ -182,7 +182,7 @@ function generatePDFContent(doc, orderData) {
 
   console.log('🔍 Final measurements object:', measurements);
 
-  // Dimension rows A-G with proper spacing distribution
+  // Dimension rows A-G - FINALIZED SPACING
   const dimensions = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
   let rowY = dimBoxY + 15;  // Start with proper top margin
   let hasValidMeasurements = false;
@@ -214,10 +214,10 @@ function generatePDFContent(doc, orderData) {
       .fillColor('black')
       .text(valueText, 85, rowY);
 
-    rowY += 16;  // Tighter spacing - our finalized version
+    rowY += 16;  // FINALIZED TIGHT spacing between dimensions
   });
 
-  // Move Additional Specifications UP - our finalized spacing
+  // Move Additional Specifications UP - FINALIZED spacing
   rowY += 15;
 
   // Additional Specifications header
@@ -246,7 +246,7 @@ function generatePDFContent(doc, orderData) {
     .fillColor('black')
     .text(radiusTopCorner, 50, rowY);
 
-  rowY += 22;
+  rowY += 22;  // FINALIZED spacing between specifications
 
   // Radius of Bottom Corner  
   doc.fontSize(10)
@@ -261,7 +261,7 @@ function generatePDFContent(doc, orderData) {
     .fillColor('black')
     .text(radiusBottomCorner, 50, rowY);
 
-  rowY += 22;
+  rowY += 22;  // FINALIZED spacing between specifications
 
   // Max Overall Size - cleaner label
   doc.fontSize(10)
@@ -276,7 +276,7 @@ function generatePDFContent(doc, orderData) {
     .fillColor('black')
     .text(finishedSizeMax, 50, rowY);
 
-  // NO STATUS LINE - removed as per final design
+  // NO STATUS LINE - removed as per finalized design
 
   // Right side - Shape Diagram 
   const diagramBoxY = drawCleanBox(doc, 235, yPos, 320, 350, 'Shape Diagram');
