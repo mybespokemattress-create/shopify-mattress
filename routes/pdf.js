@@ -137,17 +137,19 @@ function generatePDFContent(doc, orderData) {
     .fillColor('black')
     .text(linkAttachment, leftMargin, bottomY + 12, { width: 140 });
 
-  // Mattress Label - DEAD CENTRE of the 515px box 
-  const deadCentreX = 257 - 70; // True centre minus text width offset
+  // Mattress Label - PROPERLY CENTRED in 515px box
+  const boxCentre = 257.5; // Half of 515px box width  
+  const textWidth = 70; // Approximate width of "Mattress Label:" text
+  const centreX = boxCentre - (textWidth / 2); // 257.5 - 35 = 222.5px
   doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
-    .text('Mattress Label:', deadCentreX, bottomY);
+    .text('Mattress Label:', centreX, bottomY);
 
   doc.fontSize(9)
     .font('Helvetica')
     .fillColor('black')
-    .text(orderData.mattressLabel || 'Caravan Mattresses', deadCentreX, bottomY + 12, { width: 120 });
+    .text(orderData.mattressLabel || 'Caravan Mattresses', centreX, bottomY + 12, { width: 120 });
 
   // Delivery - Far right section 
   const farRightX = leftMargin + 380;
