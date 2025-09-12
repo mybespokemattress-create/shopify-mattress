@@ -118,7 +118,7 @@ function generatePDFContent(doc, orderData) {
   // Bottom row - properly centered Mattress Label as discussed
   const bottomY = supplierBoxY + 95;
   
-  // Link Attachment - Left section with CONSISTENT LEFT ALIGNMENT
+  // Link Attachment - Left section with CONSISTENT LEFT ALIGNMENT upload
   doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
