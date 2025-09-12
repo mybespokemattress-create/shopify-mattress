@@ -112,12 +112,10 @@ function generatePDFContent(doc, orderData) {
       lineGap: 2
     });
 
-  // Bottom row - recalculated for proper centering and positioning
+  // Bottom row - properly centered Mattress Label as discussed
   const bottomY = supplierBoxY + 95;
-  const totalBoxWidth = 470;  // Usable width inside box
   
-  // Link Attachment - Left section (narrower)
-  const linkWidth = 140;
+  // Link Attachment - Left section 
   doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
@@ -126,33 +124,31 @@ function generatePDFContent(doc, orderData) {
   doc.fontSize(9)
     .font('Helvetica')
     .fillColor('black')
-    .text(linkAttachment, leftMargin, bottomY + 12, { width: linkWidth });
+    .text(linkAttachment, leftMargin, bottomY + 12, { width: 140 });
 
-  // Mattress Label - Center section (properly centered)
-  const centerStart = leftMargin + 150;  // Start further right for centering
-  const centerWidth = 140;
+  // Mattress Label - DEAD CENTRE of the 515px box (257px from left edge)
+  const deadCentreX = 257 - 60; // Account for text width to center the text itself
   doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
-    .text('Mattress Label:', centerStart, bottomY);
+    .text('Mattress Label:', deadCentreX, bottomY);
 
   doc.fontSize(9)
     .font('Helvetica')
     .fillColor('black')
-    .text(orderData.mattressLabel || 'Caravan Mattresses', centerStart, bottomY + 12, { width: centerWidth });
+    .text(orderData.mattressLabel || 'Caravan Mattresses', deadCentreX, bottomY + 12, { width: 120 });
 
-  // Delivery - Right section (pushed further right)
-  const rightStart = leftMargin + 300;  // Much further right
-  const rightWidth = 120;
+  // Delivery - Far right section (pushed further right as discussed)
+  const farRightX = leftMargin + 350;
   doc.fontSize(10)
     .font('Helvetica-Bold')
     .fillColor('black')
-    .text('Delivery:', rightStart, bottomY);
+    .text('Delivery:', farRightX, bottomY);
 
   doc.fontSize(9)
     .font('Helvetica')
     .fillColor('black')
-    .text(orderData.deliveryOption || 'Rolled and Boxed', rightStart, bottomY + 12, { width: rightWidth });
+    .text(orderData.deliveryOption || 'Rolled and Boxed', farRightX, bottomY + 12, { width: 120 });
 
   yPos += 155;
 
@@ -218,10 +214,10 @@ function generatePDFContent(doc, orderData) {
       .fillColor('black')
       .text(valueText, 85, rowY);
 
-    rowY += 16;  // Consistent spacing between dimensions
+    rowY += 16;  // Tighter spacing - our finalized version
   });
 
-  // Move Additional Specifications UP - much closer to dimension G
+  // Move Additional Specifications UP - our finalized spacing
   rowY += 15;
 
   // Additional Specifications header
@@ -279,6 +275,8 @@ function generatePDFContent(doc, orderData) {
     .font('Helvetica')
     .fillColor('black')
     .text(finishedSizeMax, 50, rowY);
+
+  // NO STATUS LINE - removed as per final design
 
   // Right side - Shape Diagram 
   const diagramBoxY = drawCleanBox(doc, 235, yPos, 320, 350, 'Shape Diagram');
