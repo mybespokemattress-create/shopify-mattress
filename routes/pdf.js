@@ -69,9 +69,6 @@ function generatePDFContent(doc, orderData) {
 
   yPos += 20;
 
-  // Supplier Code Box
-  const supplierBoxY = drawCleanBox(doc, 40, yPos, 515, 140);
-
   // Extract supplier code from React data
   console.log('PDF DEBUG - orderData.supplierCode:', orderData.supplierCode);
   let supplierCode = orderData.supplierCode || 'No supplier mapping found - check SKU processing';
@@ -81,10 +78,6 @@ function generatePDFContent(doc, orderData) {
   let linkAttachment = orderData.linkAttachment || 'One Piece Mattress No Link Required';
 
   console.log('🔍 Final link attachment:', linkAttachment);
-
-  // Replace this entire supplier box section in your routes/pdf.js file
-  // Find the section that starts with: const supplierBoxY = drawCleanBox(doc, 40, yPos, 515, 140);
-  // Replace everything from that line until the yPos += 155; line
 
   // Supplier Code Box with professional spacing
   const supplierBoxY = drawCleanBox(doc, 40, yPos, 515, 140);
