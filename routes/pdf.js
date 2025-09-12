@@ -86,16 +86,7 @@ function generatePDFContent(doc, orderData) {
   const leftMargin = 45;    // Consistent left margin for all elements
   const boxWidth = 470;     // Use maximum width (515px box - 45px margin = 470px available)
 
-  // Row 1: Quantity on same line - professional positioning
-  doc.fontSize(10)
-    .font('Helvetica-Bold')
-    .fillColor('black')
-    .text('Quantity:', leftMargin, supplierBoxY + 5);
 
-  doc.fontSize(10)
-    .font('Helvetica')
-    .fillColor('black')
-    .text(orderData.lineItems?.[0]?.quantity || '1', leftMargin + 50, supplierBoxY + 5);
 
   // Row 2: Supplier Code with proper spacing - 25px after quantity
   doc.fontSize(10)
