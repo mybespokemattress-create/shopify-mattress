@@ -61,128 +61,97 @@ function generatePDFContent(doc, orderData) {
 
   let yPos = 120;
 
-// TEST VERSION - Add this to your generatePDFContent function
-// Replace the supplier box section with this test code
+  // === SUPPLIER SPECIFICATION SECTION ===
+  doc.fontSize(12)
+     .font('Helvetica-Bold')
+     .fillColor('black')
+     .text('Supplier Specification', 40, yPos);
 
-// === SUPPLIER SPECIFICATION SECTION - TEST VERSION ===
-doc.fontSize(12)
-   .font('Helvetica-Bold')
-   .fillColor('black')
-   .text('Supplier Specification', 40, yPos);
+  yPos += 20;
 
-yPos += 20;
+  // Extract supplier code from React data
+  console.log('PDF DEBUG - orderData.supplierCode:', orderData.supplierCode);
+  let supplierCode = orderData.supplierCode || 'No supplier mapping found - check SKU processing';
+  const lineItems = orderData.lineItems || [];
 
-// Supplier Code Box with TEST POSITIONING
-const supplierBoxY = drawCleanBox(doc, 40, yPos, 515, 140);
+  // Extract link attachment from React data  
+  let linkAttachment = orderData.linkAttachment || 'One Piece Mattress No Link Required';
 
-// TEST 1: Log the actual values
-console.log('🧪 TEST - supplierBoxY returned from drawCleanBox:', supplierBoxY);
-console.log('🧪 TEST - yPos before drawCleanBox:', yPos);
+  console.log('🔍 Final link attachment:', linkAttachment);
 
-// Define test positioning constants
-const leftMargin = 45;
-const testYBase = supplierBoxY; // Use the returned value directly
+  // Supplier Code Box with professional spacing
+  const supplierBoxY = drawCleanBox(doc, 40, yPos, 515, 140);
 
-// TEST 2: Add visible positioning markers
-doc.fontSize(6)
-   .fillColor('red')
-   .text(`supplierBoxY: ${supplierBoxY}`, 400, supplierBoxY)
-   .text(`leftMargin: ${leftMargin}`, 400, supplierBoxY + 10);
+  // Define consistent positioning constants
+  const leftMargin = 45;    // Consistent left margin for all elements
+  const boxWidth = 470;     // Use maximum width (515px box - 45px margin = 470px available)
 
-// TEST 3: Quantity positioning with markers
-const quantityLabelY = testYBase + 20;
-const quantityValueY = testYBase + 5;
+  // Row 1: Quantity on same line - professional positioning
+  doc.fontSize(10)
+    .font('Helvetica-Bold')
+    .fillColor('black')
+    .text('Quantity:', leftMargin, supplierBoxY + 20);
 
-console.log('🧪 TEST - Quantity label Y:', quantityLabelY);
-console.log('🧪 TEST - Quantity value Y:', quantityValueY);
+  doc.fontSize(10)
+    .font('Helvetica')
+    .fillColor('black')
+    .text(orderData.lineItems?.[0]?.quantity || '1', leftMargin + 50, supplierBoxY + 5);
 
-// Add positioning markers
-doc.fontSize(6)
-   .fillColor('blue')
-   .text(`↑${quantityLabelY}`, leftMargin - 30, quantityLabelY);
+  // Row 2: Supplier Code with maximum width usage
+  doc.fontSize(10)
+    .font('Helvetica-Bold')
+    .fillColor('black')
+    .text('Supplier Code:', leftMargin, supplierBoxY + 30);
 
-doc.fontSize(10)
-   .font('Helvetica-Bold')
-   .fillColor('black')
-   .text('Quantity:', leftMargin, quantityLabelY);
+  doc.fontSize(10)
+    .font('Helvetica')
+    .fillColor('black')
+    .text(supplierCode, leftMargin, supplierBoxY + 45, { 
+      width: 470,          // <-- This should be 470px
+      height: 40,               // <-- Changed from 35 to 40
+      lineGap: 3,              // <-- Changed from 2 to 3
+      align: 'justify'         // <-- Added justify alignment
+    });
 
-// Add positioning marker for value
-doc.fontSize(6)
-   .fillColor('blue')
-   .text(`↑${quantityValueY}`, leftMargin + 50 - 30, quantityValueY);
+  // Bottom row - properly centered Mattress Label as discussed
+  const bottomY = supplierBoxY + 95;
+  
+  // Link Attachment - Left section 
+  doc.fontSize(10)
+    .font('Helvetica-Bold')
+    .fillColor('black')
+    .text('Link Attachment:', leftMargin, bottomY);
 
-doc.fontSize(10)
-   .font('Helvetica')
-   .fillColor('black')
-   .text(orderData.lineItems?.[0]?.quantity || '1', leftMargin + 50, quantityValueY);
+  doc.fontSize(9)
+    .font('Helvetica')
+    .fillColor('black')
+    .text(linkAttachment, leftMargin, bottomY + 12);
 
-// TEST 4: Supplier Code positioning with detailed markers
-const supplierLabelY = testYBase + 30;
-const supplierValueY = testYBase + 45;
+  // Mattress Label - MOVED FURTHER RIGHT as requested
+  const centreX = 280; // Moved right from 222.5px
+  doc.fontSize(10)
+    .font('Helvetica-Bold')
+    .fillColor('black')
+    .text('Mattress Label:', centreX, bottomY);
 
-console.log('🧪 TEST - Supplier label Y:', supplierLabelY);
-console.log('🧪 TEST - Supplier value Y:', supplierValueY);
+  doc.fontSize(9)
+    .font('Helvetica')
+    .fillColor('black')
+    .text(orderData.mattressLabel || 'Caravan Mattresses', centreX, bottomY + 12, { width: 120 });
 
-// Add positioning markers
-doc.fontSize(6)
-   .fillColor('green')
-   .text(`↑${supplierLabelY}`, leftMargin - 30, supplierLabelY)
-   .text(`↑${supplierValueY}`, leftMargin - 30, supplierValueY);
+  // Delivery - Far right section 
+  const farRightX = leftMargin + 380;
+  doc.fontSize(10)
+    .font('Helvetica-Bold')
+    .fillColor('black')
+    .text('Delivery:', farRightX, bottomY);
 
-// Supplier Code label
-doc.fontSize(10)
-   .font('Helvetica-Bold')
-   .fillColor('black')
-   .text('Supplier Code:', leftMargin, supplierLabelY);
+  doc.fontSize(9)
+    .font('Helvetica')
+    .fillColor('black')
+    .text(orderData.deliveryOption || 'Rolled and Boxed', farRightX, bottomY + 12, { width: 120 });
 
-// Supplier Code value with width marker
-doc.fontSize(10)
-   .font('Helvetica')
-   .fillColor('black')
-   .text(supplierCode, leftMargin, supplierValueY, { 
-     width: 470,
-     height: 40,
-     lineGap: 3,
-     align: 'justify'
-   });
-
-// TEST 5: Add width visualization
-doc.fontSize(6)
-   .fillColor('orange')
-   .text(`width: 470px →`, leftMargin, supplierValueY + 45)
-   .text(`→ ends here`, leftMargin + 470, supplierValueY + 45);
-
-// Draw a line to show the 470px width
-doc.strokeColor('orange')
-   .moveTo(leftMargin, supplierValueY + 50)
-   .lineTo(leftMargin + 470, supplierValueY + 50)
-   .stroke();
-
-// TEST 6: Bottom row positioning test
-const bottomY = testYBase + 95;
-console.log('🧪 TEST - Bottom row Y:', bottomY);
-
-doc.fontSize(6)
-   .fillColor('purple')
-   .text(`↑${bottomY}`, leftMargin - 30, bottomY);
-
-// Continue with rest of bottom row elements...
-// Link Attachment
-doc.fontSize(10)
-   .font('Helvetica-Bold')
-   .fillColor('black')
-   .text('Link Attachment:', leftMargin, bottomY);
-
-// Add test measurement for centre positioning
-const centreX = 280;
-doc.fontSize(6)
-   .fillColor('purple')
-   .text(`centreX: ${centreX}`, centreX, bottomY - 10);
-
-doc.fontSize(10)
-   .font('Helvetica-Bold')
-   .fillColor('black')
-   .text('Mattress Label:', centreX, bottomY);
+  yPos += 155;
 
   // === MEASUREMENTS & SHAPE DIAGRAM SECTION ===
   doc.fontSize(12)
