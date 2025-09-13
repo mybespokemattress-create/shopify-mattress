@@ -128,8 +128,15 @@ const FirmnessOverrideSection = ({
     );
   }
 
-  // Show override interface if we have options
-  if ((overrideData.options && overrideData.options.length > 0) || 
+// Debug logging
+console.log('DEBUG - Order:', selectedOrder.orderNumber);
+console.log('DEBUG - supplierCode:', `"${selectedOrder.supplierCode}"`);
+console.log('DEBUG - supplierCode type:', typeof selectedOrder.supplierCode);
+console.log('DEBUG - overrideData.options:', overrideData.options);
+console.log('DEBUG - editMode:', editMode);
+
+// Show override interface if we have options
+if ((overrideData.options && overrideData.options.length > 0) || 
     (!selectedOrder.supplierCode || selectedOrder.supplierCode.trim() === '' || selectedOrder.supplierCode === '-')) {
     return (
       <div className="border rounded-lg p-4 bg-green-50 border-green-200 mb-4">
