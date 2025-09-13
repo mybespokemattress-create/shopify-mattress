@@ -916,10 +916,33 @@ function needsFirmnessOverride(order) {
 
 // Detect SKU prefix from order
 function detectSKUPrefix(order) {
-  const sku = order.line_items?.[0]?.sku || '';
-  const prefixes = Object.keys(FIRMNESS_MAPPINGS);
+  console.log('[Override] DEBUG - Full order object keys:', Object.keys(order));
+  console.log('[Override] DEBUG - order.line_items:', order.line_items);
+  console.log('[Override] DEBUG - First line item:', order.line_items?.[0]);
   
-  return prefixes.find(prefix => sku.startsWith(prefix)) || null;
+  const sku = order.line_items?.[0]?.sku || '';
+  console.log('[Override] DEBUG - Extracted SKU:', sku);
+  
+  const prefixes = Object.keys(FIRMNESS_MAPPINGS);
+  console.log('[Override] DEBUG - Available prefixes:', prefixes);
+  
+  const foundPrefix = prefixes.find(prefix => sku && sku.startsWith(prefix));
+  console.log('[Override] DEBUG - Found prefix:', foundPrefix);
+  
+  // If SKU detection fails, try product title detection
+  if (!foundPrefix && order.line_items && order.line_items[0]) {
+    const productTitle = order.line_items[0].title || '';
+    console.log('[Override] DEBUG - Trying product title:', productTitle);
+    const titleLower = productTitle.toLowerCase();
+    
+    if (titleLower.includes('coolplus')) return 'Cool';
+    else if (titleLower.includes('bodyshape') || titleLower.includes('bodshape')) return 'Body';
+    else if (titleLower.includes('novolatex')) return 'Novo';
+    else if (titleLower.includes('comfisan')) return 'Comfi';
+    else if (titleLower.includes('essential')) return 'Essential';
+  }
+  
+  return foundPrefix || null;
 }
 
 // Get available firmness options for a mattress type
