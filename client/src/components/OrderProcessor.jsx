@@ -985,7 +985,19 @@ const OrderProcessor = () => {
                   <div className="border rounded-lg p-4">
                     <h3 className="font-semibold mb-3">Product Information</h3>
                     
-                    {/* ADD THIS FIRMNESS OVERRIDE SECTION HERE */}
+                    {/* Supplier Code - Full width, multi-line - NOW FIRST */}
+                    <div className="mb-4">
+                      <label className="block text-sm text-slate-600 mb-1">Supplier Code</label>
+                      <textarea
+                        value={selectedOrder.supplierCode}
+                        onChange={(e) => updateOrderField('supplierCode', e.target.value)}
+                        disabled={!editMode}
+                        rows={2}
+                        className="w-full px-3 py-2 border rounded disabled:bg-slate-100 font-mono text-sm resize-none"
+                      />
+                    </div>
+                    
+                    {/* Firmness Override Section - NOW SECOND */}
                     <FirmnessOverrideSection 
                       selectedOrder={selectedOrder}
                       onSupplierCodeUpdate={(newCode) => {
@@ -998,18 +1010,6 @@ const OrderProcessor = () => {
                       }}
                       editMode={editMode}
                     />
-                    
-                    {/* Supplier Code - Full width, multi-line */}
-                    <div className="mb-4">
-                      <label className="block text-sm text-slate-600 mb-1">Supplier Code</label>
-                      <textarea
-                        value={selectedOrder.supplierCode}
-                        onChange={(e) => updateOrderField('supplierCode', e.target.value)}
-                        disabled={!editMode}
-                        rows={2}
-                        className="w-full px-3 py-2 border rounded disabled:bg-slate-100 font-mono text-sm resize-none"
-                      />
-                    </div>
                     
                     {/* SKU and Quantity on same line below */}
                     <div className="flex gap-4">
