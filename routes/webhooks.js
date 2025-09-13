@@ -1232,4 +1232,64 @@ router.post('/admin/setup-override-columns', async (req, res) => {
   }
 });
 
+// Test Google Sheets connection
+router.get('/sheets/test-connection', async (req, res) => {
+  try {
+    const googleSheets = require('../google-sheets');
+    const connected = await googleSheets.testConnection();
+    
+    res.json({
+      success: connected,
+      message: connected ? 'Google Sheets connected' : 'Google Sheets connection failed',
+      suppliers: googleSheets.SUPPLIERS ? Object.keys(googleSheets.SUPPLIERS) : []
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      stack: error.stack
+    });
+  }
+});
+
+module.exports = router;
+
+// Update Google Sheets when order is sent
+router.post('/sheets/update-order-sent', express.json(), async (req, res) => {
+    try {
+        const { orderNumber } = req.body;
+        
+        if (!orderNumber) {
+            return res.status(400).json({ success: false, error: 'Order number required' });
+        }
+        
+        const { updateOrderSent } = require('../google-sheets');
+        const result = await updateOrderSent(orderNumber);
+        
+        if (result.success) {
+            console.log(`✅ Google Sheets updated for order ${orderNumber}`);
+            res.json({
+                success: true,
+                message: `Updated columns C and S for order ${orderNumber}`,
+                supplier: result.supplierName,
+                rowNumber: result.rowNumber
+            });
+        } else {
+            console.log(`⚠️ Could not find order ${orderNumber} in Google Sheets`);
+            res.json({
+                success: false,
+                message: 'Order not found in supplier sheets',
+                reason: result.reason
+            });
+        }
+        
+    } catch (error) {
+        console.error('Error updating Google Sheets:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
 module.exports = router;
