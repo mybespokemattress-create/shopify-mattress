@@ -69,7 +69,7 @@ const FirmnessOverrideSection = ({
   };
 
   const applyOverride = async () => {
-  if (!selectedOverride || !overrideData.skuPrefix) return;
+  if (!selectedOverride) return;
   
   // Debug logging
   console.log('Selected override:', selectedOverride);
