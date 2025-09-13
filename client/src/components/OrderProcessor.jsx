@@ -129,7 +129,8 @@ const FirmnessOverrideSection = ({
   }
 
   // Show override interface if we have options
-  if (overrideData.options && overrideData.options.length > 0) {
+  if ((overrideData.options && overrideData.options.length > 0) || 
+    (!selectedOrder.supplierCode || selectedOrder.supplierCode.trim() === '' || selectedOrder.supplierCode === '-')) {
     return (
       <div className="border rounded-lg p-4 bg-green-50 border-green-200 mb-4">
         <div className="flex items-center gap-2 mb-3">
