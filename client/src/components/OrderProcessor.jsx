@@ -96,7 +96,7 @@ const FirmnessOverrideSection = ({
       body: JSON.stringify({
         depth: depth,
         firmness: firmness,
-        skuPrefix: null
+        skuPrefix: overrideData.skuPrefix  // ✅ Send the detected prefix
       })
     });
     
