@@ -1058,16 +1058,24 @@ router.post('/orders/:orderId/override-firmness', express.json(), async (req, re
     });
     }
 
-    // Check if this order actually needs an override
+    // Check if this order can be overridden
     const currentSupplierCode = order.supplier_code || order.line_items?.[0]?.specification || '';
-    const needsOverride = currentSupplierCode.trim() === '' || currentSupplierCode === '-' || currentSupplierCode.includes('MAPPING_REQUIRED');
+    const hasEmptyCode = currentSupplierCode.trim() === '' || currentSupplierCode === '-' || currentSupplierCode.includes('MAPPING_REQUIRED');
+    const hasOverrideHistory = order.firmness_override_applied;
 
-    if (!needsOverride) {
+    // Allow override if:
+    // 1. Order has empty/invalid supplier code, OR
+    // 2. Order was previously overridden (allowing re-override)
+    const canOverride = hasEmptyCode || hasOverrideHistory;
+
+    if (!canOverride) {
     return res.status(400).json({ 
         success: false, 
-        error: 'This order already has a valid supplier code and does not need an override' 
+        error: 'This order cannot be overridden. Only orders with empty codes or previous overrides can be modified.' 
     });
     }
+
+    console.log(`[Override] Order can be overridden - Empty code: ${hasEmptyCode}, Previous override: ${hasOverrideHistory}`);
     
     // Validate depth/firmness combination exists
     const mapping = FIRMNESS_MAPPINGS[skuPrefix];
