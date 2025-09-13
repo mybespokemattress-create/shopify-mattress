@@ -100,14 +100,15 @@ const BODYSHAPE_SPECS = {
 // ============================================================================
 
 /**
- * Check if product is a Bodyshape mattress
+ * Check if product is a Bodyshape mattress (NOT topper)
  */
 function isBodyshapeMattress(productTitle, shopifySku = null, handle = null) {
   // PRIMARY METHOD: Check SKU prefix
   if (shopifySku) {
     const skuLower = shopifySku.toLowerCase();
-    if (skuLower.startsWith('body')) {
-      console.log(`[Bodyshape] Detected via SKU prefix: ${shopifySku}`);
+    // Must start with 'body' but NOT 'bodyt' (which is topper)
+    if (skuLower.startsWith('body') && !skuLower.startsWith('bodyt')) {
+      console.log(`[Bodyshape] Detected mattress via SKU prefix: ${shopifySku}`);
       return true;
     }
   }
@@ -116,12 +117,17 @@ function isBodyshapeMattress(productTitle, shopifySku = null, handle = null) {
   const title = productTitle.toLowerCase();
   const handleText = handle ? handle.toLowerCase() : '';
   
-  const titleMatch = title.startsWith('bodyshape') || handleText.startsWith('bodyshape') ||
-                    title.includes('body shape') || handleText.includes('body shape') ||
-                    title.includes('body') || handleText.includes('body');
+  // Check for bodyshape variants (including typo 'bodshape')
+  const hasBodyshape = title.includes('bodyshape') || title.includes('bodshape') || 
+                      title.includes('body shape') || 
+                      handleText.includes('bodyshape') || handleText.includes('bodshape') || 
+                      handleText.includes('body shape');
   
-  if (titleMatch) {
-    console.log(`[Bodyshape] Detected via title/handle: ${productTitle}`);
+  // Must NOT be a topper
+  const hasTopper = title.includes('topper') || handleText.includes('topper');
+  
+  if (hasBodyshape && !hasTopper) {
+    console.log(`[Bodyshape] Detected mattress via title/handle: ${productTitle}`);
     return true;
   }
   

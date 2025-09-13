@@ -198,8 +198,8 @@ function mapCoolplusTopper(productTitle, productVariant = null, productPropertie
       };
     }
 
-    // 2. Extract thickness (firmness is always Medium)
-    const thickness = extractThickness(productTitle, productVariant, productProperties);
+// 2. Extract thickness (firmness is always Medium)
+    let thickness = extractThickness(productTitle, productVariant, productProperties);
     const firmness = extractFirmness(productTitle, productVariant, productProperties);
     
     // 3. Validate thickness (Coolplus Toppers only have 2" and 3")

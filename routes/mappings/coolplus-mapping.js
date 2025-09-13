@@ -107,18 +107,20 @@ function isCoolplusMattress(productTitle, shopifySku = null, handle = null) {
   // PRIMARY METHOD: Check SKU prefix
   if (shopifySku) {
     const skuLower = shopifySku.toLowerCase();
-    if (skuLower.startsWith('cool')) {
-      console.log(`[Coolplus] Detected via SKU prefix: ${shopifySku}`);
+    // Must start with 'cool' but NOT 'coolt' (which is topper)
+    if (skuLower.startsWith('cool') && !skuLower.startsWith('coolt')) {
+      console.log(`[Coolplus] Detected mattress via SKU prefix: ${shopifySku}`);
       return true;
     }
   }
   
-  // FALLBACK METHOD: Check product title
+  // FALLBACK METHOD: Check product title - must NOT be topper
   const title = productTitle.toLowerCase();
-  const titleMatch = title.includes('coolplus') || title.includes('cool plus');
+  const hasCoolplus = title.includes('coolplus') || title.includes('cool plus');
+  const hasTopper = title.includes('topper');
   
-  if (titleMatch) {
-    console.log(`[Coolplus] Detected via title: ${productTitle}`);
+  if (hasCoolplus && !hasTopper) {
+    console.log(`[Coolplus] Detected mattress via title: ${productTitle}`);
     return true;
   }
   
@@ -238,8 +240,8 @@ function extractFirmness(productTitle, productVariant = null, productProperties 
     return 'Medium firm';
   }
 
-  console.log(`[Coolplus] No firmness found, defaulting to Medium firm`);
-  return 'Medium firm'; // Default firmness
+  console.log(`[Coolplus] No firmness found - requires override`);
+  return null; // No firmness available
 }
 
 // ============================================================================

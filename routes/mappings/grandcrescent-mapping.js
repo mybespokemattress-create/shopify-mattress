@@ -191,8 +191,8 @@ function extractFirmness(productTitle, productVariant = null, productProperties 
     return 'Medium';
   }
 
-  console.log(`[Grand Crescent] No firmness found, defaulting to Medium`);
-  return 'Medium'; // Default firmness
+  console.log(`[Grand Crescent] No firmness found - requires override`);
+  return null; // No firmness available
 }
 
 // ============================================================================
@@ -204,6 +204,18 @@ function extractFirmness(productTitle, productVariant = null, productProperties 
  */
 function generateSpecification(thickness, firmness) {
   console.log(`[Grand Crescent] Generating specification for ${thickness}" ${firmness}`);
+  
+  // If no firmness provided, return mapping required
+  if (!firmness) {
+    console.log(`[Grand Crescent] No firmness provided - returning dash for manual override`);
+    return {
+      mattressType: 'Grand Crescent',
+      thickness: thickness,
+      firmness: null,
+      fullSpecification: '-',
+      confidence: 0
+    };
+  }
   
   const spec = GRANDCRESCENT_SPECS.specifications[thickness]?.[firmness];
   
@@ -255,7 +267,7 @@ function mapGrandCrescentMattress(productTitle, productVariant = null, productPr
     }
 
     // 2. Extract thickness and firmness
-    const thickness = extractThickness(productTitle, productVariant, productProperties);
+    let thickness = extractThickness(productTitle, productVariant, productProperties);
     const firmness = extractFirmness(productTitle, productVariant, productProperties);
     
     // 3. Validate thickness (Grand Crescent only has 8" and 10")

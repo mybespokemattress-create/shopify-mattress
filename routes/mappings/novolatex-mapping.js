@@ -240,8 +240,8 @@ function extractFirmness(productTitle, productVariant = null, productProperties 
     return 'Medium';
   }
 
-  console.log(`[Novolatex] No firmness found, defaulting to Medium`);
-  return 'Medium'; // Default firmness
+  console.log(`[Novolatex] No firmness found - requires override`);
+  return null; // No firmness available
 }
 
 // ============================================================================
@@ -253,6 +253,18 @@ function extractFirmness(productTitle, productVariant = null, productProperties 
  */
 function generateSpecification(thickness, firmness) {
   console.log(`[Novolatex] Generating specification for ${thickness}" ${firmness}`);
+  
+  // If no firmness provided, return mapping required
+  if (!firmness) {
+    console.log(`[Novolatex] No firmness provided - returning dash for manual override`);
+    return {
+      mattressType: 'Novolatex',
+      thickness: thickness,
+      firmness: null,
+      fullSpecification: '-',
+      confidence: 0
+    };
+  }
   
   const spec = NOVOLATEX_SPECS.specifications[thickness]?.[firmness];
   

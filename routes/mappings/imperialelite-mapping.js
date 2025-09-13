@@ -208,6 +208,18 @@ function extractFirmness(productTitle, productVariant = null, productProperties 
 function generateSpecification(thickness, firmness) {
   console.log(`[Imperial Elite] Generating specification for ${thickness}" ${firmness}`);
   
+  // If no firmness provided, return mapping required
+  if (!firmness) {
+    console.log(`[Imperial Elite] No firmness provided - returning dash for manual override`);
+    return {
+      mattressType: 'Imperial Elite',
+      thickness: thickness,
+      firmness: null,
+      fullSpecification: '-',
+      confidence: 0
+    };
+  }
+  
   const spec = IMPERIALELITE_SPECS.specifications[thickness]?.[firmness];
   
   if (!spec) {
@@ -259,7 +271,7 @@ function mapImperialEliteMattress(productTitle, productVariant = null, productPr
     }
 
     // 2. Extract thickness and firmness
-    const thickness = extractThickness(productTitle, productVariant, productProperties);
+    let thickness = extractThickness(productTitle, productVariant, productProperties);
     const firmness = extractFirmness(productTitle, productVariant, productProperties);
     
     // 3. Validate thickness (Imperial Elite only has 10")

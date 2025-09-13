@@ -78,7 +78,7 @@ function isBodyshapeTopper(productTitle, shopifySku = null, handle = null) {
   const title = productTitle.toLowerCase();
   const handleText = handle ? handle.toLowerCase() : '';
   
-  const titleHasBoth = title.includes('bodyshape') && title.includes('topper');
+  const titleHasBoth = (title.includes('bodyshape') || title.includes('bodshape') || title.includes('body shape')) && title.includes('topper');
   const handleHasBoth = handleText.includes('bodyshape') && handleText.includes('topper');
   
   const titleMatch = titleHasBoth || handleHasBoth;

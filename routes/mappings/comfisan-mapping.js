@@ -231,7 +231,7 @@ function extractFirmness(productTitle, productVariant = null, productProperties 
     return 'Medium-firm';
   }
 
-  console.log(`[Comfisan] No firmness found, defaulting to Medium-firm`);
+  console.log(`[Comfisan] No firmness found - requires override`);
   return 'Medium-firm'; // Default firmness
 }
 
