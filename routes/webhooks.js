@@ -936,12 +936,24 @@ router.get('/orders/:orderId/firmness-options', async (req, res) => {
     }
     
     const order = result.rows[0];
-    const skuPrefix = detectSKUPrefix(order);
+    let skuPrefix = detectSKUPrefix(order);
+    
+    // If SKU detection fails, try to detect from product title
+    if (!skuPrefix && order.line_items && order.line_items[0]) {
+      const productTitle = order.line_items[0].title || '';
+      const titleLower = productTitle.toLowerCase();
+      
+      if (titleLower.includes('coolplus')) skuPrefix = 'Cool';
+      else if (titleLower.includes('bodyshape') || titleLower.includes('bodshape')) skuPrefix = 'Body';
+      else if (titleLower.includes('novolatex')) skuPrefix = 'Novo';
+      else if (titleLower.includes('comfisan')) skuPrefix = 'Comfi';
+      else if (titleLower.includes('essential')) skuPrefix = 'Essential';
+    }
     
     if (!skuPrefix) {
       return res.status(400).json({ 
         success: false, 
-        error: 'Cannot detect mattress type from SKU' 
+        error: 'Cannot detect mattress type from SKU or product title' 
       });
     }
     
