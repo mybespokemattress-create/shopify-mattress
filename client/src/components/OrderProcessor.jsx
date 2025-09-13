@@ -69,49 +69,63 @@ const FirmnessOverrideSection = ({
   };
 
   const applyOverride = async () => {
-    if (!selectedOverride || !overrideData.skuPrefix) return;
+  if (!selectedOverride || !overrideData.skuPrefix) return;
+  
+  // Debug logging
+  console.log('Selected override:', selectedOverride);
+  console.log('SKU prefix:', overrideData.skuPrefix);
+  
+  const parts = selectedOverride.split(' - ');
+  if (parts.length !== 2) {
+    alert('Invalid selection format');
+    return;
+  }
+  
+  const depth = parts[0];
+  const firmness = parts[1];
+  
+  console.log('Sending depth:', depth);
+  console.log('Sending firmness:', firmness);
+  
+  setApplying(true);
+  
+  try {
+    const response = await fetch(`/api/orders/${selectedOrder.id}/override-firmness`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        depth: depth,
+        firmness: firmness,
+        skuPrefix: overrideData.skuPrefix
+      })
+    });
     
-    const [depth, firmness] = selectedOverride.split(' - ');
-    
-    setApplying(true);
-    
-    try {
-      const response = await fetch(`/api/orders/${selectedOrder.id}/override-firmness`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          depth: depth,
-          firmness: firmness,
-          skuPrefix: overrideData.skuPrefix
-        })
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Override failed');
-      }
-      
-      const result = await response.json();
-      
-      // Update the supplier code in the parent component
-      onSupplierCodeUpdate(result.newSupplierCode);
-      
-      // Update our local state
-      setOverrideStatus(prev => ({ 
-        ...prev, 
-        overrideApplied: true,
-        appliedOverride: { depth, firmness }
-      }));
-      
-      alert(`Firmness override applied successfully!\nNew supplier code: ${result.newSupplierCode.substring(0, 80)}...`);
-      
-    } catch (error) {
-      console.error('Error applying override:', error);
-      alert(`Failed to apply override: ${error.message}`);
-    } finally {
-      setApplying(false);
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Override failed');
     }
-  };
+    
+    const result = await response.json();
+    
+    // Update the supplier code in the parent component
+    onSupplierCodeUpdate(result.newSupplierCode);
+    
+    // Update our local state
+    setOverrideStatus(prev => ({ 
+      ...prev, 
+      overrideApplied: true,
+      appliedOverride: { depth, firmness }
+    }));
+    
+    alert(`Firmness override applied successfully!\nNew supplier code: ${result.newSupplierCode.substring(0, 80)}...`);
+    
+  } catch (error) {
+    console.error('Error applying override:', error);
+    alert(`Failed to apply override: ${error.message}`);
+  } finally {
+    setApplying(false);
+  }
+};
 
   // Don't render if no order selected or not in edit mode
   if (!selectedOrder || !editMode) return null;
