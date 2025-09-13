@@ -1113,22 +1113,21 @@ router.post('/orders/:orderId/override-firmness', express.json(), async (req, re
     
     // Update database with new supplier code and override tracking
     const updateQuery = `
-      UPDATE processed_orders
-      SET 
-        supplier_code = $1,
-        line_items = CASE 
-          WHEN line_items IS NOT NULL AND jsonb_array_length(line_items) > 0 
-          THEN jsonb_set(line_items, '{0,specification}', $2::jsonb)
-          ELSE line_items
-        END,
-        firmness_override_applied = true,
-        override_timestamp = NOW(),
-        override_depth = $3,
-        override_firmness = $4,
-        updated_at = NOW()
-      WHERE id = $5
-      RETURNING *;
-    `;
+        UPDATE processed_orders
+        SET 
+            supplier_code = $1,
+            line_items = CASE 
+            WHEN line_items IS NOT NULL AND jsonb_array_length(line_items) > 0 
+            THEN jsonb_set(line_items, '{0,specification}', $2::jsonb)
+            ELSE line_items
+            END,
+            firmness_override_applied = true,
+            override_timestamp = NOW(),
+            override_depth = $3,
+            override_firmness = $4
+        WHERE id = $5
+        RETURNING *;
+        `;
     
     const updateResult = await req.app.locals.db.query(updateQuery, [
       newSupplierCode,
