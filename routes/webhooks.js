@@ -1018,13 +1018,16 @@ router.post('/orders/:orderId/override-firmness', express.json(), async (req, re
     
     const order = result.rows[0];
     
-    // Validate SKU prefix matches
-    const detectedPrefix = detectSKUPrefix(order);
-    if (detectedPrefix !== skuPrefix) {
-      return res.status(400).json({ 
+    // Get the current supplier code status
+    const currentSupplierCode = order.supplier_code || order.line_items?.[0]?.specification || '';
+    const currentSkuPrefix = currentSupplierCode.trim() === '' || currentSupplierCode === '-' ? null : detectSKUPrefix(order);
+
+    // Validate that we're starting from a state that needs override
+    if (currentSkuPrefix !== skuPrefix) {
+    return res.status(400).json({ 
         success: false, 
-        error: `SKU prefix mismatch. Expected ${detectedPrefix}, got ${skuPrefix}` 
-      });
+        error: `SKU prefix mismatch. Expected current prefix ${currentSkuPrefix}, got ${skuPrefix}` 
+    });
     }
     
     // Validate depth/firmness combination exists
