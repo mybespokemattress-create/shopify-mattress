@@ -472,4 +472,5 @@ module.exports = {
 // Auto-run tests if file executed directly
 if (require.main === module) {
   testMapping();
-}
+} 
+ 
