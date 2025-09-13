@@ -993,7 +993,7 @@ router.get('/orders/:orderId/firmness-options', async (req, res) => {
 });
 
 // Apply firmness override
-router.post('/orders/:orderId/override-firmness', async (req, res) => {
+router.post('/orders/:orderId/override-firmness', express.json(), async (req, res) => {
   try {
     const { orderId } = req.params;
     const { depth, firmness, skuPrefix } = req.body;
