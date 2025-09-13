@@ -232,7 +232,7 @@ function extractFirmness(productTitle, productVariant = null, productProperties 
   }
 
   console.log(`[Comfisan] No firmness found - requires override`);
-  return 'Medium-firm'; // Default firmness
+  return null; // No firmness available - requires override
 }
 
 // ============================================================================
@@ -244,6 +244,21 @@ function extractFirmness(productTitle, productVariant = null, productProperties 
  */
 function generateSpecification(thickness, firmness) {
   console.log(`[Comfisan] Generating specification for ${thickness}" ${firmness}`);
+
+    if (!firmness) {
+    console.log(`[Comfisan] No firmness provided - returning dash for manual override`);
+    return {
+      mattressType: 'Comfisan',
+      thickness: thickness,
+      firmness: null,
+      depth: `${thickness}" inch - requires firmness selection`,
+      supplierCode: '-',
+      topLayer: null,
+      cover: null,
+      fullSpecification: '-',
+      confidence: 0
+    };
+  }
   
   const spec = COMFISAN_SPECS.specifications[thickness]?.[firmness];
   

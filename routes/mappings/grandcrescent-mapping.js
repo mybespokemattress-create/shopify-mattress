@@ -206,16 +206,22 @@ function generateSpecification(thickness, firmness) {
   console.log(`[Grand Crescent] Generating specification for ${thickness}" ${firmness}`);
   
   // If no firmness provided, return mapping required
-  if (!firmness) {
-    console.log(`[Grand Crescent] No firmness provided - returning dash for manual override`);
-    return {
-      mattressType: 'Grand Crescent',
-      thickness: thickness,
-      firmness: null,
-      fullSpecification: '-',
-      confidence: 0
-    };
-  }
+if (!firmness) {
+  console.log(`[Grand Crescent] No firmness provided - returning dash for manual override`);
+  return {
+    mattressType: 'Grand Crescent',
+    thickness: thickness,
+    firmness: null,
+    depth: `${thickness}" inch - requires firmness selection`,
+    baseLayer: null,
+    middleLayer: null,
+    topLayer: null,
+    cover: null,
+    fullSpecification: '-',
+    supplierCode: '-',
+    confidence: 0
+  };
+}
   
   const spec = GRANDCRESCENT_SPECS.specifications[thickness]?.[firmness];
   

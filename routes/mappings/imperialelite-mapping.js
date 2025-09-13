@@ -194,8 +194,8 @@ function extractFirmness(productTitle, productVariant = null, productProperties 
     return 'Medium';
   }
 
-  console.log(`[Imperial Elite] No firmness found, defaulting to Medium`);
-  return 'Medium'; // Default firmness
+  console.log(`[Imperial Elite] No firmness found - requires override`);
+return null; // No firmness available
 }
 
 // ============================================================================
@@ -215,7 +215,14 @@ function generateSpecification(thickness, firmness) {
       mattressType: 'Imperial Elite',
       thickness: thickness,
       firmness: null,
+      depth: `${thickness}" inch - requires firmness selection`,
+      baseLayer: null,
+      layer2: null,
+      layer3: null,
+      layer4: null,
+      cover: null,
       fullSpecification: '-',
+      supplierCode: '-',
       confidence: 0
     };
   }

@@ -253,6 +253,23 @@ function extractFirmness(productTitle, productVariant = null, productProperties 
  */
 function generateSpecification(thickness, firmness) {
   console.log(`[Coolplus] Generating specification for ${thickness}" ${firmness}`);
+
+    if (!firmness) {
+    console.log(`[Coolplus] No firmness provided - returning dash for manual override`);
+    return {
+      mattressType: 'Coolplus',
+      thickness: thickness,
+      firmness: null,
+      depth: `${thickness}" inch - requires firmness selection`,
+      baseLayer: null,
+      middleLayer: null,
+      topLayer: null,
+      cover: null,
+      fullSpecification: '-',
+      supplierCode: '-',
+      confidence: 0
+    };
+  }
   
   const spec = COOLPLUS_SPECS.specifications[thickness]?.[firmness];
   

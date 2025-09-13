@@ -274,6 +274,7 @@ function generateSpecification(thickness, firmness) {
       topLayer: null,
       cover: null,
       fullSpecification: '-',
+      supplierCode: '-',
       confidence: 0
     };
   }
