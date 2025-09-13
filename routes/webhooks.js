@@ -506,13 +506,27 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
         // Determine supplier
         let supplierAssignment = null;
         let supplierName = null;
-        
+
         if (googleSheets && googleSheets.determineSupplier) {
             const detectedSupplier = googleSheets.determineSupplier(productData);
             if (detectedSupplier) {
                 supplierAssignment = detectedSupplier;
                 supplierName = googleSheets.SUPPLIERS[detectedSupplier].name;
                 console.log(`Auto-assigned to supplier: ${supplierName}`);
+            } else {
+                // Fallback: If no SKU match, assign based on product title or default to SOUTHERN
+                const productTitle = productData[0]?.productTitle?.toLowerCase() || '';
+                
+                if (productTitle.includes('comfi') || productTitle.includes('imperial')) {
+                    supplierAssignment = 'MATTRESSSHIRE';
+                    supplierName = googleSheets.SUPPLIERS.MATTRESSSHIRE.name;
+                    console.log(`Fallback assignment to supplier: ${supplierName} (based on product title)`);
+                } else {
+                    // Default all other orders (including null SKUs) to SOUTHERN
+                    supplierAssignment = 'SOUTHERN';
+                    supplierName = googleSheets.SUPPLIERS.SOUTHERN.name;
+                    console.log(`Default assignment to supplier: ${supplierName} (fallback for null/unknown SKU)`);
+                }
             }
         }
         
@@ -1251,8 +1265,6 @@ router.get('/sheets/test-connection', async (req, res) => {
     });
   }
 });
-
-module.exports = router;
 
 // Update Google Sheets when order is sent
 router.post('/sheets/update-order-sent', express.json(), async (req, res) => {
