@@ -641,20 +641,21 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
                 });
                 
                 // Add each sub-order to Google Sheets separately
-                if (supplierAssignment && process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
-                    try {
-                        console.log(`Adding sub-order ${subOrderNumber} to Google Sheets...`);
-                        
-                        const subOrderCustomerData = {
-                            ...customerData,
-                            orderId: subOrderId,
-                            shopifyOrderNumber: subOrderNumber,
-                            totalPrice: lineItem.price
-                        };
-                        
-                        const subOrderProductData = [product];
-                        
-                        const sheetsResult = await googleSheets.addOrderToSheet(subOrderCustomerData, subOrderProductData);
+                    if (supplierAssignment && process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
+                        try {
+                            console.log(`Adding sub-order ${subOrderNumber} to Google Sheets...`);
+                            
+                            const subOrderCustomerData = {
+                                ...customerData,
+                                orderId: subOrderId,
+                                shopifyOrderNumber: subOrderNumber,
+                                totalPrice: lineItem.price
+                            };
+                            
+                            const subOrderProductData = [product];
+                            
+                            // Force the supplier assignment instead of letting Google Sheets detect it
+                            const sheetsResult = await googleSheets.addOrderToSheetWithSupplier(subOrderCustomerData, subOrderProductData, supplierAssignment);
                         
                         if (sheetsResult && sheetsResult.success) {
                             await db.orders.updateSheetsSync(

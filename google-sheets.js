@@ -136,10 +136,18 @@ async function addOrderToSheet(orderData, productData) {
     }
     
     // Determine which supplier based on SKU patterns
-    const supplierKey = determineSupplier(productData);
+    let supplierKey = determineSupplier(productData);
     if (!supplierKey) {
-        console.log('⚠️ No supplier match found for SKUs:', productData.map(p => p.shopifySku));
-        return { success: false, reason: 'No supplier match found' };
+        // Fallback logic for orders without SKUs - distribute between both suppliers
+        const productTitle = productData[0]?.productTitle?.toLowerCase() || '';
+        
+        if (productTitle.includes('comfi') || productTitle.includes('imperial')) {
+            supplierKey = 'MATTRESSSHIRE';
+            console.log('⚠️ No SKU match, assigned to MATTRESSSHIRE based on product title:', productTitle);
+        } else {
+            supplierKey = 'SOUTHERN';
+            console.log('⚠️ No SKU match, defaulted to SOUTHERN for product:', productTitle);
+        }
     }
     
     const supplier = SUPPLIERS[supplierKey];
@@ -216,10 +224,76 @@ async function testConnection() {
     }
 }
 
+// Update order status when PDF is downloaded and emailed
+async function updateOrderSent(orderNumber, supplierKey = null) {
+    if (!sheets) {
+        const initialized = await initializeGoogleSheets();
+        if (!initialized) {
+            throw new Error('Google Sheets not initialized');
+        }
+    }
+    
+    const currentDate = new Date().toLocaleDateString('en-GB');
+    
+    // If no supplier specified, try to find the order in both sheets
+    const suppliersToCheck = supplierKey ? [supplierKey] : Object.keys(SUPPLIERS);
+    
+    for (const key of suppliersToCheck) {
+        const supplier = SUPPLIERS[key];
+        
+        try {
+            // Find the row with this order number
+            const orderColumn = await sheets.spreadsheets.values.get({
+                spreadsheetId: supplier.sheetId,
+                range: 'H:H' // Order number column
+            });
+            
+            const orderNumbers = orderColumn.data.values || [];
+            const rowIndex = orderNumbers.findIndex(row => 
+                row[0] && row[0].toString().replace(/'/g, '') === orderNumber.replace('#', '')
+            );
+            
+            if (rowIndex !== -1) {
+                const actualRow = rowIndex + 1;
+                console.log(`📍 Found order ${orderNumber} in ${supplier.name} at row ${actualRow}`);
+                
+                // Update both columns
+                const updates = [
+                    { range: `C${actualRow}`, values: [[currentDate]] }, // Order Submission Date
+                    { range: `S${actualRow}`, values: [[currentDate]] }  // Order Sent
+                ];
+                
+                await sheets.spreadsheets.values.batchUpdate({
+                    spreadsheetId: supplier.sheetId,
+                    resource: {
+                        valueInputOption: 'USER_ENTERED',
+                        data: updates
+                    }
+                });
+                
+                console.log(`✅ Updated order status for ${orderNumber} in ${supplier.name}`);
+                
+                return {
+                    success: true,
+                    supplier: key,
+                    supplierName: supplier.name,
+                    rowNumber: actualRow,
+                    updatedColumns: ['C', 'S']
+                };
+            }
+        } catch (error) {
+            console.error(`❌ Error checking ${supplier.name}:`, error.message);
+        }
+    }
+    
+    return { success: false, reason: 'Order not found in any supplier sheet' };
+}
+
 module.exports = {
     initializeGoogleSheets,
     addOrderToSheet,
     testConnection,
     determineSupplier,
+    updateOrderSent,
     SUPPLIERS
 };
