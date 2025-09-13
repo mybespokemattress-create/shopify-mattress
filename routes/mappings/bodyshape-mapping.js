@@ -241,8 +241,8 @@ function extractFirmness(productTitle, productVariant = null, productProperties 
     return 'Medium';
   }
 
-  console.log(`[Bodyshape] No firmness found, defaulting to Medium`);
-  return 'Medium'; // Default firmness
+  console.log(`[Bodyshape] No firmness found - requires override`);
+return null; // No firmness available
 }
 
 // ============================================================================
@@ -255,12 +255,49 @@ function extractFirmness(productTitle, productVariant = null, productProperties 
 function generateSpecification(thickness, firmness) {
   console.log(`[Bodyshape] Generating specification for ${thickness}" ${firmness}`);
   
+  // If no firmness provided, return mapping required
+  if (!firmness) {
+    console.log(`[Bodyshape] No firmness provided - returning dash for manual override`);
+    return {
+      mattressType: 'Bodyshape',
+      thickness: thickness,
+      firmness: null,
+      depth: `${thickness}" inch - requires firmness selection`,
+      baseLayer: null,
+      middleLayer: null,
+      topLayer: null,
+      cover: null,
+      fullSpecification: '-',
+      confidence: 0
+    };
+  }
+  
   const spec = BODYSHAPE_SPECS.specifications[thickness]?.[firmness];
   
   if (!spec) {
     console.error(`[Bodyshape] No specification found for ${thickness}" ${firmness}`);
     return null;
   }
+
+  // Format: [Base Layer] + [Middle Layer] + [Top Layer] + [Cover]
+  const fullSpecification = `${spec.baseLayer} + ${spec.middleLayer} + ${spec.topLayer} + ${spec.cover}`;
+  
+  const result = {
+    mattressType: 'Bodyshape',
+    thickness: thickness,
+    firmness: firmness,
+    depth: spec.depth,
+    baseLayer: spec.baseLayer,
+    middleLayer: spec.middleLayer,
+    topLayer: spec.topLayer,
+    cover: spec.cover,
+    fullSpecification: fullSpecification,
+    confidence: 95 // High confidence - clear specification table
+  };
+
+  console.log(`[Bodyshape] Generated: ${fullSpecification}`);
+  return result;
+}
 
   // Format: [Base Layer] + [Middle Layer] + [Top Layer] + [Cover]
   const fullSpecification = `${spec.baseLayer} + ${spec.middleLayer} + ${spec.topLayer} + ${spec.cover}`;
