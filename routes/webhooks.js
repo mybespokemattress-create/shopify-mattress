@@ -996,7 +996,15 @@ router.get('/orders/:orderId/firmness-options', async (req, res) => {
 router.post('/orders/:orderId/override-firmness', express.json(), async (req, res) => {
   try {
     const { orderId } = req.params;
+    
+    // DEBUG LOGGING
+    console.log('[Override] Raw request body:', req.body);
+    console.log('[Override] Body type:', typeof req.body);
+    console.log('[Override] Body keys:', Object.keys(req.body || {}));
+    
     const { depth, firmness, skuPrefix } = req.body;
+    
+    console.log(`[Override] Parsed values - depth: "${depth}", firmness: "${firmness}", skuPrefix: "${skuPrefix}"`);
     
     console.log(`[Override] Applying firmness override for order ${orderId}: ${depth} - ${firmness}`);
     
