@@ -641,7 +641,7 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
                 });
                 
                 // Add each sub-order to Google Sheets separately
-                    if (supplierAssignment && process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
+                    if (process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
                         try {
                             console.log(`Adding sub-order ${subOrderNumber} to Google Sheets...`);
                             
@@ -655,7 +655,7 @@ router.post('/orders/create', express.raw({ type: 'application/json' }), async (
                             const subOrderProductData = [product];
                             
                             // Force the supplier assignment instead of letting Google Sheets detect it
-                            const sheetsResult = await googleSheets.addOrderToSheetWithSupplier(subOrderCustomerData, subOrderProductData, supplierAssignment);
+                            const sheetsResult = await googleSheets.addOrderToSheet(subOrderCustomerData, subOrderProductData);
                         
                         if (sheetsResult && sheetsResult.success) {
                             await db.orders.updateSheetsSync(

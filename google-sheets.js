@@ -59,7 +59,14 @@ function determineSupplier(products) {
         }
     }
     
-    return null; // No supplier match found
+    // Fallback logic for orders without SKUs
+const productTitle = products[0]?.productTitle?.toLowerCase() || '';
+
+if (productTitle.includes('comfi') || productTitle.includes('imperial')) {
+    return 'MATTRESSSHIRE';
+} else {
+    return 'SOUTHERN'; // Default fallback
+}
 }
 
 // Format order data for specific columns only
