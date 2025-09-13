@@ -299,26 +299,6 @@ function generateSpecification(thickness, firmness) {
   return result;
 }
 
-  // Format: [Base Layer] + [Middle Layer] + [Top Layer] + [Cover]
-  const fullSpecification = `${spec.baseLayer} + ${spec.middleLayer} + ${spec.topLayer} + ${spec.cover}`;
-  
-  const result = {
-    mattressType: 'Bodyshape',
-    thickness: thickness,
-    firmness: firmness,
-    depth: spec.depth,
-    baseLayer: spec.baseLayer,
-    middleLayer: spec.middleLayer,
-    topLayer: spec.topLayer,
-    cover: spec.cover,
-    fullSpecification: fullSpecification,
-    confidence: 95 // High confidence - clear specification table
-  };
-
-  console.log(`[Bodyshape] Generated: ${fullSpecification}`);
-  return result;
-}
-
 // ============================================================================
 // MAIN MAPPING FUNCTION
 // ============================================================================
