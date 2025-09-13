@@ -116,12 +116,10 @@ const FirmnessOverrideSection = ({
       overrideApplied: true,
       appliedOverride: { depth, firmness }
     }));
-    
-    alert(`Firmness override applied successfully!\nNew supplier code: ${result.newSupplierCode.substring(0, 80)}...`);
-    
+     
   } catch (error) {
     console.error('Error applying override:', error);
-    alert(`Failed to apply override: ${error.message}`);
+
   } finally {
     setApplying(false);
   }
