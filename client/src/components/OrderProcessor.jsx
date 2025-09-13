@@ -77,7 +77,6 @@ const FirmnessOverrideSection = ({
   
   const parts = selectedOverride.split(' - ');
   if (parts.length !== 2) {
-    alert('Invalid selection format');
     return;
   }
   
@@ -588,11 +587,9 @@ const OrderProcessor = () => {
       ));
       
       setEditMode(false);
-      alert('Order saved successfully!');
       
     } catch (err) {
       console.error('Error saving order:', err);
-      alert(`Failed to save order: ${err.message}`);
     }
   };
 
